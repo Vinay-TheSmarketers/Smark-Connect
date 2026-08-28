@@ -1,0 +1,381 @@
+"use client";
+
+import { FormEvent, useMemo, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import { Activity, Bot, Check, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, Gauge, Globe2, Link2, MessageCircle, Paperclip, Pencil, Plus, RefreshCw, Send, Settings, Sparkles, X as CloseIcon } from "lucide-react";
+import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS } from "@/lib/skills/registry";
+import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
+import { Brand } from "./brand";
+import { DocumentWorkspace, type WorkspaceDocument } from "./document-workspace";
+import { LogoutButton } from "./logout-button";
+import { ModuleIcon, isCoreModule } from "./module-icon";
+
+type FindingKind = "current_status" | "previous_post" | "new_post" | "comment_opportunity" | "audience_signal" | "insight";
+type Finding = { title?: string; evidence?: string; impact?: string; action?: string; description?: string; kind?: FindingKind; platform?: string; sourceLabel?: string; publishedAt?: string; draftContent?: string; recommendedResponse?: string; tags?: string[]; priority?: string; confidence?: number; sourceUrls?: string[]; companyName?: string; officialWebsite?: string; logoUrl?: string; competitiveAttributes?: string[] };
+type AgentItem = { id: string; agentType: string; status: string; summary: string | null; output: unknown; sources: unknown; skills: unknown; confidence: number | null; tokensUsed: number; error: string | null; createdAt: string };
+type AuditItem = { strategy: string; performance: number | null; accessibility: number | null; bestPractices: number | null; seo: number | null; lcp: number | null; fcp: number | null; tbt: number | null; cls: number | null; source: string; error: string | null; createdAt: string };
+type DashboardData = {
+  company: { id: string; name: string; websiteUrl: string; logoUrl: string | null; category: string | null; description: string | null; lastAuditedAt: string | null };
+  companies: Array<{ id: string; name: string; websiteUrl: string; logoUrl: string | null; status: string }>;
+  user: { name: string | null; email: string; llmProvider: string | null; llmKeyPreview: string | null; demoMode: boolean; tokenBudget: number; tokenUsed: number };
+  documents: WorkspaceDocument[];
+  agents: AgentItem[];
+  audits: AuditItem[];
+  pagesRead: number;
+  analysis: { jobId: string; status: string; progress: number; step: string } | null;
+  integrations: Array<{ provider: string; status: string; connectedAt: string | null }>;
+  agentConfigs: Array<{ agentType: string; config: unknown }>;
+};
+
+const coreDocumentOrder = ["COMPANY_INTELLIGENCE", "SEO_AUDIT", "GEO_AUDIT", "COMPETITOR_ANALYSIS", "AUDIENCE_ANALYSIS", "CONTENT_AUDIT"];
+const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Company Intelligence", SEO_AUDIT: "SEO Audit", GEO_AUDIT: "GEO and AI Visibility", COMPETITOR_ANALYSIS: "Competitor Analysis", AUDIENCE_ANALYSIS: "Audience Analysis", CONTENT_AUDIT: "Content Audit and Strategy" };
+const primaryAgents = [
+  ["AI_CMO", "AI CMO Director", "✦"], ["SEO", "SEO Agent", "◎"], ["TECHNICAL_SEO", "Technical SEO", "⚙"], ["GEO", "GEO Agent", "◇"], ["COMPETITOR", "Competitor Agent", "◫"], ["AUDIENCE", "Audience Agent", "◉"], ["CONTENT_AUDIT", "Content Audit", "≡"], ["X", "X Agent", "𝕏"], ["REDDIT", "Reddit Agent", "●"], ["ARTICLES", "Articles Agent", "✎"], ["LINKEDIN", "LinkedIn Agent", "in"],
+] as const;
+const agentLogoPaths: Record<string, string> = {
+  X: "/agent-logos/x.svg",
+  REDDIT: "/agent-logos/reddit.svg",
+  LINKEDIN: "/agent-logos/linkedin.svg",
+};
+
+function CompanyLogo({ company, size = 28, eager = false }: { company: { id: string; name: string }; size?: number; eager?: boolean }) {
+  const [failed, setFailed] = useState(false);
+  return <span className="company-logo" style={{ width: size, height: size }}>
+    {!failed && <Image unoptimized loading={eager ? "eager" : "lazy"} src={`/api/companies/${company.id}/logo`} alt={`${company.name} logo`} width={size} height={size} onError={() => setFailed(true)} />}
+    {failed && <span aria-hidden="true">{company.name.slice(0, 1).toUpperCase()}</span>}
+  </span>;
+}
+
+function AgentLogo({ type, fallback }: { type: string; fallback: string }) {
+  const logoPath = agentLogoPaths[type];
+  return <span className={`agent-icon agent-${type.toLowerCase()} ${logoPath ? "has-brand-logo" : ""}`}>
+    {logoPath ? <Image src={logoPath} alt="" width={28} height={28} /> : isCoreModule(type) ? <ModuleIcon type={type} size={17} /> : fallback}
+  </span>;
+}
+
+const platformLabels: Record<string, string> = { anthropic: "Anthropic", openai: "OpenAI", openrouter: "OpenRouter", google: "Google", github: "GitHub", x: "X", linkedin: "LinkedIn", reddit: "Reddit", whatsapp: "WhatsApp", telegram: "Telegram" };
+
+function PlatformMark({ provider }: { provider: string }) {
+  const type = provider.toUpperCase() === "X" ? "X" : provider.toUpperCase() === "LINKEDIN" ? "LINKEDIN" : provider.toUpperCase() === "REDDIT" ? "REDDIT" : "";
+  const logoPath = agentLogoPaths[type];
+  return <span className={`platform-mark platform-${provider}`}>{logoPath ? <Image src={logoPath} alt="" width={14} height={14} /> : (platformLabels[provider] ?? provider).slice(0, 1).toUpperCase()}</span>;
+}
+
+function ConnectionStrip({ data }: { data: DashboardData }) {
+  const integrations = data.integrations.filter((item) => /connected|active/i.test(item.status));
+  const connections = [
+    ...(data.user.llmProvider ? [{ provider: data.user.llmProvider, status: data.user.demoMode ? "demo" : "live", connectedAt: null }] : []),
+    ...integrations.map((item) => ({ ...item, status: data.user.demoMode || item.status.startsWith("demo") ? "demo" : "live" })),
+  ];
+  if (!connections.length) return <span className="connection-strip empty"><span className="connection-dot" /> No live APIs</span>;
+  return <div className="connection-strip" aria-label="Connected platforms"><strong>{connections.some((item) => item.status === "live") ? "LIVE" : "DEMO"}</strong>{connections.slice(0, 5).map((item, index) => <span className={item.status} title={`${platformLabels[item.provider] ?? item.provider} · ${item.status === "live" ? "live API connected" : "demo data only"}`} key={`${item.provider}-${index}`}><PlatformMark provider={item.provider} />{platformLabels[item.provider] ?? item.provider}</span>)}{connections.length > 5 && <em>+{connections.length - 5}</em>}</div>;
+}
+
+function SkillChainPreview({ skills }: { skills: Array<{ repository: string; skill: string; phase?: string; reason?: string }> }) {
+  return <details className="skill-chain-preview"><summary>{skills.length} required skills</summary><ol>{skills.map((skill, index) => <li key={`${skill.repository}-${skill.skill}`}><span>{index + 1}</span><div><strong>{skill.skill}</strong><small>{skill.phase ?? skill.repository}{skill.reason ? ` · ${skill.reason}` : ""}</small></div></li>)}</ol></details>;
+}
+
+function scoreClass(score: number | null) { return score === null ? "muted" : score >= 90 ? "good" : score >= 50 ? "warn" : "bad"; }
+function metric(value: number | null, suffix: string, divisor = 1) { return value === null ? "—" : `${(value / divisor).toFixed(divisor === 1000 ? 1 : value < 1 ? 3 : 0)}${suffix}`; }
+function formatTimestamp(value: string) { return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" }).format(new Date(value)); }
+function vitalDetail(kind: "lcp" | "fcp" | "tbt" | "cls", value: number | null) {
+  if (value === null) return { state: "Unavailable", detail: "Run PageSpeed again and inspect the page template if the metric remains unavailable." };
+  if (kind === "lcp") return value <= 2500 ? { state: "Good", detail: "The largest above-the-fold element loads within the 2.5s lab target." } : value <= 4000 ? { state: "Needs improvement", detail: "Inspect hero media, server response, critical CSS, fonts, and render-blocking requests." } : { state: "Poor", detail: "Prioritize server response, hero asset delivery, critical rendering, and template-level testing." };
+  if (kind === "fcp") return value <= 1800 ? { state: "Good", detail: "The first visible content appears within the 1.8s lab target." } : { state: "Review", detail: "Reduce render-blocking resources, initial payload, and font or CSS delays." };
+  if (kind === "tbt") return value <= 200 ? { state: "Good", detail: "Main-thread blocking is within the Lighthouse lab target." } : value <= 600 ? { state: "Needs improvement", detail: "Break up long JavaScript tasks and defer non-critical third-party code." } : { state: "Poor", detail: "Audit bundles, hydration, long tasks, and third-party execution before adding scripts." };
+  return value <= .1 ? { state: "Good", detail: "Visual stability is within the 0.1 lab target." } : value <= .25 ? { state: "Needs improvement", detail: "Reserve media dimensions and review late-loading fonts, embeds, banners, and injected UI." } : { state: "Poor", detail: "Identify shifting elements by template and reserve stable layout space before release." };
+}
+function findings(output: unknown): Finding[] {
+  const values = Array.isArray(output) ? output : output && typeof output === "object" && "findings" in output && Array.isArray((output as { findings: unknown }).findings) ? (output as { findings: unknown[] }).findings : [];
+  return values.map((item): Finding => {
+    if (typeof item === "string") return { title: "Draft", description: unwrapStructuredText(item) };
+    if (!item || typeof item !== "object") return {};
+    const value = item as Finding;
+    return {
+      ...value,
+      title: normalizeAcronyms(unwrapStructuredText(value.title)),
+      evidence: unwrapStructuredText(value.evidence),
+      description: unwrapStructuredText(value.description),
+      impact: unwrapStructuredText(value.impact),
+      action: unwrapStructuredText(value.action),
+      draftContent: unwrapStructuredText(value.draftContent),
+      recommendedResponse: unwrapStructuredText(value.recommendedResponse),
+      companyName: unwrapStructuredText(value.companyName),
+      competitiveAttributes: value.competitiveAttributes?.map(unwrapStructuredText).filter(Boolean),
+    };
+  }).filter((item) => item.title || item.description || item.evidence);
+}
+
+function CleanMarkdown({ children }: { children: unknown }) {
+  const text = unwrapStructuredText(children);
+  return text ? <div className="clean-markdown"><ReactMarkdown components={{ h1: ({ children: content }) => <p className="markdown-subhead"><strong>{content}</strong></p>, h2: ({ children: content }) => <p className="markdown-subhead"><strong>{content}</strong></p>, h3: ({ children: content }) => <p className="markdown-subhead"><strong>{content}</strong></p> }}>{text}</ReactMarkdown></div> : null;
+}
+
+function OfficialCompetitorLogo({ item }: { item: Finding }) {
+  const [failed, setFailed] = useState(false);
+  const name = item.companyName || item.title || "Competitor";
+  return <span className="competitor-logo">{item.logoUrl && !failed ? <Image unoptimized src={`/api/assets/logo?url=${encodeURIComponent(item.logoUrl)}`} alt={`${name} official logo`} width={48} height={48} onError={() => setFailed(true)} /> : <span aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>}</span>;
+}
+
+function CompetitorFindingCard({ item }: { item: Finding }) {
+  return <article className="competitor-finding-card"><div className="competitor-card-head"><OfficialCompetitorLogo item={item} /><div><span>VERIFIED COMPETITOR</span><h3>{item.companyName || item.title}</h3>{item.officialWebsite && <a href={item.officialWebsite} target="_blank" rel="noreferrer">Official website <ExternalLink size={11} /></a>}</div></div><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.competitiveAttributes?.length ? <div className="competitive-attributes">{item.competitiveAttributes.map((attribute) => <span key={attribute}>{attribute}</span>)}</div> : null}{item.impact && <div className="competitor-impact"><strong>Competitive relevance</strong><CleanMarkdown>{item.impact}</CleanMarkdown></div>}</article>;
+}
+
+function savedOpportunityKeys(configs: DashboardData["agentConfigs"]): string[] {
+  return configs.flatMap((entry) => {
+    if (!entry.config || typeof entry.config !== "object" || Array.isArray(entry.config)) return [];
+    const values = (entry.config as Record<string, unknown>).completedOpportunities;
+    return Array.isArray(values) ? values.filter((value): value is string => typeof value === "string") : [];
+  });
+}
+
+function agentStatusSummary(type: string, run: AgentItem | undefined, items: Finding[]) {
+  if (!run) return "Ready to run directly from current source evidence";
+  const structured = items.filter((item) => item.kind);
+  if (["X", "REDDIT", "LINKEDIN"].includes(type)) {
+    if (structured.length) {
+      const drafts = structured.filter((item) => item.kind === "new_post").length;
+      const comments = structured.filter((item) => item.kind === "comment_opportunity").length;
+      const history = structured.filter((item) => item.kind === "previous_post").length;
+      return `${history} previous posts · ${drafts} new drafts · ${comments} comment opportunities`;
+    }
+    return `${items.length} recommendations ready · rerun for the new status, draft, and comment format`;
+  }
+  const summaryCandidate = unwrapStructuredText(run.summary ?? `${items.length} findings ready`).replace(/\s+/g, " ").trim();
+  const summary = /(?:^|\s)[{[]\s*"|contentMarkdow|"(?:company|agent|findings)"\s*:/i.test(summaryCandidate) ? `${items.length} findings ready` : summaryCandidate;
+  return summary.length > 150 ? `${summary.slice(0, 147).trimEnd()}…` : summary;
+}
+
+function opportunityKey(type: string, item: Finding, index: number) {
+  return `${type}|${item.kind ?? "insight"}|${item.sourceUrls?.[0] ?? "no-source"}|${item.title ?? "untitled"}|${index}`.slice(0, 700);
+}
+
+function SocialFindingCard({ type, item, index, company, liveConnected, completed, onComplete, onRegenerate }: { type: "X" | "REDDIT" | "LINKEDIN"; item: Finding; index: number; company: DashboardData["company"]; liveConnected: boolean; completed: boolean; onComplete: () => Promise<void>; onRegenerate: () => void }) {
+  const kind = item.kind ?? (index === 0 ? "current_status" : type === "REDDIT" ? "comment_opportunity" : index === 1 ? "previous_post" : index === 2 ? "new_post" : "comment_opportunity");
+  const initialDraft = kind === "new_post" ? item.draftContent || item.action || "" : item.recommendedResponse || item.action || "";
+  const [draft, setDraft] = useState(initialDraft);
+  const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const source = item.sourceUrls?.[0];
+  const host = new URL(company.websiteUrl).hostname.replace(/^www\./, "");
+  const handle = `@${host.split(".")[0].replace(/[^a-z0-9_]/gi, "")}`;
+  const platformName = type === "REDDIT" ? "Reddit" : type === "LINKEDIN" ? "LinkedIn" : "X";
+  const sourceName = item.sourceLabel || (source ? (() => { try { return new URL(source).hostname.replace(/^www\./, ""); } catch { return "Public source"; } })() : "Company draft");
+
+  async function copyDraft() {
+    if (!draft.trim()) return;
+    await navigator.clipboard.writeText(draft.trim());
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  async function markComplete() {
+    setSaving(true);
+    try { await onComplete(); setOpen(false); } finally { setSaving(false); }
+  }
+
+  if (kind === "current_status") return <article className="agent-status-card">
+    <div><span className="status-pulse" /><strong>CURRENT STATUS</strong><em>{liveConnected ? `Live ${platformName} API` : "Public discovery"}</em></div>
+    <h3>{item.title || `${platformName} status`}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <small>{unwrapStructuredText(item.impact)}</small>}
+  </article>;
+
+  if (kind === "previous_post") return <article className={`social-history-card platform-${type.toLowerCase()}`}>
+    <div className="social-history-head"><PlatformMark provider={type.toLowerCase()} /><span><strong>PREVIOUS POST SUMMARY</strong><small>{item.publishedAt || sourceName}</small></span>{completed && <em><Check size={11} /> Reviewed</em>}</div>
+    <h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{source && <a className="social-source" href={source} target="_blank" rel="noreferrer"><ExternalLink size={12} /> Open discovered post</a>}
+  </article>;
+
+  if (kind === "new_post") return <article className={`social-card social-draft-card platform-${type.toLowerCase()}`}>
+    <div className="social-context"><span>NEW {platformName.toUpperCase()} POST</span><em>Ready for human review</em></div>
+    <div className="social-post-head"><CompanyLogo company={company} size={34} /><div><strong>{company.name}</strong><small>{handle} · draft</small></div><PlatformMark provider={type.toLowerCase()} /></div>
+    <h3>{item.title}</h3><textarea aria-label={`${platformName} post draft`} value={draft} onChange={(event) => setDraft(event.target.value)} rows={6} />
+    <div className="social-draft-actions"><small>{type === "X" ? `${draft.length}/280` : `${draft.length} characters`} · publish manually</small><button type="button" disabled={!draft.trim()} onClick={copyDraft}>{copied ? <Check size={12} /> : <Copy size={12} />}{copied ? "Copied" : "Copy post"}</button></div>
+  </article>;
+
+  const compactCard = <article className={`social-opportunity-card platform-${type.toLowerCase()} ${completed ? "completed" : ""}`}>
+    <div className="opportunity-label"><PlatformMark provider={type.toLowerCase()} /><span>{completed ? "COMPLETED" : `COMMENT ON ${platformName.toUpperCase()}`}</span><em>{item.publishedAt || "Current public result"}</em></div>
+    <h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown><div className="opportunity-tags">{(item.tags ?? []).slice(0, 3).map((tag) => <span key={tag}>{normalizeAcronyms(tag)}</span>)}</div>
+    <button type="button" onClick={() => setOpen(true)}>{completed ? <Check size={13} /> : <MessageCircle size={13} />}{completed ? "Review response" : "Review & comment"}</button>
+  </article>;
+
+  const detail = open && <div className="social-opportunity-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section className={`social-opportunity-drawer platform-${type.toLowerCase()}`} role="dialog" aria-modal="true" aria-label={`${platformName} comment opportunity`}>
+    <header><div><PlatformMark provider={type.toLowerCase()} /><span><strong>Mention on {platformName}</strong><small>{liveConnected ? `Live ${platformName} API connected` : "Current public-web discovery"}</small></span></div><button type="button" aria-label="Close" onClick={() => setOpen(false)}><CloseIcon size={19} /></button></header>
+    <div className="opportunity-body"><h2>{item.title}</h2><div className="opportunity-meta"><div>{(item.tags ?? []).slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</div><time>{item.publishedAt || "Publication time unavailable"}</time></div>
+      <section className="source-post-preview"><div className="source-post-heading"><PlatformMark provider={type.toLowerCase()} /><div><strong>{sourceName}</strong><small>{platformName} post · public source</small></div>{source && <a href={source} target="_blank" rel="noreferrer">Go to thread <ExternalLink size={14} /></a>}</div><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <div className="source-fit"><strong>Why it fits</strong><span>{unwrapStructuredText(item.impact)}</span></div>}</section>
+      <section className="recommended-response"><div className="response-heading"><strong>Recommended response</strong><div><button type="button" onClick={() => { setDraft(initialDraft); onRegenerate(); }}><RefreshCw size={14} /> Regenerate</button><button type="button" onClick={() => document.getElementById(`response-${type}-${index}`)?.focus()} aria-label="Edit response"><Pencil size={15} /></button><button type="button" onClick={copyDraft} aria-label="Copy response">{copied ? <Check size={15} /> : <Copy size={15} />}</button></div></div><textarea id={`response-${type}-${index}`} value={draft} onChange={(event) => setDraft(event.target.value)} rows={8} placeholder="Write a transparent, useful response…" /><small>Review the source and disclose affiliation where relevant. Publishing remains manual.</small></section>
+    </div><footer><button type="button" disabled={saving || completed} onClick={markComplete}><Check size={17} />{saving ? "Saving…" : completed ? "Completed" : "Mark as Complete"}</button></footer>
+  </section></div>;
+
+  return <>{compactCard}{detail}</>;
+}
+
+function ScoreGauge({ label, score }: { label: string; score: number | null }) {
+  return <div className={`score-gauge ${scoreClass(score)}`}><div style={{ "--score": `${(score ?? 0) * 3.6}deg` } as React.CSSProperties}><span>{score ?? "—"}</span></div><small>{label}</small></div>;
+}
+
+export function DashboardClient({ data }: { data: DashboardData }) {
+  const router = useRouter();
+  const [documents, setDocuments] = useState(data.documents);
+  const [selectedDocument, setSelectedDocument] = useState<WorkspaceDocument | null>(null);
+  const [expandedAgent, setExpandedAgent] = useState<string | null>("AI_CMO");
+  const [strategy, setStrategy] = useState("mobile");
+  const [analysisTab, setAnalysisTab] = useState<"seo" | "links" | "technical" | "geo">("seo");
+  const [companyMenu, setCompanyMenu] = useState(false);
+  const [agentTray, setAgentTray] = useState(false);
+  const [runningAgent, setRunningAgent] = useState<string | null>(null);
+  const [generatingDocument, setGeneratingDocument] = useState<string | null>(null);
+  const [startingAnalysis, setStartingAnalysis] = useState(false);
+  const [agentError, setAgentError] = useState("");
+  const [completedOpportunities, setCompletedOpportunities] = useState(() => new Set(savedOpportunityKeys(data.agentConfigs)));
+  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([{ role: "assistant", content: `I’ve synthesized ${documents.length} core documents and ${data.pagesRead} source pages for ${data.company.name}. Ask me for a detailed priority analysis or campaign decision.` }]);
+  const [chatPending, setChatPending] = useState(false);
+  const [sessionId, setSessionId] = useState<string | undefined>();
+  const audit = useMemo(() => data.audits.find((item) => item.strategy === strategy) ?? data.audits[0], [data.audits, strategy]);
+  const geoRun = data.agents.find((item) => item.agentType === "GEO");
+  const analysisRunning = data.analysis && ["QUEUED", "RUNNING"].includes(data.analysis.status);
+
+  async function sendMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const message = String(form.get("message") ?? "").trim();
+    if (!message || chatPending) return;
+    event.currentTarget.reset();
+    setMessages((items) => [...items, { role: "user", content: message }]);
+    setChatPending(true);
+    try {
+      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: data.company.id, sessionId, message }) });
+      const result = await response.json() as { content?: string; sessionId?: string; error?: string };
+      if (!response.ok || !result.content) throw new Error(result.error ?? "The CMO assistant could not respond.");
+      setSessionId(result.sessionId);
+      setMessages((items) => [...items, { role: "assistant", content: result.content! }]);
+    } catch (error) {
+      setMessages((items) => [...items, { role: "assistant", content: error instanceof Error ? error.message : "The assistant could not respond." }]);
+    } finally { setChatPending(false); }
+  }
+
+  async function runAgent(agentType: string) {
+    setRunningAgent(agentType);
+    setAgentError("");
+    try {
+      const response = await fetch("/api/agents/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: data.company.id, agentType }) });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "The agent could not run.");
+      setExpandedAgent(agentType);
+      setAgentTray(false);
+      router.refresh();
+    } catch (error) { setAgentError(error instanceof Error ? error.message : "The agent could not run."); }
+    finally { setRunningAgent(null); }
+  }
+
+  async function completeOpportunity(agentType: string, key: string) {
+    const response = await fetch("/api/agents/run", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: data.company.id, agentType, opportunityKey: key, completed: true }) });
+    const result = await response.json() as { error?: string };
+    if (!response.ok) throw new Error(result.error ?? "The opportunity could not be saved.");
+    setCompletedOpportunities((current) => new Set([...current, key]));
+  }
+
+  async function generateDocument(documentType: string) {
+    setGeneratingDocument(documentType);
+    setAgentError("");
+    try {
+      const response = await fetch("/api/documents/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: data.company.id, documentType }) });
+      const result = await response.json() as { document?: WorkspaceDocument; error?: string };
+      if (!response.ok || !result.document) throw new Error(result.error ?? "The document could not be generated.");
+      setDocuments((current) => [...current.filter((item) => item.type !== result.document!.type), result.document!]);
+      setSelectedDocument(result.document);
+    } catch (error) {
+      setAgentError(error instanceof Error ? error.message : "The document could not be generated.");
+    } finally {
+      setGeneratingDocument(null);
+    }
+  }
+
+  async function startAnalysis() {
+    setStartingAnalysis(true);
+    setAgentError("");
+    try {
+      const response = await fetch(`/api/companies/${data.company.id}/audit`, { method: "POST" });
+      const result = await response.json() as { jobId?: string; error?: string };
+      if (!response.ok || !result.jobId) throw new Error(result.error ?? "The research run could not start.");
+      router.push(`/onboarding/audit/${result.jobId}`);
+    } catch (error) {
+      setAgentError(error instanceof Error ? error.message : "The research run could not start.");
+      setStartingAnalysis(false);
+    }
+  }
+
+  function updateDocument(updated: WorkspaceDocument) {
+    setDocuments((items) => items.map((item) => item.id === updated.id ? updated : item));
+    setSelectedDocument(updated);
+  }
+
+  return <main className="dashboard-shell">
+    <header className="dashboard-topbar">
+      <div className="workspace-switch-wrap">
+        <button className="workspace-switch" onClick={() => setCompanyMenu((value) => !value)}><CompanyLogo company={data.company} size={24} eager /><strong>{data.company.name}</strong><ChevronDown size={13} /></button>
+        {companyMenu && <div className="company-menu"><p>COMPANIES</p>{data.companies.map((company) => <Link className={company.id === data.company.id ? "active" : ""} href={`/dashboard/${company.id}`} key={company.id}><CompanyLogo company={company} size={30} /><div><strong>{company.name}</strong><small>{new URL(company.websiteUrl).hostname}</small></div>{company.id === data.company.id && <em>Current</em>}</Link>)}<Link className="add-company" href="/onboarding/company?mode=add"><CirclePlus size={15} /> Add another company</Link></div>}
+      </div>
+      <div className="terminal-brand"><Brand inverse /><span className="terminal-label">Terminal</span><ConnectionStrip data={data} /><span className="terminal-status">✓ Skill graph loaded</span></div>
+      <nav className="dashboard-actions"><Link href={`/dashboard/${data.company.id}/reporting`}>Reporting</Link><Link href="/settings/credits" aria-label="Settings"><Settings size={16} /></Link><span className="avatar-small">{(data.user.name ?? data.user.email).slice(0, 2).toUpperCase()}</span><LogoutButton /></nav>
+    </header>
+
+    <section className="dashboard-grid">
+      <aside className="company-pane pane">
+        <div className="pane-header"><span><Globe2 size={15} /> Company</span><span className="account-count">{data.companies.length} account{data.companies.length === 1 ? "" : "s"}</span></div>
+        <div className="company-content"><div className="company-title-row"><CompanyLogo company={data.company} size={34} eager /><h1>{data.company.name}</h1></div><span className="category-pill">{data.company.category ?? "Company"}</span><a className="company-url" href={data.company.websiteUrl} target="_blank" rel="noreferrer"><Link2 size={12} />{new URL(data.company.websiteUrl).hostname}</a><p className="company-description">{data.company.description ?? "Company intelligence is still being prepared."}</p>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length < 6 && <div className="analysis-resume"><Sparkles size={15} /><div><strong>{analysisRunning ? `${data.analysis?.progress ?? 0}% · research running` : `${6 - documents.filter((item) => coreDocumentOrder.includes(item.type)).length} core documents need generation`}</strong><small>{analysisRunning ? data.analysis?.step : "Run the expanded crawl and six concurrent skill analyses."}</small></div>{analysisRunning ? <Link href={`/onboarding/audit/${data.analysis!.jobId}`}>View processing</Link> : <button type="button" disabled={startingAnalysis} onClick={startAnalysis}>{startingAnalysis ? "Starting…" : "Generate now"}</button>}</div>}</div>
+        <section className="pane-section"><div className="section-label-row"><p className="section-label">CORE DOCUMENTS</p><span>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length}/6</span></div><div className="document-list">{coreDocumentOrder.map((type) => { const document = documents.find((item) => item.type === type); return document ? <button type="button" key={type} onClick={() => setSelectedDocument(document)}><ModuleIcon type={type} size={14} /><span>{document.title}</span><small>v{document.version}</small><ChevronRight size={13} /></button> : <button className="pending-document" type="button" key={type} disabled><ModuleIcon type={type} size={14} /><span>{coreDocumentLabels[type]}</span><small>Pending</small></button>; })}</div></section>
+        <section className="pane-section extended-documents"><div className="section-label-row"><p className="section-label">SKILL-GENERATED DOCUMENTS</p><span>On demand</span></div><div>{EXTENDED_DOCUMENTS.map((definition) => { const document = documents.find((item) => item.type === definition.type); const pending = generatingDocument === definition.type; return <article key={definition.type}><span className="extended-document-icon"><Sparkles size={13} /></span><div><strong>{definition.title}</strong><small>Generated only through its ordered local skill chain</small><SkillChainPreview skills={definition.skills} /></div>{document ? <button type="button" onClick={() => setSelectedDocument(document)}>Open v{document.version}</button> : <button type="button" disabled={Boolean(generatingDocument)} onClick={() => generateDocument(definition.type)}>{pending ? <RefreshCw className="spin" size={12} /> : <Plus size={12} />}{pending ? "Generating" : "Generate"}</button>}</article>; })}</div></section>
+        <section className="pane-section company-sources"><p className="section-label">SOURCE COVERAGE</p><div><strong>{data.pagesRead}</strong><span>public pages read · up to 48 per expanded run</span></div><div><strong>Sitemap + internal links</strong><span>Priority services, industries, proof, resources, and articles</span></div><div className="research-suggestions"><span>Stronger research connections</span><p>Search Console</p><p>GA4 + CRM</p><p>Backlink source</p><p>Answer-engine monitoring</p></div></section>
+      </aside>
+
+      <section className="analytics-pane pane">
+        <div className="pane-header"><span><Activity size={15} /> Official Sources</span><span className="live-dot" /></div>
+        <div className="analytics-content">
+          <div className="analytics-tabs">
+            {(["seo", "links", "technical", "geo"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "seo" || tabName === "geo" ? tabName.toUpperCase() : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
+          </div>
+          {(analysisTab === "seo" || analysisTab === "technical") && <>
+            <div className="source-banner"><div><Gauge size={18} /><span><strong>{audit?.source ?? "Google PageSpeed Insights API v5"}</strong><small>Official run-time snapshot</small></span></div><span className={audit?.error ? "source-status error" : "source-status"}>{audit?.error ? "Unavailable" : "Connected"}</span></div>
+            <p className="audited-line">Last audited: {data.company.lastAuditedAt ? formatTimestamp(data.company.lastAuditedAt) : "Not yet"}</p>
+            <div className="section-heading"><div><strong>{analysisTab === "technical" ? "Technical Page Experience" : "PageSpeed Scores"}</strong><small>Mobile and desktop are captured separately</small></div><div className="strategy-toggle"><button className={strategy === "desktop" ? "active" : ""} onClick={() => setStrategy("desktop")}>Desktop</button><button className={strategy === "mobile" ? "active" : ""} onClick={() => setStrategy("mobile")}>Mobile</button></div></div>
+            {audit?.error ? <div className="analytics-error"><strong>Official PageSpeed data is unavailable.</strong><span>{audit.error}</span></div> : <div className="score-card"><ScoreGauge label="Performance" score={audit?.performance ?? null} /><ScoreGauge label="Accessibility" score={audit?.accessibility ?? null} /><ScoreGauge label="Best Practices" score={audit?.bestPractices ?? null} /><ScoreGauge label="SEO" score={audit?.seo ?? null} /></div>}
+            <div className="section-heading"><div><strong>Core Web Vitals</strong><small>Lighthouse lab metrics from the submitted URL</small></div></div>
+            <div className="vitals-grid"><div><span className="metric-dot" />LCP<strong>{metric(audit?.lcp ?? null, "s", 1000)}</strong><small>{audit?.lcp && audit.lcp <= 2500 ? "Pass" : "Review"}</small></div><div><span className="metric-dot" />FCP<strong>{metric(audit?.fcp ?? null, "s", 1000)}</strong><small>{audit?.fcp && audit.fcp <= 1800 ? "Pass" : "Review"}</small></div><div><span className="metric-dot" />TBT<strong>{metric(audit?.tbt ?? null, "ms")}</strong><small>{audit?.tbt !== null && audit?.tbt !== undefined && audit.tbt <= 200 ? "Pass" : "Review"}</small></div><div><span className="metric-dot" />CLS<strong>{metric(audit?.cls ?? null, "")}</strong><small>{audit?.cls !== null && audit?.cls !== undefined && audit.cls <= .1 ? "Pass" : "Review"}</small></div></div>
+            <div className="vitals-diagnosis">{(["lcp", "fcp", "tbt", "cls"] as const).map((kind) => { const detail = vitalDetail(kind, audit?.[kind] ?? null); return <article className={detail.state === "Good" ? "good" : detail.state === "Unavailable" ? "muted" : "review"} key={kind}><span>{kind.toUpperCase()}</span><strong>{detail.state}</strong><p>{detail.detail}</p></article>; })}</div>
+            <div className="field-data-note"><strong>Lab versus field evidence</strong><p>This view uses official Lighthouse lab snapshots. TBT is a diagnostic proxy—not INP. Connect Search Console or CrUX to add real-user LCP, CLS, and INP before declaring Core Web Vitals passed.</p></div>
+            {analysisTab === "technical" && <div className="evidence-note"><strong>{data.pagesRead} crawl pages inspected</strong><p>The full technical diagnosis is stored in the SEO Audit and Technical SEO agent feed. Index coverage and field Core Web Vitals require a connected Google Search Console property.</p></div>}
+            <div className="audit-footnote">Official API values are timestamped snapshots. Inferred observations are kept separate from connected first-party data.</div>
+          </>}
+          {analysisTab === "links" && <div className="evidence-state"><Link2 size={22} /><p className="eyebrow">LINK EVIDENCE</p><h3>Official backlink data is not connected</h3><p>Smark Connect does not fabricate domain authority, backlink counts, or referring domains. Connect an approved backlink or Search Console source to show official values here. The SEO document still analyzes observed internal-link opportunities from the website crawl.</p><span>{data.pagesRead} owned pages available for internal-link analysis</span></div>}
+          {analysisTab === "geo" && <><div className="source-banner"><div><Sparkles size={18} /><span><strong>Website evidence + embedded GEO skills</strong><small>Readiness analysis, not a platform citation metric</small></span></div><span className="source-status">Evidence-led</span></div><div className="evidence-note"><strong>{unwrapStructuredText(geoRun?.summary ?? "GEO analysis is pending")}</strong>{findings(geoRun?.output).slice(0, 3).map((item, index) => <article key={`${item.title}-${index}`}><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.action && <small>Next: {unwrapStructuredText(item.action)}</small>}</article>)}</div><div className="audit-footnote">Live answer-engine citation share is shown only when an official monitoring source is connected.</div></>}
+        </div>
+      </section>
+
+      <section className="agents-pane pane">
+        <div className="pane-header"><span><Bot size={15} /> Agents Feed</span><button className="add-agent-button" onClick={() => setAgentTray(true)}><Plus size={13} /> Add agents</button></div>
+        <div className="agents-list">{primaryAgents.map(([type, label, icon]) => {
+          const run = data.agents.find((item) => item.agentType === type);
+          const open = expandedAgent === type;
+          const items = findings(run?.output);
+          const running = runningAgent === type;
+          const liveConnected = !data.user.demoMode && data.integrations.some((integration) => integration.provider.toLowerCase() === type.toLowerCase() && /connected|active/i.test(integration.status));
+          return <div className="agent-row" key={type}>
+            <button className="agent-summary" type="button" onClick={() => setExpandedAgent(open ? null : type)}><AgentLogo type={type} fallback={icon} /><span><strong>{label}</strong><small>{running ? "Fetching current public sources and building recommendations…" : agentStatusSummary(type, run, items)}</small></span>{run?.confidence !== null && run?.confidence !== undefined && <em>{run.confidence}%</em>}<ChevronDown className={open ? "rotated" : ""} size={15} /></button>
+            {open && <div className="agent-output">
+              <SkillChainPreview skills={AGENT_DEFINITIONS.find((agent) => agent.type === type)?.skills ?? []} />
+              {running ? <div className="agent-run-outline"><div><span /><strong>Discovering current platform content</strong></div><div><span /><strong>Checking source freshness and relevance</strong></div><div><span /><strong>Writing platform-specific opportunities</strong></div></div> : items.length ? items.map((item, index) => type === "X" || type === "REDDIT" || type === "LINKEDIN" ? (() => { const key = opportunityKey(type, item, index); return <SocialFindingCard key={key} type={type} item={item} index={index} company={data.company} liveConnected={liveConnected} completed={completedOpportunities.has(key)} onComplete={() => completeOpportunity(type, key)} onRegenerate={() => runAgent(type)} />; })() : type === "COMPETITOR" ? <CompetitorFindingCard key={`${item.companyName || item.title}-${index}`} item={item} /> : <article key={`${item.title}-${index}`}><div className="finding-meta"><span className={`priority priority-${item.priority ?? "medium"}`}>{item.priority ?? "insight"}</span>{item.confidence !== undefined && <span>{item.confidence}% confidence</span>}</div><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <div><strong>Why it matters:</strong><CleanMarkdown>{item.impact}</CleanMarkdown></div>}{item.action && <div className="agent-recommendation"><strong>Recommended response:</strong><CleanMarkdown>{item.action}</CleanMarkdown></div>}{item.sourceUrls?.length ? <div className="finding-sources">{item.sourceUrls.slice(0, 3).map((url) => <a key={url} href={url} target="_blank" rel="noreferrer">Open current source ↗</a>)}</div> : null}<div className="agent-card-actions">{AGENT_DEFINITIONS.some((agent) => agent.type === type) && <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>Refresh analysis</button>}</div></article>) : <div className="empty-agent"><Sparkles size={17} /><p>This agent runs independently from website, PageSpeed, and current public-web evidence. Generated documents are optional context.</p>{AGENT_DEFINITIONS.some((agent) => agent.type === type) && <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>Run live analysis</button>}</div>}
+            </div>}
+          </div>;
+        })}{agentError && <p className="agent-error">{agentError}</p>}</div>
+      </section>
+
+      <aside className="chat-pane pane"><div className="chat-hero"><span className="agent-icon agent-ai_cmo"><Bot size={16} /></span><div><strong>Your AI CMO</strong><small>Grounded in {documents.length} documents and {data.pagesRead} sources</small></div></div><div className="chat-messages">{messages.map((message, index) => <div className={`chat-message ${message.role}`} key={index}>{message.role === "assistant" && <span className="chat-role"><Sparkles size={13} /> CMO</span>}<ReactMarkdown>{message.content}</ReactMarkdown></div>)}{chatPending && <div className="chat-message assistant typing"><span /><span /><span /></div>}</div><form className="chat-composer" onSubmit={sendMessage}><textarea name="message" rows={3} placeholder="Ask for a detailed priority analysis or campaign decision…" required /><div><button type="button" className="attach-button" aria-label="Attach client context"><Paperclip size={16} /></button><span>Uses your connected provider and company evidence</span><button className="send-button" type="submit" disabled={chatPending}><Send size={14} /></button></div></form></aside>
+    </section>
+
+    {selectedDocument && <DocumentWorkspace document={selectedDocument} onClose={() => setSelectedDocument(null)} onUpdate={updateDocument} />}
+    {agentTray && <div className="drawer-backdrop agent-tray-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setAgentTray(false); }}><section className="agent-tray"><header><div><p className="eyebrow">SKILL-GOVERNED SPECIALISTS</p><h2>Add an agent</h2><span>Every agent executes a validated sequence of local skill files before returning output.</span></div><button onClick={() => setAgentTray(false)}>×</button></header><div>{AGENT_DEFINITIONS.filter((agent) => agent.optional).map((agent) => <article key={agent.type}><AgentLogo type={agent.type} fallback="✦" /><div><strong>{agent.label}</strong><p>{agent.description}</p><SkillChainPreview skills={agent.skills} /></div><button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(agent.type)}>{runningAgent === agent.type ? <RefreshCw className="spin" size={13} /> : <Sparkles size={13} />}{runningAgent === agent.type ? "Running" : "Run analysis"}</button></article>)}</div>{agentError && <p className="form-error">{agentError}</p>}</section></div>}
+  </main>;
+}

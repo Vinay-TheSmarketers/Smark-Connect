@@ -1,0 +1,98 @@
+import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
+import { Launcher } from "chrome-launcher";
+
+export type VisualReportCompetitor = { companyName: string; officialWebsite: string; logoUrl: string; logoDataUrl?: string; positioning: string; competitiveAttributes: string[] };
+export type VisualReportModule = { type: string; title: string; markdown: string; competitors?: VisualReportCompetitor[] };
+export type VisualReportArgs = { companyName: string; title: string; markdown: string; updatedAt: Date; sourceCount: number; modules?: VisualReportModule[] };
+export type VisualReportResult = { pdf: Buffer; html: Buffer; qa: { passes: number; final: { pageCount: number; issues: string[] } } };
+
+const reportCache = new Map<string, VisualReportResult>();
+
+function pythonExecutable() {
+  if (process.env.SMARK_REPORT_PYTHON) return process.env.SMARK_REPORT_PYTHON;
+  const projectPython = process.platform === "win32"
+    ? path.join(process.cwd(), ".venv-report", "Scripts", "python.exe")
+    : path.join(process.cwd(), ".venv-report", "bin", "python");
+  return existsSync(projectPython) ? projectPython : process.platform === "win32" ? "python" : "python3";
+}
+
+function runRenderer(executable: string, script: string, payload: Record<string, unknown>) {
+  return new Promise<Record<string, unknown>>((resolve, reject) => {
+    const child = spawn(executable, [script], { cwd: process.cwd(), stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => { stdout += chunk; });
+    child.stderr.on("data", (chunk: string) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) return reject(new Error(`Visual report renderer failed${stderr.trim() ? `: ${stderr.trim().slice(-1600)}` : ` with exit code ${code}`}`));
+      try { resolve(JSON.parse(stdout.trim().split(/\r?\n/).filter(Boolean).at(-1) ?? "") as Record<string, unknown>); }
+      catch { reject(new Error(`Visual report renderer returned an invalid receipt: ${stdout.slice(-800)}`)); }
+    });
+    child.stdin.end(JSON.stringify(payload));
+  });
+}
+
+function printWithChromium(htmlPath: string, pdfPath: string) {
+  const chrome = Launcher.getInstallations()[0];
+  if (!chrome) throw new Error("Chromium fallback is unavailable. Install Chrome or provide the native WeasyPrint runtime.");
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn(chrome, ["--headless=new", "--disable-gpu", "--no-sandbox", "--no-pdf-header-footer", `--print-to-pdf=${pdfPath}`, pathToFileURL(htmlPath).href], { cwd: process.cwd(), stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`Chromium PDF fallback failed${stderr.trim() ? `: ${stderr.trim().slice(-1200)}` : ` with exit code ${code}`}`)));
+  });
+}
+
+export async function createVisualReport(args: VisualReportArgs): Promise<VisualReportResult> {
+  const cacheKey = createHash("sha256").update(JSON.stringify({ ...args, updatedAt: args.updatedAt.toISOString() })).digest("hex");
+  const cached = reportCache.get(cacheKey);
+  if (cached) return cached;
+  const directory = await mkdtemp(path.join(tmpdir(), "smark-visual-report-"));
+  const outputPdf = path.join(directory, "report.pdf");
+  const outputHtml = path.join(directory, "report.html");
+  try {
+    const executable = pythonExecutable();
+    const script = path.join(process.cwd(), "scripts", "render-visual-report.py");
+    const payload = { ...args, updatedAt: args.updatedAt.toISOString(), outputPdf, outputHtml };
+    const receipt = await runRenderer(executable, script, payload);
+    let qa = receipt.qa as VisualReportResult["qa"] | undefined;
+    if (!qa) {
+      const sectionTitles = Array.isArray(receipt.sectionTitles) ? receipt.sectionTitles : [];
+      const firstPdf = path.join(directory, "report-pass-1.pdf");
+      await printWithChromium(outputHtml, firstPdf);
+      const firstReceipt = await runRenderer(executable, script, { inspectPdf: firstPdf, sectionTitles });
+      const first = firstReceipt.qa as { pageCount: number; issues: string[] };
+      await runRenderer(executable, script, { ...payload, htmlOnly: true, compact: first.issues.length > 0 });
+      await printWithChromium(outputHtml, outputPdf);
+      const finalReceipt = await runRenderer(executable, script, { inspectPdf: outputPdf, sectionTitles });
+      const final = finalReceipt.qa as { pageCount: number; issues: string[] };
+      qa = { passes: 2, final };
+    }
+    if (qa.passes < 2 || qa.final.pageCount < 1) throw new Error("Visual report QA did not complete both render passes.");
+    const result = { pdf: await readFile(outputPdf), html: await readFile(outputHtml), qa };
+    if (reportCache.size >= 8) reportCache.delete(reportCache.keys().next().value ?? "");
+    reportCache.set(cacheKey, result);
+    return result;
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+export async function createBrandedPdf(args: VisualReportArgs): Promise<Buffer> {
+  return (await createVisualReport(args)).pdf;
+}
+
+export async function createBrandedHtml(args: VisualReportArgs): Promise<Buffer> {
+  return (await createVisualReport(args)).html;
+}

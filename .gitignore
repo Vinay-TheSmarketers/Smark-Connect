@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/tmp/
+/.venv-report/
 
 # next.js
 /.next/
@@ -39,3 +41,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local generated artifacts
+/output/
+/tmp/
+.pnpm-store/
