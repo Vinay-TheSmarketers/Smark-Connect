@@ -31,8 +31,8 @@ RUN corepack enable \
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-# Prisma's install lifecycle can run `generate`; the schema must already be
-# present before dependencies are installed.
+# @prisma/client may run `prisma generate` during install. Copy the schema
+# before installing so that lifecycle hook never runs against an empty image.
 COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile
 

@@ -1,0 +1,377 @@
+import "server-only";
+import type { AgentType, Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
+import { decryptSecret } from "@/lib/crypto";
+import { getProvider } from "@/lib/llm";
+import { extractJson } from "@/lib/llm/shared";
+import { discoverCompanyLogo } from "@/lib/company-logo";
+import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
+import { discoverLiveResearch, liveResearchAction, type LiveDiscoveryItem } from "@/lib/research/live-discovery";
+import { AGENT_DEFINITIONS, CORE_DOCUMENTS, getAgentDefinition, getInternalOperation, type CoreDocumentDefinition, type SkillRef } from "./registry";
+import { loadSkillPackWithManifest, type SkillExecutionStep } from "./loader";
+
+export type Finding = {
+  title: string;
+  evidence: string;
+  impact: string;
+  action: string;
+  kind: "current_status" | "previous_post" | "new_post" | "comment_opportunity" | "audience_signal" | "insight";
+  platform: string;
+  sourceLabel: string;
+  publishedAt: string;
+  draftContent: string;
+  recommendedResponse: string;
+  tags: string[];
+  companyName: string;
+  officialWebsite: string;
+  logoUrl: string;
+  competitiveAttributes: string[];
+  priority: "critical" | "high" | "medium" | "low";
+  confidence: number;
+  sourceUrls: string[];
+};
+
+export type SkillAnalysis = {
+  contentMarkdown: string;
+  summary: string;
+  findings: Finding[];
+  companyCategory: string;
+  companyDescription: string;
+};
+
+export type SkillExecutionManifest = {
+  status: "verified";
+  executedAt: string;
+  provider: string;
+  model: string;
+  steps: SkillExecutionStep[];
+};
+
+type EvidencePage = { url: string; title: string | null; description: string | null; content: string; statusCode: number; wordCount: number };
+type SpeedEvidence = { strategy: string; performance: number | null; accessibility: number | null; bestPractices: number | null; seo: number | null; lcp: number | null; fcp: number | null; tbt: number | null; cls: number | null; source?: string; error?: string | null };
+
+const analysisSchema: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    contentMarkdown: { type: "string" },
+    summary: { type: "string" },
+    findings: {
+      type: "array",
+      minItems: 3,
+      maxItems: 8,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          evidence: { type: "string" },
+          impact: { type: "string" },
+          action: { type: "string" },
+          kind: { type: "string", enum: ["current_status", "previous_post", "new_post", "comment_opportunity", "audience_signal", "insight"] },
+          platform: { type: "string" },
+          sourceLabel: { type: "string" },
+          publishedAt: { type: "string" },
+          draftContent: { type: "string" },
+          recommendedResponse: { type: "string" },
+          tags: { type: "array", items: { type: "string" }, maxItems: 5 },
+          companyName: { type: "string" },
+          officialWebsite: { type: "string" },
+          logoUrl: { type: "string" },
+          competitiveAttributes: { type: "array", items: { type: "string" }, maxItems: 5 },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"] },
+          confidence: { type: "integer", minimum: 0, maximum: 100 },
+          sourceUrls: { type: "array", items: { type: "string" } },
+        },
+        required: ["title", "evidence", "impact", "action", "kind", "platform", "sourceLabel", "publishedAt", "draftContent", "recommendedResponse", "tags", "companyName", "officialWebsite", "logoUrl", "competitiveAttributes", "priority", "confidence", "sourceUrls"],
+      },
+    },
+    companyCategory: { type: "string" },
+    companyDescription: { type: "string" },
+  },
+  required: ["contentMarkdown", "summary", "findings", "companyCategory", "companyDescription"],
+};
+
+export function estimateTokens(...parts: string[]): number {
+  return Math.max(1, Math.ceil(parts.reduce((total, part) => total + part.length, 0) / 4));
+}
+
+function normalizeAnalysis(value: SkillAnalysis): SkillAnalysis {
+  return {
+    ...value,
+    contentMarkdown: unwrapStructuredText(value.contentMarkdown),
+    summary: unwrapStructuredText(value.summary).replace(/^#+\s+/gm, "").replace(/\s+/g, " ").slice(0, 180),
+    findings: value.findings.map((finding) => ({
+      ...finding,
+      title: normalizeAcronyms(unwrapStructuredText(finding.title)).slice(0, 140),
+      evidence: unwrapStructuredText(finding.evidence).slice(0, 1200),
+      impact: unwrapStructuredText(finding.impact).slice(0, 700),
+      action: unwrapStructuredText(finding.action).slice(0, 700),
+      draftContent: unwrapStructuredText(finding.draftContent).slice(0, 4000),
+      recommendedResponse: unwrapStructuredText(finding.recommendedResponse).slice(0, 2400),
+      companyName: unwrapStructuredText(finding.companyName).slice(0, 120),
+      officialWebsite: /^https?:\/\//i.test(finding.officialWebsite) ? finding.officialWebsite : "",
+      logoUrl: /^https?:\/\//i.test(finding.logoUrl) ? finding.logoUrl : "",
+      competitiveAttributes: finding.competitiveAttributes.map((item) => normalizeAcronyms(unwrapStructuredText(item))).filter(Boolean).slice(0, 5),
+      confidence: Math.max(0, Math.min(100, Math.round(finding.confidence))),
+      sourceUrls: finding.sourceUrls.filter((url) => /^https?:\/\//i.test(url)).slice(0, 6),
+    })),
+  };
+}
+
+function analysisFromMarkdown(raw: string, title: string): SkillAnalysis {
+  let markdown = unwrapStructuredText(raw);
+  if (markdown.length < 280) throw new Error(`The model response was too short to create a reliable document (${markdown.length} characters: ${markdown.slice(0, 120).replace(/\s+/g, " ") || "empty"}).`);
+  if (!/^#\s+/m.test(markdown)) markdown = `# ${title}\n\n${markdown}`;
+  const urls = Array.from(markdown.matchAll(/https?:\/\/[^\s)\]>]+/g), (match) => match[0].replace(/[.,;:]$/, "")).filter((url, index, values) => values.indexOf(url) === index).slice(0, 8);
+  const sections = markdown.split(/\n(?=#{2,3}\s+)/).map((section) => section.trim()).filter((section) => /^#{2,3}\s+/.test(section));
+  const bodyParagraphs = markdown.split(/\n{2,}/).map((part) => part.replace(/^#+\s+/, "").trim()).filter((part) => part.length > 80 && !/^https?:\/\//.test(part));
+  const summary = (bodyParagraphs[0] ?? `Generated ${title} from the stored company evidence.`).replace(/[*_`]/g, "").slice(0, 240);
+  const findings = (sections.length ? sections : bodyParagraphs.slice(0, 5).map((paragraph, index) => `## Finding ${index + 1}\n${paragraph}`)).slice(0, 6).map((section, index) => {
+    const [heading, ...body] = section.split("\n");
+    const evidence = body.join(" ").replace(/^[-*]\s+/gm, "").replace(/[*_`]/g, "").replace(/\s+/g, " ").trim().slice(0, 520) || summary;
+    const actionSentence = evidence.split(/(?<=[.!?])\s+/).find((sentence) => /\b(should|recommend|prioriti[sz]e|create|build|improve|add|review|measure|connect)\b/i.test(sentence));
+    return {
+      title: heading.replace(/^#+\s+/, "").replace(/[*_`]/g, "").slice(0, 120) || `Finding ${index + 1}`,
+      evidence,
+      impact: "This finding affects the priorities and decisions documented in this evidence-led report.",
+      action: actionSentence?.slice(0, 320) ?? "Review the supporting section and convert its recommendation into an owned next action.",
+      kind: "insight" as const,
+      platform: "",
+      sourceLabel: "",
+      publishedAt: "",
+      draftContent: "",
+      recommendedResponse: "",
+      tags: [],
+      companyName: "",
+      officialWebsite: "",
+      logoUrl: "",
+      competitiveAttributes: [],
+      priority: index === 0 ? "high" as const : "medium" as const,
+      confidence: urls.length ? 78 : 68,
+      sourceUrls: urls,
+    };
+  });
+  while (findings.length < 3) findings.push({ title: `Evidence review ${findings.length + 1}`, evidence: bodyParagraphs[findings.length]?.slice(0, 520) ?? summary, impact: "This evidence contributes to the report's overall diagnosis.", action: "Validate this observation against the cited source pages before execution.", kind: "insight", platform: "", sourceLabel: "", publishedAt: "", draftContent: "", recommendedResponse: "", tags: [], companyName: "", officialWebsite: "", logoUrl: "", competitiveAttributes: [], priority: "medium", confidence: urls.length ? 75 : 65, sourceUrls: urls });
+  return { contentMarkdown: markdown, summary, findings, companyCategory: "", companyDescription: "" };
+}
+
+async function enrichCompetitorAnalysis(analysis: SkillAnalysis, targetWebsite: string): Promise<SkillAnalysis> {
+  const targetHost = new URL(targetWebsite).hostname.replace(/^www\./, "");
+  const candidates = analysis.findings.filter((finding) => finding.companyName.trim() && /^https?:\/\//i.test(finding.officialWebsite)).filter((finding, index, values) => {
+    try {
+      const host = new URL(finding.officialWebsite).hostname.replace(/^www\./, "");
+      return host !== targetHost && values.findIndex((candidate) => {
+        try { return new URL(candidate.officialWebsite).hostname.replace(/^www\./, "") === host; } catch { return false; }
+      }) === index;
+    } catch { return false; }
+  });
+  if (candidates.length < 6) throw new Error(`Competitor analysis returned ${candidates.length} verified companies; at least 6 real direct or adjacent competitors with official websites are required.`);
+  const enriched = await Promise.all(candidates.slice(0, 8).map(async (finding) => {
+    const official = new URL(finding.officialWebsite);
+    const logoUrl = await discoverCompanyLogo(official).catch(() => null);
+    return { ...finding, logoUrl: logoUrl ?? new URL("/favicon.ico", official.origin).href, sourceUrls: Array.from(new Set([official.href, ...finding.sourceUrls])).slice(0, 6) };
+  }));
+  return { ...analysis, findings: enriched, summary: `${enriched.length} real competitors verified from official company websites. ${analysis.summary}`.slice(0, 180) };
+}
+
+async function completeAnalysis(args: {
+  providerName: string;
+  apiKeyEnc: string;
+  model: string;
+  companyName: string;
+  websiteUrl: string;
+  title: string;
+  purpose: string;
+  instructions: string;
+  skills: SkillRef[];
+  evidence: string;
+  outputKind?: "document" | "agent";
+  maxTokens?: number;
+}): Promise<{ analysis: SkillAnalysis; tokensUsed: number; execution: SkillExecutionManifest }> {
+  const skillPack = await loadSkillPackWithManifest(args.skills, 64_000);
+  const embeddedSkills = skillPack.content;
+  const system = `You are a specialist inside Smark Connect, an evidence-led AI CMO platform. Execute the embedded local SKILL.md files in the numbered order supplied. The skill chain is the required methodology for this operation; do not substitute an improvised framework. Application rules provide security, evidence, and output constraints only. Use only the supplied evidence. Never invent metrics, customers, rankings, citations, competitors, audience research, integrations, or platform activity. Distinguish official API data, timestamped public-web discovery, direct website observations, and hypotheses. Every material claim must name a source URL when one is available. Always capitalize industry acronyms: SEO, GEO, ICP, PESTEL, SWOT, ROI, KPI, CTR, CTA, AI, API, URL, and B2B. Return the requested structured object only. Never place a JSON object or serialized JSON string inside any text field.`;
+  const outputContract = args.outputKind === "agent"
+    ? "AGENT OUTPUT CONTRACT\nReturn 4-8 concise, readable findings for the agent feed. The first finding must be kind=current_status and summarize what is known now, what prior content was found, and what remains unavailable. For social agents, use kind=previous_post for discovered company posts, kind=new_post for publish-ready company drafts, and kind=comment_opportunity for current third-party conversations the company can join. Put publish-ready post copy in draftContent. Put a complete, natural, non-promotional reply in recommendedResponse; action must be a short human review instruction, not the response itself. For Reddit, each comment opportunity must state the likely target-customer segment, job or pain, exact source language, offer fit, and a transparent manual response. For LinkedIn, summarize up to three discovered previous company posts, create at least two new posts, and identify sourced posts worth commenting on. Never imply complete account history when only public indexing is available. For the Competitor agent, return at least six kind=insight findings, one per real source-supported company, with companyName, officialWebsite, a 1-2 sentence positioning summary in evidence, and competitiveAttributes. Use kind=insight for other non-social agents. Fill non-applicable platform/sourceLabel/publishedAt/draftContent/recommendedResponse/companyName/officialWebsite/logoUrl with empty strings and tags/competitiveAttributes with empty arrays. Do not use Markdown tables in findings. Return empty strings for companyCategory and companyDescription."
+    : "DOCUMENT OUTPUT CONTRACT\nThink through the requested analysis internally; do not expose chain-of-thought. Build the deliverable as a decision system: objective, direct company evidence, current market evidence where supplied, strategic gap, testable positioning or operating hypothesis, audience tensions, execution journey, assets/actions, measurement, and next decision. Before each section, identify the single most important non-obvious finding, remove filler and repeated points, and connect overlapping causes across modules explicitly. Lead with material findings instead of module symmetry. Open with an executive recommendation and only the true highlights. Give each numbered module a framing sentence and pulled-forward headline finding. For every major recommendation, provide a compact auditable decision note containing Evidence, Interpretation, Decision, Confidence, What would invalidate it, and How it will be tested. Use prose for explanation, callouts for decisions, and Markdown tables for repeated comparable fields or execution calendars. Any plan or calendar table must connect audience/persona, problem or job, insight, format/action, proof requirement, CTA/next step, funnel or decision stage, owner, KPI, and timing logic when those fields are applicable. Sequence journeys from reframe to provoke to diagnose to verticalize to convert; do not force a stage with no evidence. Match CTAs to buyer readiness and define the smallest reasonable next action. End with consolidated impact-ranked Recommendations, a sequenced Roadmap, decision rules, and a source register. Preserve distinct evidence and source URLs, dependencies, success checks, risks, known unknowns, and confidence. Do not manufacture charts from one number or short lists. For a competitor document, include at least six real source-supported companies and fill one finding per company with companyName, officialWebsite, positioning in evidence, and competitiveAttributes; expand to adjacent or indirect competitors when necessary, never fabricated names. Set kind=insight and fill non-applicable platform/sourceLabel/publishedAt/draftContent/recommendedResponse/companyName/officialWebsite/logoUrl with empty strings and tags/competitiveAttributes with empty arrays. For non-company documents, return empty strings for companyCategory and companyDescription.";
+  const userPrompt = `OPERATION: ${args.title}\nPURPOSE: ${args.purpose}\nCOMPANY: ${args.companyName}\nWEBSITE: ${args.websiteUrl}\n\nREQUIRED ORDERED SKILL CHAIN\n${embeddedSkills}\n\nOPERATION-SPECIFIC CONSTRAINTS\n${args.instructions}\n\n${outputContract}\n\nEVIDENCE PACK\n${args.evidence}`;
+  const raw = await getProvider(args.providerName).complete({
+    apiKey: decryptSecret(args.apiKeyEnc),
+    model: args.model,
+    system,
+    messages: [{ role: "user", content: userPrompt }],
+    maxTokens: args.maxTokens ?? 7000,
+    temperature: 0.25,
+    jsonSchema: { name: "smark_skill_analysis", schema: analysisSchema },
+  });
+  let analysis: SkillAnalysis;
+  try {
+    analysis = normalizeAnalysis(extractJson<SkillAnalysis>(raw));
+  } catch {
+    analysis = analysisFromMarkdown(raw, args.title);
+  }
+  return {
+    analysis,
+    tokensUsed: estimateTokens(system, userPrompt, raw),
+    execution: { status: "verified", executedAt: new Date().toISOString(), provider: args.providerName, model: args.model, steps: skillPack.steps },
+  };
+}
+
+export function buildEvidencePack(args: {
+  companyName: string;
+  websiteUrl: string;
+  pages: EvidencePage[];
+  pageSpeed: SpeedEvidence[];
+}): string {
+  const pageSpeed = args.pageSpeed.length
+    ? args.pageSpeed.map((item) => `OFFICIAL PAGESPEED SNAPSHOT (${item.strategy}): source=${item.source ?? "Google PageSpeed Insights"}; performance=${item.performance ?? "unavailable"}; accessibility=${item.accessibility ?? "unavailable"}; bestPractices=${item.bestPractices ?? "unavailable"}; seo=${item.seo ?? "unavailable"}; LCP=${item.lcp ?? "unavailable"}ms; FCP=${item.fcp ?? "unavailable"}ms; TBT=${item.tbt ?? "unavailable"}ms; CLS=${item.cls ?? "unavailable"}; error=${item.error ?? "none"}`)
+    : ["OFFICIAL PAGESPEED SNAPSHOT: unavailable for this run."];
+  const pages = args.pages.map((page) => `SOURCE URL: ${page.url}\nHTTP STATUS: ${page.statusCode}\nTITLE: ${page.title ?? ""}\nMETA DESCRIPTION: ${page.description ?? ""}\nWORD COUNT: ${page.wordCount}\nVISIBLE CONTENT EXCERPT: ${page.content.slice(0, 1800)}`);
+  return [`COMPANY: ${args.companyName}`, `WEBSITE: ${args.websiteUrl}`, ...pageSpeed, ...pages].join("\n\n---\n\n").slice(0, 125_000);
+}
+
+export function deriveResearchTopics(pages: EvidencePage[], companyName: string): string[] {
+  const companyTerms = new Set(companyName.toLowerCase().match(/[a-z][a-z0-9-]{2,}/g) ?? []);
+  const generic = new Set(["home", "about", "contact", "services", "solutions", "company", "privacy", "terms", "blog", "resources", "welcome"]);
+  const candidates = pages.flatMap((page) => [page.title ?? "", page.description ?? ""])
+    .flatMap((value) => value.split(/[|–—:]/))
+    .map((value) => value.replace(/[^a-z0-9+& -]/gi, " ").replace(/\s+/g, " ").trim())
+    .filter((value) => {
+      const words = value.toLowerCase().split(" ").filter(Boolean);
+      return words.length >= 2 && words.length <= 9 && words.some((word) => !companyTerms.has(word) && !generic.has(word));
+    });
+  return Array.from(new Set(candidates.map((value) => value.toLowerCase()))).slice(0, 8);
+}
+
+function safeCell(value: string): string {
+  return value.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+}
+
+export function appendCompleteResearchAppendix(markdown: string, args: { companyName: string; websiteUrl: string; pages: EvidencePage[]; pageSpeed: SpeedEvidence[] }): string {
+  if (markdown.includes("## Complete research appendix")) return markdown;
+  const missingTitles = args.pages.filter((page) => !page.title).length;
+  const missingDescriptions = args.pages.filter((page) => !page.description).length;
+  const thinPages = args.pages.filter((page) => page.wordCount < 300).length;
+  const averageWords = Math.round(args.pages.reduce((sum, page) => sum + page.wordCount, 0) / Math.max(1, args.pages.length));
+  const speedRows = args.pageSpeed.length ? args.pageSpeed.map((audit) => `| ${safeCell(audit.strategy)} | ${audit.performance ?? "Unavailable"} | ${audit.accessibility ?? "Unavailable"} | ${audit.bestPractices ?? "Unavailable"} | ${audit.seo ?? "Unavailable"} | ${audit.lcp ? `${(audit.lcp / 1000).toFixed(2)}s` : "Unavailable"} | ${audit.fcp ? `${(audit.fcp / 1000).toFixed(2)}s` : "Unavailable"} | ${audit.tbt ?? "Unavailable"}ms | ${audit.cls ?? "Unavailable"} |`) : ["| No official snapshot | — | — | — | — | — | — | — | — |"];
+  const inventoryRows = args.pages.map((page, index) => `| ${index + 1} | [${safeCell(page.title || new URL(page.url).pathname || "Untitled page")}](${page.url}) | ${page.statusCode} | ${page.wordCount} | ${page.title ? "Present" : "Missing"} | ${page.description ? "Present" : "Missing"} |`);
+  const digests = args.pages.map((page, index) => `### ${index + 1}. ${page.title || new URL(page.url).pathname || "Untitled page"}\n\n- **Source:** ${page.url}\n- **Capture:** HTTP ${page.statusCode}; ${page.wordCount} visible words; title ${page.title ? "present" : "missing"}; description ${page.description ? "present" : "missing"}.\n- **Captured evidence:** ${safeCell(page.content.slice(0, 520)) || "No visible text was captured."}`).join("\n\n");
+  const appendix = `## Strategic analysis frameworks\n\n### SWOT evidence matrix\n\n| Dimension | Evidence-led interpretation | Confidence and next validation |\n|---|---|---|\n| Strengths | ${args.pages.length} owned public pages provide a reusable foundation for brand, offer, search, and content analysis. | High confidence in observed coverage; validate commercial impact with analytics and CRM data. |\n| Weaknesses | ${missingTitles} pages lack captured titles, ${missingDescriptions} lack captured descriptions, and ${thinPages} are below 300 visible words. | High confidence in crawl observations; inspect templates before bulk changes. |\n| Opportunities | Improve answer-ready proof, internal pathways, decision-stage depth, and multi-channel reuse of the strongest evidence. | Medium confidence until demand, conversion, and audience data are connected. |\n| Threats | Unsupported claims, stale evidence, unclear differentiation, and unmeasured distribution can weaken trust and prioritization. | Hypothesis requiring competitor, customer, and performance triangulation. |\n\n### TOWS action logic\n\n1. Use the owned-page foundation to create proof-led authority clusters and native channel assets.\n2. Close metadata, depth, and measurement gaps before scaling distribution.\n3. Use verified first-party proof to reduce exposure to undifferentiated category messaging.\n4. Monitor competitor, platform, regulation, and buyer-language changes on a recurring schedule.\n\n### PESTEL monitoring framework\n\n| Factor | What current evidence establishes | Required next source |\n|---|---|---|\n| Political | No material political exposure is established by the captured website evidence. | Relevant policy and market sources for operating regions. |\n| Economic | Public content cannot establish demand elasticity, budgets, pipeline, or price sensitivity. | CRM, finance, win-loss, and demand evidence. |\n| Social | Website language provides audience hypotheses but not verified voice-of-customer frequency. | Interviews, reviews, communities, and social listening. |\n| Technological | Website and PageSpeed evidence support analysis of digital experience and technology claims. | Stack inventory, analytics, field performance, and security review. |\n| Environmental | No material environmental claim should be made without direct operational evidence. | Sustainability, supplier, and operating data where relevant. |\n| Legal | Public pages do not establish full privacy, advertising, accessibility, IP, or sector compliance. | Qualified legal review and jurisdiction-specific requirements. |\n\n### Competitive landscape matrix\n\n| Landscape dimension | ${safeCell(args.companyName)} observed evidence | Competitive validation required |\n|---|---|---|\n| Category and positioning | Derive from cited company pages and the approved company foundation. | Capture each named competitor's current category statement and source date. |\n| Audience and use cases | Treat website language as an observed signal, not verified customer composition. | Compare roles, use cases, reviews, and win-loss alternatives. |\n| Offer and proof | Compare public offer architecture and verifiable proof only. | Never infer private revenue, spend, traffic, or market share. |\n| Content and channel posture | Owned content inventory is directly observable. | Add current competitor content, social, search, and citation sources. |\n| Strategic whitespace | Potential whitespace needs repeated contrast across independent sources. | Validate with customers, sales, and refreshed competitor evidence. |\n\n## Complete research appendix\n\n### Coverage scorecard\n\n| Evidence area | Captured result | Interpretation |\n|---|---|---|\n| Public pages | ${args.pages.length} | Expanded sitemap and internal-link coverage |\n| Average visible words | ${averageWords} | Template and intent context required |\n| Missing captured titles | ${missingTitles} | Review priority templates |\n| Missing captured descriptions | ${missingDescriptions} | Improve snippet control where appropriate |\n| Pages below 300 words | ${thinPages} | Validate whether each page is intentionally concise |\n\n### Official PageSpeed and Core Web Vitals evidence\n\n| Strategy | Performance | Accessibility | Best practices | SEO | LCP | FCP | TBT | CLS |\n|---|---|---|---|---|---|---|---|---|\n${speedRows.join("\n")}\n\n> Lighthouse values are lab snapshots. LCP at or below 2.5 seconds and CLS at or below 0.1 are good lab targets; TBT is a lab responsiveness diagnostic and is not field INP. Field Core Web Vitals require CrUX or Search Console evidence.\n\n### Complete page inventory\n\n| # | Page | HTTP | Words | Title | Description |\n|---|---|---|---|---|---|\n${inventoryRows.join("\n")}\n\n### Captured source digests\n\n${digests}\n\n### Research limitations and accuracy controls\n\n- Website observations do not establish rankings, traffic, conversion, market share, revenue, or customer sentiment.\n- Public-web discovery is timestamped and source-linked but is not authenticated platform analytics.\n- Competitive, audience, PESTEL, and opportunity statements remain hypotheses until triangulated.\n- Source freshness and connector status should be checked before each campaign decision.\n\n### Source register\n\n${args.pages.map((page) => `- ${page.url}`).join("\n")}`;
+  void appendix;
+  const evidenceAppendix = `## Complete research appendix\n\n### Coverage scorecard\n\n| Evidence area | Captured result |\n|---|---|\n| Public pages | ${args.pages.length} |\n| Average visible words | ${averageWords} |\n| Missing captured titles | ${missingTitles} |\n| Missing captured descriptions | ${missingDescriptions} |\n| Pages below 300 words | ${thinPages} |\n\n### Official PageSpeed evidence\n\n| Strategy | Performance | Accessibility | Best practices | SEO | LCP | FCP | TBT | CLS |\n|---|---|---|---|---|---|---|---|---|\n${speedRows.join("\n")}\n\n> These are Lighthouse lab snapshots. They are not rankings, traffic, conversions, backlink data, or field Core Web Vitals.\n\n### Complete page inventory\n\n| # | Page | HTTP | Words | Title | Description |\n|---|---|---|---|---|---|\n${inventoryRows.join("\n")}\n\n### Captured source digests\n\n${digests}\n\n### Evidence boundaries\n\n- Website observations do not establish rankings, traffic, conversion, market share, revenue, or customer sentiment.\n- Public-web discovery is source-linked but is not authenticated platform analytics.\n- Any hypothesis in the skill-generated report must remain labeled until independently validated.\n\n### Source register\n\n${args.pages.map((page) => `- ${page.url}`).join("\n")}`;
+  return `${markdown.trim()}\n\n${evidenceAppendix}`;
+}
+
+export async function runCoreDocument(args: {
+  definition: CoreDocumentDefinition;
+  company: { id: string; name: string; websiteUrl: string; userId: string };
+  user: { llmProvider: string | null; llmApiKeyEnc: string | null; llmModel: string | null };
+  evidence: string;
+  researchTopics?: string[];
+}): Promise<{ analysis: SkillAnalysis; tokensUsed: number; execution: SkillExecutionManifest }> {
+  if (!args.user.llmProvider || !args.user.llmApiKeyEnc || !args.user.llmModel) throw new Error("A verified AI provider is required.");
+  const needsPublicDiscovery = ["COMPETITOR_ANALYSIS", "AUDIENCE_ANALYSIS", "GEO_AUDIT", "CONTENT_AUDIT"].includes(args.definition.type);
+  const publicDiscovery = needsPublicDiscovery
+    ? await discoverLiveResearch({ agentType: args.definition.agentType, companyName: args.company.name, websiteUrl: args.company.websiteUrl, topics: args.researchTopics ?? [] })
+    : [];
+  const discoveryEvidence = publicDiscovery.length
+    ? publicDiscovery.map((item) => `TIMESTAMPED PUBLIC-WEB DISCOVERY\nTITLE: ${item.title}\nURL: ${item.url}\nPUBLISHED: ${item.publishedAt ?? "not supplied by index"}\nSOURCE: ${item.discoverySource}\nQUERY: ${item.query}\nEXCERPT: ${item.excerpt}`).join("\n\n---\n\n")
+    : "No additional public-web discovery was returned. Do not create competitors, customer language, or current platform activity to fill the gap.";
+  const result = await completeAnalysis({
+    providerName: args.user.llmProvider,
+    apiKeyEnc: args.user.llmApiKeyEnc,
+    model: args.user.llmModel,
+    companyName: args.company.name,
+    websiteUrl: args.company.websiteUrl,
+    title: args.definition.title,
+    purpose: args.definition.purpose,
+    instructions: args.definition.instructions,
+    skills: args.definition.skills,
+    evidence: `${args.evidence}\n\n=== OPERATION-SPECIFIC PUBLIC DISCOVERY ===\n\n${discoveryEvidence}`,
+    outputKind: "document",
+  });
+  return args.definition.type === "COMPETITOR_ANALYSIS" ? { ...result, analysis: await enrichCompetitorAnalysis(result.analysis, args.company.websiteUrl) } : result;
+}
+
+export async function saveCoreAnalysis(args: {
+  companyId: string;
+  userId: string;
+  definition: CoreDocumentDefinition;
+  analysis: SkillAnalysis;
+  tokensUsed: number;
+  execution: SkillExecutionManifest;
+}) {
+  const existing = await db.document.findUnique({ where: { companyId_type: { companyId: args.companyId, type: args.definition.type } } });
+  const research = await db.company.findUnique({ where: { id: args.companyId }, include: { crawlPages: { orderBy: { fetchedAt: "desc" }, take: 48 }, pageSpeedAudits: { orderBy: { createdAt: "desc" }, take: 2 } } });
+  const contentMarkdown = research ? appendCompleteResearchAppendix(args.analysis.contentMarkdown, { companyName: research.name, websiteUrl: research.websiteUrl, pages: research.crawlPages, pageSpeed: research.pageSpeedAudits }) : args.analysis.contentMarkdown;
+  const completeSources = Array.from(new Set([...(research?.crawlPages.map((page) => page.url) ?? []), ...args.analysis.findings.flatMap((finding) => finding.sourceUrls)]));
+  const competitors = args.analysis.findings.filter((finding) => finding.companyName && finding.officialWebsite).map((finding) => ({ companyName: finding.companyName, officialWebsite: finding.officialWebsite, logoUrl: finding.logoUrl, positioning: finding.evidence, competitiveAttributes: finding.competitiveAttributes }));
+  await db.$transaction(async (tx) => {
+    if (existing) {
+      await tx.documentVersion.create({ data: { documentId: existing.id, version: existing.version, contentMarkdown: existing.contentMarkdown, editPrompt: "Automatic company re-analysis", editMode: "regenerate", tokenEstimate: existing.tokenEstimate } });
+    }
+    await tx.document.upsert({
+      where: { companyId_type: { companyId: args.companyId, type: args.definition.type } },
+      update: { title: args.definition.title, contentMarkdown, metadata: { sources: completeSources, pagesIncluded: research?.crawlPages.length ?? 0, fullResearchAppendix: true, generationMode: "live-skill-run", skillExecution: args.execution, competitors }, skillProvenance: args.definition.skills as unknown as Prisma.InputJsonValue, tokenEstimate: args.tokensUsed, version: { increment: 1 } },
+      create: { companyId: args.companyId, type: args.definition.type, title: args.definition.title, contentMarkdown, metadata: { sources: completeSources, pagesIncluded: research?.crawlPages.length ?? 0, fullResearchAppendix: true, generationMode: "live-skill-run", skillExecution: args.execution, competitors }, skillProvenance: args.definition.skills as unknown as Prisma.InputJsonValue, tokenEstimate: args.tokensUsed },
+    });
+    await tx.agentRun.create({ data: { companyId: args.companyId, agentType: args.definition.agentType, status: "DONE", summary: args.analysis.summary, output: args.analysis.findings as unknown as Prisma.InputJsonValue, sources: Array.from(new Set(args.analysis.findings.flatMap((finding) => finding.sourceUrls))) as unknown as Prisma.InputJsonValue, skills: { mapped: args.definition.skills, execution: args.execution } as unknown as Prisma.InputJsonValue, confidence: Math.round(args.analysis.findings.reduce((total, finding) => total + finding.confidence, 0) / Math.max(1, args.analysis.findings.length)), tokensUsed: args.tokensUsed, startedAt: new Date(), completedAt: new Date() } });
+    if (args.definition.type === "SEO_AUDIT") {
+      await tx.agentRun.create({ data: { companyId: args.companyId, agentType: "TECHNICAL_SEO", status: "DONE", summary: "Technical findings included in the official-source SEO audit", output: args.analysis.findings.slice(0, 5) as unknown as Prisma.InputJsonValue, sources: Array.from(new Set(args.analysis.findings.flatMap((finding) => finding.sourceUrls))) as unknown as Prisma.InputJsonValue, skills: { mapped: args.definition.skills, execution: args.execution } as unknown as Prisma.InputJsonValue, confidence: Math.round(args.analysis.findings.reduce((total, finding) => total + finding.confidence, 0) / Math.max(1, args.analysis.findings.length)), tokensUsed: 0, startedAt: new Date(), completedAt: new Date() } });
+    }
+    await tx.user.update({ where: { id: args.userId }, data: { tokenUsed: { increment: args.tokensUsed } } });
+  });
+}
+
+export async function runAgentAnalysis(args: { companyId: string; userId: string; agentType: AgentType }): Promise<{ runId: string }> {
+  const definition = getAgentDefinition(args.agentType);
+  if (!definition) throw new Error("This agent is not available.");
+  const company = await db.company.findFirst({
+    where: { id: args.companyId, userId: args.userId },
+    include: { user: true, documents: { where: { type: { in: CORE_DOCUMENTS.map((document) => document.type) } }, orderBy: { updatedAt: "desc" } }, crawlPages: { orderBy: { fetchedAt: "desc" }, take: 48 }, pageSpeedAudits: { orderBy: { createdAt: "desc" }, take: 2 } },
+  });
+  if (!company) throw new Error("Company not found.");
+  if (company.user.demoMode) throw new Error("Demo Mode shows prepared agent results. Connect a real provider key to run a new analysis.");
+  if (!company.user.llmProvider || !company.user.llmApiKeyEnc || !company.user.llmModel) throw new Error("Reconnect your AI provider in Settings.");
+  const run = await db.agentRun.create({ data: { companyId: company.id, agentType: definition.type, status: "RUNNING", skills: definition.skills as unknown as Prisma.InputJsonValue, startedAt: new Date() } });
+  let liveItems: LiveDiscoveryItem[] = [];
+  try {
+    const topics = deriveResearchTopics(company.crawlPages, company.name);
+    liveItems = await discoverLiveResearch({ agentType: definition.type, companyName: company.name, websiteUrl: company.websiteUrl, topics });
+    const websiteEvidence = buildEvidencePack({ companyName: company.name, websiteUrl: company.websiteUrl, pages: company.crawlPages, pageSpeed: company.pageSpeedAudits }).slice(0, 72_000);
+    const liveEvidence = liveItems.length ? liveItems.map((item) => `TIMESTAMPED PUBLIC-WEB DISCOVERY\nTITLE: ${item.title}\nURL: ${item.url}\nPUBLISHED: ${item.publishedAt ?? "not supplied by index"}\nDISCOVERY SOURCE: ${item.discoverySource}\nQUERY: ${item.query}\nEXCERPT: ${item.excerpt}`).join("\n\n---\n\n") : "No current public-web results were returned. Do not claim current platform activity.";
+    const documentEvidence = company.documents.map((document) => `CORE COMPANY FOUNDATION: ${document.title}\n${document.contentMarkdown}`).join("\n\n===\n\n").slice(0, 35_000);
+    const evidence = `${websiteEvidence}\n\n=== CURRENT PUBLIC DISCOVERY ===\n\n${liveEvidence}\n\n=== SHARED COMPANY FOUNDATION ===\n\n${documentEvidence || "No generated foundation document is available; use only the website and public discovery evidence."}`;
+    const completed = await completeAnalysis({ providerName: company.user.llmProvider, apiKeyEnc: company.user.llmApiKeyEnc, model: company.user.llmModel, companyName: company.name, websiteUrl: company.websiteUrl, title: definition.label, purpose: definition.description, instructions: `${definition.instructions} Execute the mapped skill chain in order. Start with current discovered items when present and state that discovery is public-web indexing rather than an authenticated platform API.`, skills: definition.skills, evidence, outputKind: "agent", maxTokens: definition.type === "COMPETITOR" ? 5600 : 4200 });
+    const result = definition.type === "COMPETITOR" ? { ...completed, analysis: await enrichCompetitorAnalysis(completed.analysis, company.websiteUrl) } : completed;
+    const isSocial = ["X", "REDDIT", "LINKEDIN"].includes(definition.type);
+    const liveFindings: Finding[] = liveItems.slice(0, 4).map((item) => ({ title: definition.type === "REDDIT" ? `Target-customer thread: ${item.title}` : item.title, evidence: `${item.excerpt || "Current public result discovered."}${item.publishedAt ? ` Published ${new Date(item.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}.` : " Publication date was not supplied by the index."}`, impact: definition.type === "REDDIT" ? "This public thread may reveal a target customer's job, pain, objection, or buying intent. Treat identity and fit as unverified until the thread is reviewed manually." : `Current conversation or content signal discovered through ${item.discoverySource}; validate the destination before acting.`, action: liveResearchAction(definition.type), kind: isSocial ? (definition.type === "REDDIT" ? "comment_opportunity" : "previous_post") : "insight", platform: isSocial ? definition.type : "", sourceLabel: item.discoverySource, publishedAt: item.publishedAt ?? "", draftContent: "", recommendedResponse: "", tags: [], companyName: "", officialWebsite: "", logoUrl: "", competitiveAttributes: [], priority: "high", confidence: 84, sourceUrls: [item.url] }));
+    const modelHasSourcedSocial = isSocial && result.analysis.findings.some((finding) => finding.sourceUrls.length > 0 && ["previous_post", "comment_opportunity"].includes(finding.kind));
+    const combined = definition.type === "COMPETITOR" ? result.analysis.findings : [...result.analysis.findings, ...(modelHasSourcedSocial ? [] : liveFindings)].slice(0, 10);
+    await db.$transaction([
+      db.agentRun.update({ where: { id: run.id }, data: { status: "DONE", summary: `${liveItems.length ? `${liveItems.length} current public results reviewed. ` : "No current indexed items were available. "}${result.analysis.summary}`, output: combined as unknown as Prisma.InputJsonValue, sources: Array.from(new Set(combined.flatMap((finding) => finding.sourceUrls))) as unknown as Prisma.InputJsonValue, skills: { mapped: definition.skills, execution: result.execution } as unknown as Prisma.InputJsonValue, confidence: Math.round(combined.reduce((total, finding) => total + finding.confidence, 0) / Math.max(1, combined.length)), tokensUsed: result.tokensUsed, completedAt: new Date() } }),
+      db.user.update({ where: { id: args.userId }, data: { tokenUsed: { increment: result.tokensUsed } } }),
+    ]);
+    return { runId: run.id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The skill-governed agent run failed.";
+    await db.agentRun.update({ where: { id: run.id }, data: { status: "ERROR", error: message.slice(0, 1000), sources: liveItems.map((item) => item.url) as unknown as Prisma.InputJsonValue, completedAt: new Date() } });
+    throw new Error(`No agent output was saved because the required skill chain could not complete: ${message}`);
+  }
+}
+
+export async function runCmoSynthesis(args: { companyId: string; userId: string }): Promise<void> {
+  const company = await db.company.findFirst({ where: { id: args.companyId, userId: args.userId }, include: { user: true, documents: { where: { type: { in: CORE_DOCUMENTS.map((document) => document.type) } } } } });
+  if (!company || company.user.demoMode || !company.user.llmProvider || !company.user.llmApiKeyEnc || !company.user.llmModel || company.documents.length === 0) return;
+  const operation = getInternalOperation("ai-cmo-synthesis");
+  const skills = operation.skills;
+  const evidence = company.documents.map((document) => `${document.title}\n${document.contentMarkdown}`).join("\n\n===\n\n").slice(0, 90_000);
+  const result = await completeAnalysis({ providerName: company.user.llmProvider, apiKeyEnc: company.user.llmApiKeyEnc, model: company.user.llmModel, companyName: company.name, websiteUrl: company.websiteUrl, title: "AI CMO Executive Analysis", purpose: "Synthesize the six core analyses into a detailed, sequenced executive marketing diagnosis.", instructions: `${operation.instructions} Do not create a seventh permanent document; return a feed-ready executive analysis.`, skills, evidence, outputKind: "agent", maxTokens: 2600 });
+  await db.$transaction([
+    db.agentRun.create({ data: { companyId: company.id, agentType: "AI_CMO", status: "DONE", summary: result.analysis.summary, output: result.analysis.findings as unknown as Prisma.InputJsonValue, sources: Array.from(new Set(result.analysis.findings.flatMap((finding) => finding.sourceUrls))) as unknown as Prisma.InputJsonValue, skills: { mapped: skills, execution: result.execution } as unknown as Prisma.InputJsonValue, confidence: Math.round(result.analysis.findings.reduce((total, finding) => total + finding.confidence, 0) / Math.max(1, result.analysis.findings.length)), tokensUsed: result.tokensUsed, startedAt: new Date(), completedAt: new Date() } }),
+    db.user.update({ where: { id: args.userId }, data: { tokenUsed: { increment: result.tokensUsed } } }),
+  ]);
+}
+
+export { AGENT_DEFINITIONS };

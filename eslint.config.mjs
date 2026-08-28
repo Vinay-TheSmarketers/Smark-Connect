@@ -11,13 +11,10 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
-<<<<<<< HEAD
     ".venv-report/**",
     "output/**",
     "tmp/**",
     "vendor/**",
-=======
->>>>>>> 5d20e0b (Initial commit from Create Next App)
     "next-env.d.ts",
   ]),
 ]);

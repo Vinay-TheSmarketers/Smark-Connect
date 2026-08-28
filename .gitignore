@@ -12,11 +12,8 @@
 
 # testing
 /coverage
-<<<<<<< HEAD
 /tmp/
 /.venv-report/
-=======
->>>>>>> 5d20e0b (Initial commit from Create Next App)
 
 # next.js
 /.next/
@@ -44,11 +41,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-<<<<<<< HEAD
 
 # Local generated artifacts
 /output/
 /tmp/
 .pnpm-store/
-=======
->>>>>>> 5d20e0b (Initial commit from Create Next App)
+__pycache__/
+*.pyc
