@@ -20,7 +20,7 @@ export function AuthForm({ mode, googleEnabled }: { mode: "login" | "signup"; go
     try {
       if (mode === "signup") {
         const response = await fetch("/api/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), email, password }) });
-        const data = await response.json() as { error?: string };
+        const data = await readJson<{ error?: string }>(response);
         if (!response.ok) throw new Error(data.error ?? "Could not create your account.");
       }
       const result = await signIn("credentials", { email, password, redirect: false });
@@ -28,7 +28,10 @@ export function AuthForm({ mode, googleEnabled }: { mode: "login" | "signup"; go
       router.push("/");
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Something went wrong.");
+      const message = cause instanceof Error ? cause.message : "Something went wrong.";
+      setError(/unexpected end of json|invalid json/i.test(message)
+        ? "The server returned an empty response. Check Render environment variables and logs."
+        : message);
     } finally {
       setPending(false);
     }
@@ -47,4 +50,14 @@ export function AuthForm({ mode, googleEnabled }: { mode: "login" | "signup"; go
       <p className="auth-switch">{mode === "login" ? "New to Smark Connect?" : "Already have an account?"} <Link href={mode === "login" ? "/signup" : "/login"}>{mode === "login" ? "Create an account" : "Sign in"}</Link></p>
     </form>
   );
+}
+
+async function readJson<T extends Record<string, unknown>>(response: Response): Promise<T> {
+  const text = await response.text();
+  if (!text.trim()) return {} as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return { error: `The server returned an invalid response (HTTP ${response.status}). Check the Render logs.` } as unknown as T;
+  }
 }
