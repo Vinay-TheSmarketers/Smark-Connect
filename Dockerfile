@@ -31,6 +31,9 @@ RUN corepack enable \
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Prisma's install lifecycle can run `generate`; the schema must already be
+# present before dependencies are installed.
+COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile
 
 COPY . .
@@ -39,7 +42,8 @@ RUN python3 -m venv /app/.venv-report \
     && /app/.venv-report/bin/pip install --no-cache-dir --upgrade pip \
     && /app/.venv-report/bin/pip install --no-cache-dir -r requirements-report.txt
 
-RUN pnpm exec prisma generate
+RUN test -f /app/prisma/schema.prisma
+RUN pnpm exec prisma generate --schema=/app/prisma/schema.prisma
 RUN pnpm build
 
 EXPOSE 3000
