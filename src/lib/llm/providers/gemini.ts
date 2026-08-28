@@ -2,7 +2,7 @@ import type { CompletionParams, LLMProvider } from "../types";
 import { providerFetch } from "../shared";
 
 export const geminiProvider: LLMProvider = {
-  async validateKey(apiKey, model = process.env.SMARK_MODEL_GOOGLE || "gemini-2.5-flash") {
+  async validateKey(apiKey, model = process.env.SMARK_MODEL_GOOGLE || "gemini-3.6-flash") {
     await this.complete({ apiKey, model, messages: [{ role: "user", content: "Reply with OK." }], maxTokens: 12 });
   },
   async complete(params: CompletionParams) {
