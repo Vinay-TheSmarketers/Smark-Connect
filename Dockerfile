@@ -6,7 +6,7 @@ ENV NODE_ENV="production"
 ENV PORT="3000"
 ENV HOSTNAME="0.0.0.0"
 ENV CHROME_PATH="/usr/bin/chromium"
-ENV SMARK_REPORT_PYTHON="/app/.venv-report/bin/python"
+ENV SMARK_REPORT_PYTHON="/opt/smark-report-venv/bin/python"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -38,9 +38,9 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN python3 -m venv /app/.venv-report \
-    && /app/.venv-report/bin/pip install --no-cache-dir --upgrade pip \
-    && /app/.venv-report/bin/pip install --no-cache-dir -r requirements-report.txt
+RUN python3 -m venv /opt/smark-report-venv \
+    && /opt/smark-report-venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/smark-report-venv/bin/pip install --no-cache-dir -r requirements-report.txt
 
 RUN test -f /app/prisma/schema.prisma
 RUN pnpm exec prisma generate --schema=/app/prisma/schema.prisma

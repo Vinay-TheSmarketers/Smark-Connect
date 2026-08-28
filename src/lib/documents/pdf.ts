@@ -16,6 +16,10 @@ const reportCache = new Map<string, VisualReportResult>();
 
 function pythonExecutable() {
   if (process.env.SMARK_REPORT_PYTHON) return process.env.SMARK_REPORT_PYTHON;
+  // Production images keep the report environment outside the Next.js
+  // project tree. This prevents Turbopack from tracing a venv symlink as an
+  // application asset while still allowing the local Windows setup below.
+  if (process.env.NODE_ENV === "production") return "python3";
   const projectPython = process.platform === "win32"
     ? path.join(process.cwd(), ".venv-report", "Scripts", "python.exe")
     : path.join(process.cwd(), ".venv-report", "bin", "python");
