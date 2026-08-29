@@ -622,15 +622,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             {(["health", "links", "technical", "aigeo"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "aigeo" ? "AI/GEO" : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
           </div>
           {analysisTab === "health" && <div className="analytics-health-section">
-            <div className="lab-runs-banner">
-              <span>Based on real-time Google Lighthouse audit results; lab runs measure live page performance.</span>
-              <div className="banner-controls">
-                <div className="vitals-device-toggle">
-                  <button type="button" className={lighthouse.strategy === "mobile" ? "active" : ""} onClick={() => lighthouse.selectStrategy("mobile")} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}>Mobile</button>
-                  <button type="button" className={lighthouse.strategy === "desktop" ? "active" : ""} onClick={() => lighthouse.selectStrategy("desktop")} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}>Desktop</button>
-                </div>
-                <button type="button" className="run-fresh-btn" onClick={() => void lighthouse.startAudit(true)} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}><RotateCcw size={11} /> Refresh</button>
+            <div className="health-toolbar-row">
+              <div className="vitals-device-toggle">
+                <button type="button" className={lighthouse.strategy === "mobile" ? "active" : ""} onClick={() => lighthouse.selectStrategy("mobile")} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}>Mobile</button>
+                <button type="button" className={lighthouse.strategy === "desktop" ? "active" : ""} onClick={() => lighthouse.selectStrategy("desktop")} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}>Desktop</button>
               </div>
+              <button type="button" className="run-fresh-btn" onClick={() => void lighthouse.startAudit(true)} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}><RotateCcw size={11} /> Refresh</button>
             </div>
 
             {(lighthouse.status === "queued" || lighthouse.status === "running") && <AuditSkeleton status={lighthouse.status} />}

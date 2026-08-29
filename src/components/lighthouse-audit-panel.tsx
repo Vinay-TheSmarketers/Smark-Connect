@@ -74,7 +74,7 @@ export function useLighthouseAudit(defaultUrl: string) {
         setError(userFacingErrors[data.code ?? ""] ?? data.error ?? "Lighthouse could not complete this audit.");
         return;
       }
-      await new Promise((resolve) => window.setTimeout(resolve, 2500));
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
     }
   }, []);
 
