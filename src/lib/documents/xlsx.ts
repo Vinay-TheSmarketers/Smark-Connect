@@ -1,5 +1,6 @@
 import "server-only";
 import ExcelJS, { type Cell, type Fill, type Font, type Worksheet } from "exceljs";
+import type { ArtifactManifest, ReportDataModel } from "../artifacts/types";
 import { parseMarkdown, type DocumentBlock } from "./content";
 
 const PURPLE = "8B2CE0";
@@ -21,6 +22,8 @@ type SpreadsheetArgs = {
   updatedAt: Date;
   sourceCount: number;
   modules?: WorkbookModule[];
+  reportModel?: ReportDataModel;
+  manifest?: ArtifactManifest;
 };
 
 const titleFill: Fill = { type: "pattern", pattern: "solid", fgColor: { argb: PURPLE } };
@@ -243,6 +246,78 @@ function addSources(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, modules: 
   sheet.getColumn(2).width = 82;
   sheet.getColumn(3).width = 34;
   sheet.getRows(6, Math.max(1, uniqueRows.length))?.forEach((row) => { row.height = 30; row.eachCell(applyCellBase); });
+  uniqueRows.forEach((row, index) => {
+    const cell = sheet.getCell(6 + index, 2);
+    cell.value = { text: row[1], hyperlink: row[1] };
+    cell.font = { name: "Arial", size: 10, color: { argb: PURPLE }, underline: true };
+  });
+}
+
+function addArtifactManifest(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, manifest: ArtifactManifest) {
+  const sheet = workbook.addWorksheet(uniqueSheetName(workbook, "Artifact Manifest"), { properties: { tabColor: { argb: VIOLET } } });
+  setBaseSheet(sheet);
+  addSheetHeader(sheet, { title: "Artifact Manifest", subtitle: "The routing contract shared by the PDF, PPTX, and XLSX renderers.", companyName: args.companyName });
+  const rows = (["pdf", "pptx", "xlsx"] as const).map((format) => {
+    const item = manifest.decisions[format];
+    return [format.toUpperCase(), item.requirement.toUpperCase(), item.enabled ? "YES" : "NO", format === manifest.primaryArtifact ? "PRIMARY" : "SUPPORTING", item.reason];
+  });
+  sheet.addTable({ name: "Artifact_Output_Manifest", ref: "A5", headerRow: true, totalsRow: false, style: { theme: "TableStyleMedium4", showRowStripes: true }, columns: ["Format", "Requirement", "Enabled", "Role", "Routing reason"].map((name) => ({ name })), rows });
+  styleDataTable(sheet, 5, 5, rows.length);
+  setColumnWidths(sheet, [14, 17, 12, 16, 78, 16, 16, 16]);
+  sheet.getRows(6, rows.length)?.forEach((row) => { row.height = 34; row.eachCell(applyCellBase); });
+  const details = [
+    ["Report type", manifest.reportType],
+    ["Visual theme", manifest.theme],
+    ["Target slides", manifest.targetSlides],
+    ["Required visuals", manifest.requiredVisuals.join(", ")],
+    ["Required workbook sheets", manifest.requiredSheets.join(", ") || "None"],
+    ["Appendix required", manifest.appendixRequired ? "YES" : "NO"],
+  ];
+  details.forEach(([label, value], index) => {
+    const row = 11 + index;
+    sheet.getCell(row, 1).value = label;
+    sheet.getCell(row, 1).font = { name: "Arial", size: 9, bold: true, color: { argb: VIOLET } };
+    sheet.mergeCells(row, 2, row, 5);
+    sheet.getCell(row, 2).value = value;
+    applyCellBase(sheet.getCell(row, 2));
+  });
+}
+
+function addActionTracker(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, model: ReportDataModel) {
+  const sheet = workbook.addWorksheet(uniqueSheetName(workbook, "Action Tracker"), { properties: { tabColor: { argb: PINK } } });
+  setBaseSheet(sheet);
+  sheet.views = [{ state: "frozen", ySplit: 5, xSplit: 2, showGridLines: false }];
+  addSheetHeader(sheet, { title: "Action Tracker", subtitle: "Assign, sequence, validate, and update every recommendation using the same IDs shown in the PDF and PPTX.", companyName: args.companyName });
+  const recommendations = model.recommendations.length ? model.recommendations : [{ id: "VALIDATE-001", priority: "unrated" as const, title: "Validate the action plan", detail: "Add structured recommendations to the source report before assigning work.", findingIds: [] }];
+  const rows = recommendations.map((item, index) => [item.id, item.priority.toUpperCase(), item.detail, "", "Not started", "", item.findingIds.join(", "), model.lineage[index]?.sourceId ?? "", { formula: `IF(B${index + 6}="HIGH",3,IF(B${index + 6}="MEDIUM",2,IF(B${index + 6}="LOW",1,0)))` }, 0]);
+  const columns = ["Recommendation ID", "Priority", "Recommendation", "Owner", "Status", "Due Date", "Finding IDs", "Source ID", "Priority Score", "Progress"];
+  sheet.addTable({ name: "Workbook_Action_Tracker", ref: "A5", headerRow: true, totalsRow: false, style: { theme: "TableStyleMedium4", showRowStripes: true }, columns: columns.map((name) => ({ name })), rows });
+  styleDataTable(sheet, 5, columns.length, rows.length);
+  setColumnWidths(sheet, [20, 13, 62, 20, 18, 16, 20, 14, 16, 14]);
+  sheet.getRows(6, rows.length)?.forEach((row) => { row.height = 42; row.eachCell(applyCellBase); });
+  for (let row = 6; row < 6 + rows.length; row += 1) {
+    sheet.getCell(row, 5).dataValidation = { type: "list", allowBlank: false, formulae: ['"Not started,In progress,Blocked,Complete"'] };
+    sheet.getCell(row, 6).numFmt = "yyyy-mm-dd";
+    sheet.getCell(row, 9).numFmt = "0";
+    sheet.getCell(row, 10).numFmt = "0%";
+  }
+  sheet.addConditionalFormatting({ ref: `B6:B${5 + rows.length}`, rules: [
+    { type: "containsText", priority: 1, operator: "containsText", text: "HIGH", style: { font: { color: { argb: "FFFFFF" }, bold: true }, fill: { type: "pattern", pattern: "solid", bgColor: { argb: "C8425B" }, fgColor: { argb: "C8425B" } } } },
+    { type: "containsText", priority: 2, operator: "containsText", text: "MEDIUM", style: { font: { color: { argb: "FFFFFF" }, bold: true }, fill: { type: "pattern", pattern: "solid", bgColor: { argb: "D88918" }, fgColor: { argb: "D88918" } } } },
+  ] });
+}
+
+function addLineage(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, model: ReportDataModel) {
+  const sheet = workbook.addWorksheet(uniqueSheetName(workbook, "Data Lineage"), { properties: { tabColor: { argb: BLUE } } });
+  setBaseSheet(sheet);
+  addSheetHeader(sheet, { title: "Data Lineage", subtitle: "Trace findings and recommendations back to source IDs and across all generated artifacts.", companyName: args.companyName });
+  const rows = model.lineage.map((item) => [item.sourceId ?? "", item.findingId ?? "", item.recommendationId ?? "", item.artifactReferences.pdf ?? "", item.artifactReferences.pptx ?? "", item.artifactReferences.xlsx ?? ""]);
+  const safeRows = rows.length ? rows : [["", "", "", "No lineage available", "No lineage available", "No lineage available"]];
+  const columns = ["Source ID", "Finding ID", "Recommendation ID", "PDF reference", "PPTX reference", "XLSX reference"];
+  sheet.addTable({ name: "Workbook_Data_Lineage", ref: "A5", headerRow: true, totalsRow: false, style: { theme: "TableStyleLight1", showRowStripes: false }, columns: columns.map((name) => ({ name })), rows: safeRows });
+  styleDataTable(sheet, 5, columns.length, safeRows.length);
+  setColumnWidths(sheet, [14, 16, 20, 30, 30, 34]);
+  sheet.getRows(6, safeRows.length)?.forEach((row) => { row.height = 28; row.eachCell(applyCellBase); });
 }
 
 export async function createBrandedXlsx(args: SpreadsheetArgs): Promise<Buffer> {
@@ -258,7 +333,10 @@ export async function createBrandedXlsx(args: SpreadsheetArgs): Promise<Buffer> 
 
   const modules = args.modules?.length ? args.modules : [{ type: "DOCUMENT", title: args.title, markdown: args.markdown }];
   addOverview(workbook, args, modules);
+  if (args.manifest) addArtifactManifest(workbook, args, args.manifest);
+  if (args.reportModel) addActionTracker(workbook, args, args.reportModel);
   modules.forEach((module, index) => addNarrativeSheet(workbook, args, module, index));
+  if (args.reportModel) addLineage(workbook, args, args.reportModel);
   addSources(workbook, args, modules);
 
   workbook.eachSheet((sheet) => {

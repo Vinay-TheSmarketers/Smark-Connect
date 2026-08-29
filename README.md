@@ -25,14 +25,18 @@ Each core document includes:
 - A focused-edit toggle that limits context and reduces token use
 - A full-regeneration option that reloads website evidence and embedded skills
 - Version history in PostgreSQL
-- Branded DOCX download
-- Branded PDF download and in-app PDF preview
+- A deterministic artifact manifest based on report type and structured-data signals
+- A branded source-of-truth PDF with in-app preview
+- A native, editable executive PPTX with conclusion-led slides and source notes
+- An operational XLSX when the report contains reusable records, schedules, URLs, scores, competitors, ownership, or tracking data
 
-PDF preview generation uses an in-page report skeleton with matching report geometry, a reduced-motion mode, an explicit ready state, and a recoverable retry state. Every PDF type has its own visual report profile and is quality-checked for at least 30% visualized analysis sections. The same concise company brief and skill typography hierarchy appear in the web report and exported PDF.
+PDF preview generation uses an in-page report skeleton with matching report geometry, progressive construction stages, a reduced-motion mode, an explicit ready state, and a recoverable retry state. Every PDF type has its own visual report profile and is quality-checked for at least 30% visualized analysis sections. The same concise company brief and skill typography hierarchy appear in the web report and exported PDF.
+
+All three formats originate from one normalized report data model. Source IDs, finding IDs, and recommendation IDs are reused across the PDF roadmap, PPTX priorities, and XLSX action tracker. Report profiles in `src/lib/artifacts/config.ts` determine compulsory artifacts, primary format, visual theme, target slide count, required visuals, and workbook sheets; auto-detection enables optional workbooks only when the report contains operational value. Company-wide XLSX export remains available explicitly with `scope=company`, while normal downloads stay report-specific.
 
 ## Self-hosted Lighthouse audits
 
-The Analytics pane can run Lighthouse without Google PageSpeed Insights. Audits execute in local Chromium through Puppeteer Core and Lighthouse, covering performance, accessibility, SEO, and best practices.
+The Analytics pane automatically runs the saved company website through local Chromium using Puppeteer Core and Lighthouse, covering performance, accessibility, SEO, and best practices. There is no second URL-entry dialog.
 
 ### API
 
@@ -91,6 +95,7 @@ Demo mode displays the populated workspace but never sends the placeholder provi
 
 ```bash
 pnpm skills:validate
+pnpm artifacts:qa
 pnpm typecheck
 pnpm lint
 pnpm test
@@ -120,7 +125,7 @@ Build and test the image locally with Docker Desktop:
 docker build -t smark-connect .
 ```
 
-For Render, create a PostgreSQL database and a Docker web service from this repository. Set `DATABASE_URL`, `AUTH_SECRET`, `SECRET_ENCRYPTION_KEY`, and the public Render URL as `AUTH_URL`. Use `pnpm exec prisma migrate deploy` as the pre-deploy command; the Docker `CMD` runs `pnpm start`, which reads `process.env.PORT` and binds through `HOSTNAME=0.0.0.0`. Configure `/api/health` as the health-check path. The image includes Chromium, its Linux dependencies, and the Python PDF renderer. No Google PageSpeed API key is required.
+For Render, create a PostgreSQL database and a Docker web service from this repository. Set `DATABASE_URL`, `AUTH_SECRET`, `SECRET_ENCRYPTION_KEY`, and the public Render URL as `AUTH_URL`. Use `pnpm exec prisma migrate deploy` as the pre-deploy command; the Docker `CMD` runs `pnpm start`, which reads `process.env.PORT` and binds through `HOSTNAME=0.0.0.0`. Configure `/api/health` as the health-check path. The image includes Chromium, its Linux dependencies, and the Python PDF renderer. No external speed-test API key is required.
 
 On Render's free tier, Chromium cold starts and constrained CPU/memory can make audits slow, and the service may spin down between requests. The one-audit worker protects the instance, but queued in-process work is not durable across a restart; job records remain in PostgreSQL and may need a retry after an interrupted deployment or spin-down. Use one instance with the current queue design.
 

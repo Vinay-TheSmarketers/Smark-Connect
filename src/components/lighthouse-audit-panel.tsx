@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, ExternalLink, Gauge, RotateCcw, ShieldCheck } from "lucide-react";
 import type { LighthouseReport, LighthouseStrategy } from "@/lib/lighthouse/types";
 
@@ -77,7 +77,6 @@ export function LighthouseReportView({ report, cacheHit, busy = false, onRunFres
 }
 
 export function LighthouseAuditPanel({ defaultUrl }: { defaultUrl: string }) {
-  const [url, setUrl] = useState(defaultUrl);
   const [strategy, setStrategy] = useState<LighthouseStrategy>("mobile");
   const [status, setStatus] = useState<JobStatus>("idle");
   const [jobId, setJobId] = useState("");
@@ -86,13 +85,10 @@ export function LighthouseAuditPanel({ defaultUrl }: { defaultUrl: string }) {
   const [errorCode, setErrorCode] = useState("");
   const [cacheHit, setCacheHit] = useState(false);
   const mounted = useRef(true);
+  const autoStartedFor = useRef("");
+  const auditRunning = useRef(false);
 
-  useEffect(() => {
-    mounted.current = true;
-    return () => { mounted.current = false; };
-  }, []);
-
-  async function poll(nextJobId: string) {
+  const poll = useCallback(async (nextJobId: string) => {
     while (mounted.current) {
       const response = await fetch(`/api/lighthouse/audit/${nextJobId}`, { cache: "no-store" });
       const data = await response.json() as JobResponse;
@@ -108,16 +104,17 @@ export function LighthouseAuditPanel({ defaultUrl }: { defaultUrl: string }) {
       }
       await new Promise((resolve) => window.setTimeout(resolve, 2500));
     }
-  }
+  }, []);
 
-  async function startAudit(fresh = false) {
-    if (status === "queued" || status === "running") return;
+  const startAudit = useCallback(async (fresh = false, requestedStrategy: LighthouseStrategy = strategy) => {
+    if (auditRunning.current) return;
+    auditRunning.current = true;
     setStatus("queued");
     setError("");
     setErrorCode("");
     if (fresh) setReport(null);
     try {
-      const response = await fetch("/api/lighthouse/audit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, strategy, fresh }) });
+      const response = await fetch("/api/lighthouse/audit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: defaultUrl, strategy: requestedStrategy, fresh }) });
       const data = await response.json() as JobResponse;
       if (!response.ok || !data.jobId) {
         const message = userFacingErrors[data.code ?? ""] ?? data.error ?? "The Lighthouse audit could not start.";
@@ -134,22 +131,31 @@ export function LighthouseAuditPanel({ defaultUrl }: { defaultUrl: string }) {
       setStatus("failed");
       setErrorCode(code);
       setError(cause instanceof Error ? cause.message : "The Lighthouse audit could not start.");
+    } finally {
+      auditRunning.current = false;
     }
-  }
+  }, [defaultUrl, poll, strategy]);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    void startAudit(false);
+  useEffect(() => {
+    mounted.current = true;
+    if (defaultUrl && autoStartedFor.current !== defaultUrl) {
+      autoStartedFor.current = defaultUrl;
+      void startAudit(false, "mobile");
+    }
+    return () => { mounted.current = false; };
+  }, [defaultUrl, startAudit]);
+
+  function selectStrategy(nextStrategy: LighthouseStrategy) {
+    if (nextStrategy === strategy) return;
+    setStrategy(nextStrategy);
+    void startAudit(false, nextStrategy);
   }
 
   const busy = status === "queued" || status === "running";
+  const targetLabel = (() => { try { return new URL(defaultUrl).hostname; } catch { return defaultUrl; } })();
   return <section className="lighthouse-panel" aria-labelledby="lighthouse-heading">
-    <div className="lighthouse-heading"><span><Gauge size={17} /></span><div><strong id="lighthouse-heading">Self-hosted Lighthouse audit</strong><small>Browser-based lab estimates—no client-site changes or Google API required</small></div></div>
-    <form onSubmit={submit} className="lighthouse-form">
-      <label htmlFor="lighthouse-url">Public website URL</label>
-      <input id="lighthouse-url" type="url" maxLength={2048} required value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.com" disabled={busy} />
-      <div><div className="lighthouse-strategy" aria-label="Audit strategy">{(["mobile", "desktop"] as const).map((item) => <button type="button" className={strategy === item ? "active" : ""} onClick={() => setStrategy(item)} disabled={busy} key={item}>{item.slice(0, 1).toUpperCase() + item.slice(1)}</button>)}</div><button className="lighthouse-run" type="submit" disabled={busy}>{busy ? "Audit in progress" : "Run Lighthouse audit"}</button></div>
-    </form>
+    <div className="lighthouse-heading"><span><Gauge size={17} /></span><div><strong id="lighthouse-heading">Lighthouse speed audit</strong><small>Automatically testing the company website with browser-based lab measurements</small></div></div>
+    <div className="lighthouse-target"><div><span>Company website</span><a href={defaultUrl} target="_blank" rel="noreferrer">{targetLabel} <ExternalLink size={10} /></a></div><div className="lighthouse-strategy" aria-label="Audit strategy">{(["mobile", "desktop"] as const).map((item) => <button type="button" className={strategy === item ? "active" : ""} onClick={() => selectStrategy(item)} disabled={busy} key={item}>{item.slice(0, 1).toUpperCase() + item.slice(1)}</button>)}</div></div>
 
     {busy && <AuditSkeleton status={status} />}
     {status === "failed" && <div className="lighthouse-error" role="alert"><AlertTriangle size={17} /><div><strong>Audit not completed</strong><span>{error}</span>{errorCode && <small>Error code: {errorCode}</small>}</div><button type="button" onClick={() => void startAudit(true)}><RotateCcw size={12} /> Try again</button></div>}

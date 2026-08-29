@@ -377,7 +377,14 @@ def implications(section: dict[str, Any]) -> str:
     return f'<aside class="implications"><strong>Implications</strong><span>{clean_inline(actions[0])}</span></aside>' if actions else ""
 
 
-def roadmap(modules: list[dict[str, Any]]) -> list[dict[str, str]]:
+def roadmap(modules: list[dict[str, Any]], report_model: dict[str, Any] | None = None) -> list[dict[str, str]]:
+    model_recommendations = (report_model or {}).get("recommendations", [])
+    if model_recommendations:
+        return [{
+            "horizon": "NOW" if index < 3 else "NEXT" if index < 6 else "LATER",
+            "module": item.get("id", "ACTION"),
+            "text": clean_inline(concise(item.get("detail", ""), 230)),
+        } for index, item in enumerate(model_recommendations[:8])]
     candidates: list[tuple[int, str, str]] = []
     for module in modules:
         for section in module["sections"]:
@@ -472,7 +479,7 @@ def build_html(payload: dict[str, Any], compact: bool = False) -> str:
         acronyms = {"abm", "ai", "api", "b2b", "b2c", "geo", "html", "icp", "kpi", "pdf", "roi", "seo", "ugc", "url", "xlsx"}; special = {"kpis": "KPIs"}
         return " ".join(special.get(word.lower(), word.upper() if word.lower() in acronyms else word.capitalize()) for word in re.split(r"[\s_/-]+", value.strip()) if word)
     skills = [{"skill": skill_name(clean_inline(item.get("skill", "Skill"))), "phase": clean_inline(item.get("phase") or item.get("repository", "Method")), "reason": clean_inline(concise(item.get("reason", ""), 110))} for item in payload.get("skills", [])[:8] if isinstance(item, dict)]
-    return CATEGORY_TEMPLATE.render(title=normalize_acronyms(payload["title"]), title_prefix=" ".join(title_words[:split]) + " ", title_accent=" ".join(title_words[split:]), company=payload["companyName"], company_brief=clean_inline(payload.get("companyBrief") or "Company information was not available for this section."), skills=skills, updated=updated, source_count=payload.get("sourceCount", 0), executive=select_executive(modules), modules=modules, roadmap=roadmap(modules), profile=profile, cover_visual=cover_visual, body_class="qa-compact" if compact else "")
+    return CATEGORY_TEMPLATE.render(title=normalize_acronyms(payload["title"]), title_prefix=" ".join(title_words[:split]) + " ", title_accent=" ".join(title_words[split:]), company=payload["companyName"], company_brief=clean_inline(payload.get("companyBrief") or "Company information was not available for this section."), skills=skills, updated=updated, source_count=payload.get("sourceCount", 0), executive=select_executive(modules), modules=modules, roadmap=roadmap(modules, payload.get("reportModel")), profile=profile, cover_visual=cover_visual, body_class="qa-compact" if compact else "")
 
 
 def html_visual_metrics(rendered_html: str, payload: dict[str, Any]) -> dict[str, Any]:

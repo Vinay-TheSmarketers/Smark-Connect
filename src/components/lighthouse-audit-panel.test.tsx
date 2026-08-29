@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { LighthouseReport } from "@/lib/lighthouse/types";
-import { LighthouseReportView } from "./lighthouse-audit-panel";
+import { LighthouseAuditPanel, LighthouseReportView } from "./lighthouse-audit-panel";
 
 const metric = (value: number, displayValue: string) => ({ value, displayValue });
 const report: LighthouseReport = {
@@ -38,5 +38,15 @@ describe("completed Lighthouse report rendering", () => {
     expect(markup).toContain("97");
     expect(markup).toContain("Reduce unused JavaScript");
     expect(markup).toContain("https://example.com/");
+  });
+
+  it("uses the saved company website without rendering a second URL form", () => {
+    const markup = renderToStaticMarkup(createElement(LighthouseAuditPanel, { defaultUrl: "https://company.example/path" }));
+
+    expect(markup).toContain("Company website");
+    expect(markup).toContain("company.example");
+    expect(markup).not.toContain("Public website URL");
+    expect(markup).not.toContain("<input");
+    expect(markup).not.toContain("Run Lighthouse audit");
   });
 });

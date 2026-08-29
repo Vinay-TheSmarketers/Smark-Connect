@@ -63,7 +63,7 @@ export async function runInitialAudit(jobId: string): Promise<void> {
     }> = company.pageSpeedAudits;
     let externalFailures = reuseEvidence ? pageSpeed.filter((audit) => Boolean(audit.error)).length : 0;
     if (reuseEvidence) {
-      await setProgress(jobId, company.id, 28, `Reusing ${pages.length} saved public pages and PageSpeed evidence`);
+      await setProgress(jobId, company.id, 28, `Reusing ${pages.length} saved public pages and response-timing evidence`);
     } else {
       await setProgress(jobId, company.id, 8, "Crawling public website evidence");
       pages = await crawlWebsite(new URL(company.websiteUrl), 48, async (pagesRead, target) => {

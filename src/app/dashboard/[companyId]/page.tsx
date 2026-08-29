@@ -3,7 +3,7 @@ import { DashboardClient } from "@/components/dashboard-client";
 import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { ALL_DOCUMENTS } from "@/lib/skills/registry";
-import { createCompanyBrief } from "@/lib/company-brief";
+import { createCompanyContext } from "@/lib/company-brief";
 
 export default async function DashboardPage({ params }: PageProps<"/dashboard/[companyId]">) {
   const user = await requireUser();
@@ -13,8 +13,8 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
     where: { id: companyId, userId: user.id },
     include: {
       documents: { where: { type: { in: ALL_DOCUMENTS.map((document) => document.type) } }, orderBy: { createdAt: "asc" } },
+      crawlPages: { orderBy: { fetchedAt: "desc" }, take: 12, select: { url: true, title: true, description: true, content: true } },
       agentRuns: { where: { status: "DONE" }, orderBy: { createdAt: "desc" } },
-      pageSpeedAudits: { orderBy: { createdAt: "desc" } },
       _count: { select: { crawlPages: true } },
       auditJobs: { orderBy: { createdAt: "desc" }, take: 1 },
       integrations: { select: { provider: true, status: true, connectedAt: true }, orderBy: { provider: "asc" } },
@@ -29,14 +29,13 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
     orderBy: { createdAt: "asc" },
   });
   const latestAgents = Array.from(new Map(company.agentRuns.map((run) => [run.agentType, run])).values());
-  const latestAudits = Array.from(new Map(company.pageSpeedAudits.map((audit) => [audit.strategy, audit])).values());
+  const companyContext = createCompanyContext({ ...company, intelligenceMarkdown: company.documents.find((document) => document.type === "COMPANY_INTELLIGENCE")?.contentMarkdown, crawlPages: company.crawlPages });
   return <DashboardClient data={{
-    company: { id: company.id, name: company.name, websiteUrl: company.websiteUrl, logoUrl: company.logoUrl, category: company.category, description: company.description, companyBrief: createCompanyBrief(company), lastAuditedAt: company.lastAuditedAt?.toISOString() ?? null },
+    company: { id: company.id, name: company.name, websiteUrl: company.websiteUrl, logoUrl: company.logoUrl, category: company.category, companyContext, lastAuditedAt: company.lastAuditedAt?.toISOString() ?? null },
     companies,
     user: { name: user.name, email: user.email, llmProvider: user.llmProvider, llmKeyPreview: user.llmKeyPreview, demoMode: user.demoMode, tokenBudget: user.tokenBudget, tokenUsed: user.tokenUsed },
     documents: company.documents.map((document) => ({ ...document, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() })),
     agents: latestAgents.map((run) => ({ id: run.id, agentType: run.agentType, status: run.status, summary: run.summary, output: run.output, sources: run.sources, skills: run.skills, confidence: run.confidence, tokensUsed: run.tokensUsed, error: run.error, createdAt: run.createdAt.toISOString() })),
-    audits: latestAudits.map((audit) => ({ ...audit, createdAt: audit.createdAt.toISOString() })),
     integrations: company.integrations.map((integration) => ({ provider: integration.provider, status: integration.status, connectedAt: integration.connectedAt?.toISOString() ?? null })),
     agentConfigs: company.agentConfigs.map((config) => ({ agentType: config.agentType, config: config.config })),
     pagesRead: company._count.crawlPages,

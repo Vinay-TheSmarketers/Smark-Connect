@@ -38,7 +38,7 @@ export function CompanyForm({ additional = false }: { additional?: boolean }) {
         <input id="company-name" name="companyName" placeholder="Acme, Inc." autoComplete="organization" required minLength={2} />
         <label htmlFor="website-url">Company website</label>
         <div className="url-field"><span aria-hidden="true">↗</span><input id="website-url" name="websiteUrl" type="text" inputMode="url" placeholder="https://yourcompany.com" autoComplete="url" required /></div>
-        <div className="audit-preview"><div><span>01</span><p><strong>Crawl</strong><small>Key pages and site copy</small></p></div><div><span>02</span><p><strong>Understand</strong><small>Offer, audience, positioning</small></p></div><div><span>03</span><p><strong>Audit</strong><small>SEO and PageSpeed signals</small></p></div></div>
+        <div className="audit-preview"><div><span>01</span><p><strong>Crawl</strong><small>Key pages and site copy</small></p></div><div><span>02</span><p><strong>Understand</strong><small>Offer, audience, positioning</small></p></div><div><span>03</span><p><strong>Audit</strong><small>SEO and Lighthouse signals</small></p></div></div>
         {error && <p className="form-error" role="alert">{error}</p>}
         {requiresProvider && <Link className="provider-action" href="/settings/credits">Connect provider →</Link>}
         <button className="primary-button" type="submit" disabled={pending}>{pending ? "Starting secure audit…" : additional ? "Add and analyze company" : "Analyze my company"}<span>→</span></button>

@@ -56,7 +56,7 @@ The demo crawl confirms indexable public service content and a clear B2B categor
 
 - Mobile request profile: response score 78, HTTP 200, TTFB 620ms, total HTML response 840ms.
 - Desktop request profile: response score 91, HTTP 200, TTFB 310ms, total HTML response 490ms.
-- Source: Python URL timing demo fixture. This is not Lighthouse, Google PageSpeed, or Core Web Vitals evidence.
+- Source: Python URL timing demo fixture. This is not Lighthouse or Core Web Vitals evidence.
 
 ## Priority findings
 
@@ -217,7 +217,7 @@ Turn each evidence-led article into a LinkedIn post, X thread, Reddit-ready disc
 const demoAgents = [
   ["AI_CMO", "The six analyses point to one priority: prove the integrated B2B operating model.", [finding("Make the integrated operating model the lead narrative", "The home and services evidence spans ABM, demand, content, HubSpot, and RevOps.", "A coherent promise can reduce category confusion and improve sales continuity.", "Build the next campaign around one revenue problem, one proof set, and one operating model.", "critical", 92)]],
   ["SEO", "Commercial intent and proof clusters are the strongest organic opportunity.", [finding("Strengthen service-page intent", "The service evidence covers broad capabilities, but each motion needs deeper decision support.", "More specific pages can improve relevance and conversion quality.", "Upgrade the three highest-value service pages with proof, FAQs, and internal links.")]],
-  ["TECHNICAL_SEO", "Lightweight Python response timing is visible with explicit evidence boundaries.", [finding("Validate browser rendering later", "The demo timing fixture measures HTTP response and HTML transfer only.", "Server response is useful context but cannot establish rendering quality or Core Web Vitals.", "Connect Google PageSpeed or field data later before making browser-performance claims.", "medium", 90)]],
+  ["TECHNICAL_SEO", "Lightweight Python response timing is visible with explicit evidence boundaries.", [finding("Validate browser rendering with Lighthouse", "The demo timing fixture measures HTTP response and HTML transfer only.", "Server response is useful context but cannot establish rendering quality or Core Web Vitals.", "Use the self-hosted Lighthouse audit or connected field data before making browser-performance claims.", "medium", 90)]],
   ["GEO", "Entity clarity and citation-ready proof are the main AI visibility gaps.", [finding("Create a consistent entity statement", "Services are clear, but the evidence pack does not contain one reusable entity definition.", "Consistency helps answer engines resolve what the company does.", "Publish and reuse an approved company description with expert and proof references.")]],
   ["COMPETITOR", "Differentiate against four categories; verify named brands before comparison.", [finding("Compete on orchestration", "The service mix combines strategy, campaigns, content, HubSpot, and RevOps.", "This is more defensible than a generic full-service claim.", "Create a sourced comparison matrix after collecting verified competitor evidence.", "high", 84)]],
   ["AUDIENCE", "Four likely buying roles need first-party validation.", [finding("Prioritize the CMO and demand generation journey", "The offer is structured around B2B pipeline and cross-functional execution.", "Role-specific proof can improve message resonance.", "Interview recent wins and losses before finalizing personas.", "high", 82)]],
