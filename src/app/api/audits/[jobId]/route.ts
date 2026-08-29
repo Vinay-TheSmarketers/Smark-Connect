@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { runInitialAudit } from "@/lib/audit/run-initial-audit";
 import { CORE_DOCUMENTS } from "@/lib/skills/registry";
 
-const STALE_AUDIT_MS = 20 * 60 * 1000;
+const STALE_AUDIT_MS = 2 * 60 * 60 * 1000;
 
 function requiresProviderReconnect(user: { demoMode: boolean; llmVerifiedAt: Date | null; llmProvider: string | null; llmApiKeyEnc: string | null; llmModel: string | null }, job: { error: string | null; completedAt: Date | null }) {
   if (user.demoMode || !user.llmVerifiedAt || !user.llmProvider || !user.llmApiKeyEnc || !user.llmModel) return true;
@@ -25,7 +25,7 @@ export async function GET(_request: Request, context: RouteContext<"/api/audits/
   const job = await db.auditJob.findFirst({ where: { id: jobId, company: { userId: user.id } }, include: { company: { include: { documents: { where: { type: { in: CORE_DOCUMENTS.map((document) => document.type) } }, select: { type: true, title: true } }, _count: { select: { crawlPages: true, agentRuns: true } } } } } });
   if (!job) return Response.json({ error: "Audit not found" }, { status: 404 });
   if (["QUEUED", "RUNNING"].includes(job.status) && job.startedAt && Date.now() - job.startedAt.getTime() > STALE_AUDIT_MS) {
-    const error = "This audit stopped responding after 20 minutes. Retry the audit to continue using the saved research evidence.";
+    const error = "This audit stopped responding after 2 hours. Retry the audit to continue using the saved research evidence.";
     await db.$transaction([
       db.auditJob.update({ where: { id: job.id }, data: { status: "ERROR", error, step: "Audit stopped responding", completedAt: new Date() } }),
       db.company.update({ where: { id: job.companyId }, data: { status: "ERROR", crawlStatus: "ERROR", crawlError: error, crawlStep: "Audit stopped responding" } }),
