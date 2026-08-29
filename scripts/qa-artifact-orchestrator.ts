@@ -5,6 +5,7 @@ import { resolveArtifactManifest } from "../src/lib/artifacts/config";
 import { buildReportDataModel } from "../src/lib/artifacts/model";
 import { createExecutivePptx } from "../src/lib/documents/pptx";
 import { createBrandedXlsx } from "../src/lib/documents/xlsx";
+import { createBrandedPdf } from "../src/lib/documents/pdf";
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -42,9 +43,12 @@ async function main() {
     createExecutivePptx({ model, manifest }),
     createBrandedXlsx({ companyName: model.company.name, title: model.title, markdown, updatedAt: new Date(model.reportPeriod.updatedAt), sourceCount: model.sources.length, reportModel: model, manifest }),
   ]);
+  const pdf = await createBrandedPdf({ companyName: model.company.name, companyWebsite: model.company.website, title: model.title, documentType: model.reportType, markdown, updatedAt: new Date(model.reportPeriod.updatedAt), sourceCount: model.sources.length, reportModel: model, manifest });
   check(pptx.subarray(0, 2).toString() === "PK", "PPTX does not have a ZIP/OOXML signature.");
   check(pptx.length > 40_000, "PPTX is unexpectedly small.");
   check(xlsx.subarray(0, 2).toString() === "PK", "XLSX does not have a ZIP/OOXML signature.");
+  check(pdf.subarray(0, 4).toString() === "%PDF", "PDF does not have a PDF signature.");
+  check(pdf.length > 50_000, "PDF is unexpectedly small.");
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(xlsx as unknown as Parameters<typeof workbook.xlsx.load>[0]);
@@ -67,9 +71,10 @@ async function main() {
   await Promise.all([
     writeFile(path.join(outputDirectory, "seo-audit-executive.pptx"), pptx),
     writeFile(path.join(outputDirectory, "seo-audit-working.xlsx"), xlsx),
+    writeFile(path.join(outputDirectory, "seo-audit-report.pdf"), pdf),
     writeFile(path.join(outputDirectory, "report-data-model.json"), JSON.stringify({ manifest, model }, null, 2)),
   ]);
-  process.stdout.write(JSON.stringify({ outputDirectory, pptxBytes: pptx.length, workbookSheets: workbook.worksheets.map((sheet) => sheet.name), recommendations: model.recommendations.map((item) => item.id) }, null, 2));
+  process.stdout.write(JSON.stringify({ outputDirectory, pdfBytes: pdf.length, pptxBytes: pptx.length, workbookSheets: workbook.worksheets.map((sheet) => sheet.name), recommendations: model.recommendations.map((item) => item.id) }, null, 2));
 }
 
 void main();
