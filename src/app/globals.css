@@ -1250,3 +1250,26 @@ html[data-theme="dark"] .why-matched-box { border-color: #1e3a8a; background: #0
 html[data-theme="dark"] .evidence-quote-box { border-left-color: #3b82f6; background: #1e293b; color: #cbd5e1; }
 html[data-theme="dark"] .angle-tag { background: #1e293b; color: #e2e8f0; }
 
+/* Context Pane Exact Typography & Card Alignment Sync */
+.agent-summary strong { font-size: 13px !important; font-weight: 600 !important; letter-spacing: -.012em !important; }
+.agent-summary small { font-size: 11px !important; font-weight: 400 !important; line-height: 1.5 !important; color: #7a7376 !important; }
+
+html[data-theme="dark"] .agent-summary strong { color: #f5f1ed !important; font-size: 14px !important; font-weight: 600 !important; }
+html[data-theme="dark"] .agent-summary small { color: #a09893 !important; font-size: 12px !important; }
+
+.reddit-post-title { font-size: 13px !important; font-weight: 600 !important; line-height: 1.5 !important; letter-spacing: -.012em !important; }
+.reddit-row-meta { font-size: 11px !important; font-weight: 500 !important; color: #8e8885 !important; }
+
+html[data-theme="dark"] .reddit-post-title { color: #f5f1ed !important; }
+html[data-theme="dark"] .reddit-row-meta { color: #a09893 !important; }
+
+.post-copy-body, .pillar-text, .aeo-intro, .aeo-finding-item p { font-size: 13px !important; font-weight: 400 !important; line-height: 1.62 !important; letter-spacing: -.012em !important; }
+
+html[data-theme="dark"] .post-copy-body,
+html[data-theme="dark"] .pillar-text,
+html[data-theme="dark"] .aeo-intro,
+html[data-theme="dark"] .aeo-finding-item p { color: #f0ece8 !important; }
+
+.aeo-finding-item h3 { font-size: 14px !important; font-weight: 600 !important; }
+html[data-theme="dark"] .aeo-finding-item h3 { color: #38bdf8 !important; }
+

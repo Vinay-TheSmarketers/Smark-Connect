@@ -748,7 +748,41 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             <div className="audit-footnote">Lighthouse results are controlled browser-lab estimates and remain separate from field Core Web Vitals and connected first-party analytics.</div>
           </>}
           {analysisTab === "aigeo" && <div className="aeo-geo-section">
-            <div className="geo-stats-grid">
+            <div className="source-banner aeo-banner">
+              <div>
+                <Sparkles size={18} />
+                <span>
+                  <strong>Website evidence + GEO skill audit</strong>
+                  <small>Readiness analysis &amp; citation gap detection</small>
+                </span>
+              </div>
+              <span className="source-status evidence-badge">Evidence-led</span>
+            </div>
+
+            <div className="aeo-summary-card">
+              <div className="aeo-badge-row">
+                <span className="aeo-pill">AEO / GEO VISIBILITY</span>
+                <span className="aeo-gaps-badge">2 citation gaps detected</span>
+              </div>
+              <p className="aeo-intro">
+                {unwrapStructuredText(geoRun?.summary ?? "GEO analysis: Evaluate entity clarity, answer passages, question coverage, and structured data for AI search visibility.")}
+              </p>
+            </div>
+
+            <div className="aeo-findings-list">
+              {findings(geoRun?.output).slice(0, 2).map((item, index) => (
+                <article key={`${item.title}-${index}`} className="aeo-finding-item">
+                  <div className="aeo-item-head">
+                    <span className="aeo-dot" />
+                    <h3>{item.title}</h3>
+                  </div>
+                  <CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>
+                  {item.action && <div className="aeo-action-note"><strong>Next:</strong> {unwrapStructuredText(item.action)}</div>}
+                </article>
+              ))}
+            </div>
+
+            <div className="geo-stats-grid margin-top">
               <div className="geo-stat-card">
                 <div className="geo-stat-main">49</div>
                 <div className="geo-stat-sub">
