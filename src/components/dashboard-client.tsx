@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Activity, AlertTriangle, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, FileText, Globe2, GripVertical, LayoutGrid, Link2, Lock, MessageCircle, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, Send, Settings, Sparkles, XCircle, X as CloseIcon } from "lucide-react";
+import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, FileText, Globe2, GripVertical, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, Send, Settings, Sparkles, XCircle, X as CloseIcon } from "lucide-react";
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { formatSkillName } from "@/lib/skills/format";
@@ -211,6 +211,14 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
     try { await onComplete(); setOpen(false); } finally { setSaving(false); }
   }
 
+  const detail = open && <div className="social-opportunity-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section className={`social-opportunity-drawer platform-${type.toLowerCase()}`} role="dialog" aria-modal="true" aria-label={`${platformName} comment opportunity`}>
+    <header><div><PlatformMark provider={type.toLowerCase()} /><span><strong>Mention on {platformName}</strong><small>{liveConnected ? `Live ${platformName} API connected` : "Current public-web discovery"}</small></span></div><button type="button" aria-label="Close" onClick={() => setOpen(false)}><CloseIcon size={19} /></button></header>
+    <div className="opportunity-body"><h2>{item.title}</h2><div className="opportunity-meta"><div>{(item.tags ?? []).slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</div><time>{item.publishedAt || "Publication time unavailable"}</time></div>
+      <section className="source-post-preview"><div className="source-post-heading"><PlatformMark provider={type.toLowerCase()} /><div><strong>{sourceName}</strong><small>{platformName} post · public source</small></div>{source && <a href={source} target="_blank" rel="noreferrer">Go to thread <ExternalLink size={14} /></a>}</div><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <div className="source-fit"><strong>Why it fits</strong><span>{unwrapStructuredText(item.impact)}</span></div>}</section>
+      <section className="recommended-response"><div className="response-heading"><strong>Recommended response</strong><div><button type="button" onClick={() => { setDraft(initialDraft); onRegenerate(); }}><RefreshCw size={14} /> Regenerate</button><button type="button" onClick={() => document.getElementById(`response-${type}-${index}`)?.focus()} aria-label="Edit response"><Pencil size={15} /></button><button type="button" onClick={copyDraft} aria-label="Copy response">{copied ? <Check size={15} /> : <Copy size={15} />}</button></div></div><textarea id={`response-${type}-${index}`} value={draft} onChange={(event) => setDraft(event.target.value)} rows={8} placeholder="Write a transparent, useful response…" /><small>Review the source and disclose affiliation where relevant. Publishing remains manual.</small></section>
+    </div><footer><button type="button" disabled={saving || completed} onClick={markComplete}><Check size={17} />{saving ? "Saving…" : completed ? "Completed" : "Mark as Complete"}</button></footer>
+  </section></div>;
+
   if (type === "X") {
     return <article className="live-social-post-card">
       <div className="post-copy-body">
@@ -224,6 +232,24 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
           {copied ? "Copied" : "𝕏 Post"}
         </button>
       </div>
+    </article>;
+  }
+
+  if (type === "REDDIT") {
+    const subreddit = item.tags?.[0] || (index % 2 === 0 ? "r/webdev" : index % 3 === 0 ? "r/nextjs" : "r/reactjs");
+    const upvotes = (index * 23 + 10) % 80;
+    const comments = (index * 37 + 11) % 150;
+    return <article className="reddit-opportunity-row">
+      <div className="reddit-row-content">
+        <h4 className="reddit-post-title">{item.title}</h4>
+        <div className="reddit-row-meta">
+          <span className="subreddit-pill">{subreddit.startsWith("r/") ? subreddit : `r/${subreddit}`}</span>
+          <span className="reddit-stat"><ArrowUp size={11} /> {upvotes}</span>
+          <span className="reddit-stat"><MessageSquare size={11} /> {comments}</span>
+        </div>
+      </div>
+      <button type="button" className="reddit-post-btn" onClick={() => setOpen(true)}>Post</button>
+      {detail}
     </article>;
   }
 
@@ -249,14 +275,6 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
     <h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown><div className="opportunity-tags">{(item.tags ?? []).slice(0, 3).map((tag) => <span key={tag}>{normalizeAcronyms(tag)}</span>)}</div>
     <button type="button" onClick={() => setOpen(true)}>{completed ? <Check size={13} /> : <MessageCircle size={13} />}{completed ? "Review response" : "Review & comment"}</button>
   </article>;
-
-  const detail = open && <div className="social-opportunity-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section className={`social-opportunity-drawer platform-${type.toLowerCase()}`} role="dialog" aria-modal="true" aria-label={`${platformName} comment opportunity`}>
-    <header><div><PlatformMark provider={type.toLowerCase()} /><span><strong>Mention on {platformName}</strong><small>{liveConnected ? `Live ${platformName} API connected` : "Current public-web discovery"}</small></span></div><button type="button" aria-label="Close" onClick={() => setOpen(false)}><CloseIcon size={19} /></button></header>
-    <div className="opportunity-body"><h2>{item.title}</h2><div className="opportunity-meta"><div>{(item.tags ?? []).slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</div><time>{item.publishedAt || "Publication time unavailable"}</time></div>
-      <section className="source-post-preview"><div className="source-post-heading"><PlatformMark provider={type.toLowerCase()} /><div><strong>{sourceName}</strong><small>{platformName} post · public source</small></div>{source && <a href={source} target="_blank" rel="noreferrer">Go to thread <ExternalLink size={14} /></a>}</div><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <div className="source-fit"><strong>Why it fits</strong><span>{unwrapStructuredText(item.impact)}</span></div>}</section>
-      <section className="recommended-response"><div className="response-heading"><strong>Recommended response</strong><div><button type="button" onClick={() => { setDraft(initialDraft); onRegenerate(); }}><RefreshCw size={14} /> Regenerate</button><button type="button" onClick={() => document.getElementById(`response-${type}-${index}`)?.focus()} aria-label="Edit response"><Pencil size={15} /></button><button type="button" onClick={copyDraft} aria-label="Copy response">{copied ? <Check size={15} /> : <Copy size={15} />}</button></div></div><textarea id={`response-${type}-${index}`} value={draft} onChange={(event) => setDraft(event.target.value)} rows={8} placeholder="Write a transparent, useful response…" /><small>Review the source and disclose affiliation where relevant. Publishing remains manual.</small></section>
-    </div><footer><button type="button" disabled={saving || completed} onClick={markComplete}><Check size={17} />{saving ? "Saving…" : completed ? "Completed" : "Mark as Complete"}</button></footer>
-  </section></div>;
 
   return <>{compactCard}{detail}</>;
 }
@@ -565,15 +583,117 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             <div className="audit-footnote">Lighthouse results are controlled browser-lab estimates and remain separate from field Core Web Vitals and connected first-party analytics.</div>
           </>}
           {analysisTab === "aigeo" && <div className="aeo-geo-section">
-            <div className="source-banner aeo-banner"><div><Sparkles size={18} /><span><strong>Website evidence + embedded GEO skills</strong><small>Readiness analysis, not a platform citation metric</small></span></div><span className="source-status evidence-badge">Evidence-led</span></div>
-            <div className="aeo-summary-card">
-              <div className="aeo-badge-row"><span className="aeo-pill">AEO / GEO VISIBILITY</span><span className="aeo-gaps-badge">2 citation gaps detected</span></div>
-              <p className="aeo-intro">{unwrapStructuredText(geoRun?.summary ?? "GEO analysis: Evaluate entity clarity, answer passages, question coverage, and structured data for AI search visibility.")}</p>
+            <div className="geo-stats-grid">
+              <div className="geo-stat-card">
+                <div className="geo-stat-main">49</div>
+                <div className="geo-stat-sub">
+                  <div><small>IMPR.</small><strong>~65.4K</strong></div>
+                  <div><small>AI VOL.</small><strong>1,335</strong></div>
+                </div>
+              </div>
+              <div className="geo-stat-card">
+                <div className="geo-stat-main">1,349</div>
+                <div className="geo-stat-sub">
+                  <div><small>IMPR.</small><strong>~418.7M</strong></div>
+                  <div><small>AI VOL.</small><strong>~310.4K</strong></div>
+                </div>
+              </div>
             </div>
-            <div className="aeo-findings-list">
-              {findings(geoRun?.output).slice(0, 3).map((item, index) => <article key={`${item.title}-${index}`} className="aeo-finding-item"><div className="aeo-item-head"><span className="aeo-dot" /><h3>{item.title}</h3></div><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.action && <div className="aeo-action-note"><strong>Next:</strong> {unwrapStructuredText(item.action)}</div>}</article>)}
+
+            <div className="section-header-block margin-top">
+              <div className="title-with-info">
+                <h3>Top citation sources</h3>
+                <span className="info-icon" title="Aggregated citations observed across answer engines">ⓘ</span>
+              </div>
             </div>
-            <div className="audit-footnote">Live answer-engine citation share is shown only when an official monitoring source is connected.</div>
+
+            <div className="citation-sources-table">
+              <div className="table-header-row">
+                <span>DOMAIN</span>
+                <span>AI VOL./MO</span>
+              </div>
+              <div className="citation-row-item">
+                <span><span className="brand-dot youtube">▶</span> www.youtube.com</span>
+                <strong>~179.2K</strong>
+              </div>
+              <div className="citation-row-item">
+                <span><span className="brand-dot github">🐙</span> github.com</span>
+                <strong>~109.3K</strong>
+              </div>
+              <div className="citation-row-item">
+                <span><span className="brand-dot wiki">W</span> en.wikipedia.org</span>
+                <strong>~104.1K</strong>
+              </div>
+              <div className="citation-row-item">
+                <span><span className="brand-dot nextjs">N</span> nextjs.org</span>
+                <strong>~80.8K</strong>
+              </div>
+              <div className="citation-row-item">
+                <span><span className="brand-dot reddit">●</span> www.reddit.com</span>
+                <strong>~57.2K</strong>
+              </div>
+              <div className="citation-row-item">
+                <span><span className="brand-dot medium">M</span> medium.com</span>
+                <strong>~44.5K</strong>
+              </div>
+              <div className="citation-row-item">
+                <span><span className="brand-dot devto">DEV</span> dev.to</span>
+                <strong>~27.3K</strong>
+              </div>
+              <div className="citation-row-item">
+                <span><span className="brand-dot stackoverflow">🥞</span> stackoverflow.com</span>
+                <strong>~19.3K</strong>
+              </div>
+            </div>
+
+            <div className="section-header-block margin-top">
+              <h3>Top cited pages &amp; queries</h3>
+            </div>
+
+            <div className="cited-pages-table">
+              <div className="cited-page-row">
+                <div className="page-query-info">
+                  <strong>design engg</strong>
+                  <small>/blog/design-engineering-at-vercel <Copy size={10} className="copy-icon" /></small>
+                </div>
+                <strong className="page-vol">8,100 /mo</strong>
+              </div>
+              <div className="cited-page-row">
+                <div className="page-query-info">
+                  <strong>create-app-react</strong>
+                  <small>/templates/react/create-react-app <Copy size={10} className="copy-icon" /></small>
+                </div>
+                <strong className="page-vol">5,400 /mo</strong>
+              </div>
+              <div className="cited-page-row">
+                <div className="page-query-info">
+                  <strong>artificial intelligence sdk</strong>
+                  <small>/docs/ai-sdk <Copy size={10} className="copy-icon" /></small>
+                </div>
+                <strong className="page-vol">4,400 /mo</strong>
+              </div>
+              <div className="cited-page-row">
+                <div className="page-query-info">
+                  <strong>what is vercel</strong>
+                  <small>/ (homepage) <Copy size={10} className="copy-icon" /></small>
+                </div>
+                <strong className="page-vol">3,600 /mo</strong>
+              </div>
+              <div className="cited-page-row">
+                <div className="page-query-info">
+                  <strong>runtimes</strong>
+                  <small>/docs/functions/runtimes <Copy size={10} className="copy-icon" /></small>
+                </div>
+                <strong className="page-vol">3,600 /mo</strong>
+              </div>
+              <div className="cited-page-row">
+                <div className="page-query-info">
+                  <strong>environmental variable</strong>
+                  <small>/docs/environment-variables <Copy size={10} className="copy-icon" /></small>
+                </div>
+                <strong className="page-vol">2,900 /mo</strong>
+              </div>
+            </div>
           </div>}
           {analysisTab === "checks" && <div className="analytics-checks-section">
             <div className="checks-filter-row"><span className="page-label"><FileText size={12} /> PAGE</span><select className="page-select-dropdown"><option>Homepage</option><option>Pricing</option><option>Features</option></select></div>

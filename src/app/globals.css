@@ -1165,3 +1165,64 @@ html[data-theme="dark"] .page-select-dropdown { border-color: #383131; backgroun
 
 html[data-theme="dark"] .progress-track { background: #242020; }
 
+/* Reddit Opportunity Row Layout (media_1788024905495.png) */
+.reddit-opportunity-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #f2e9e4; background: #fffdfb; }
+.reddit-opportunity-row:last-child { border-bottom: 0; }
+.reddit-row-content { display: grid; gap: 4px; }
+.reddit-post-title { margin: 0; font-size: 13px; font-weight: 600; color: #231f20; line-height: 1.4; }
+.reddit-row-meta { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #8e8885; }
+.subreddit-pill { padding: 2px 7px; border-radius: 99px; background: #fee2e2; color: #dc2626; font-size: 10px; font-weight: 700; }
+.reddit-stat { display: flex; align-items: center; gap: 3px; font-weight: 600; }
+.reddit-post-btn { padding: 5px 14px; border-radius: 99px; border: 1px solid #111; background: #111; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
+
+/* AI/GEO Tab Layout (media_1788024905465.png & media_1788024905552.png) */
+.geo-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.geo-stat-card { padding: 12px; border-radius: 10px; border: 1px solid #eadfd9; background: #fffdfb; display: grid; gap: 8px; }
+.geo-stat-main { font-size: 24px; font-weight: 800; color: #231f20; line-height: 1.1; }
+.geo-stat-sub { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 10px; }
+.geo-stat-sub small { display: block; color: #8e8885; font-size: 8px; font-weight: 800; letter-spacing: .06em; margin-bottom: 2px; }
+.geo-stat-sub strong { font-size: 12px; font-weight: 700; color: #231f20; }
+
+.title-with-info { display: flex; align-items: center; gap: 6px; }
+.info-icon { font-size: 12px; color: #8e8885; cursor: help; }
+
+.citation-sources-table, .cited-pages-table { border: 1px solid #eadfd9; border-radius: 10px; background: #fffdfb; overflow: hidden; }
+.citation-row-item { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid #f2e9e4; font-size: 12px; }
+.citation-row-item:last-child { border-bottom: 0; }
+.citation-row-item span { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.brand-dot { width: 18px; height: 18px; border-radius: 4px; display: grid; place-items: center; font-size: 10px; font-weight: 800; background: #eee; }
+.brand-dot.youtube { background: #fee2e2; color: #dc2626; }
+.brand-dot.github { background: #f3f4f6; color: #111; }
+.brand-dot.wiki { background: #f3f4f6; color: #111; font-family: serif; }
+.brand-dot.nextjs { background: #000; color: #fff; }
+.brand-dot.reddit { background: #ffedd5; color: #ea580c; }
+.brand-dot.medium { background: #f3f4f6; color: #111; }
+.brand-dot.devto { background: #000; color: #fff; font-size: 8px; }
+.brand-dot.stackoverflow { background: #ffedd5; color: #d97706; }
+
+.cited-page-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #f2e9e4; font-size: 12px; }
+.cited-page-row:last-child { border-bottom: 0; }
+.page-query-info strong { display: block; font-size: 13px; font-weight: 700; color: #231f20; }
+.page-query-info small { display: flex; align-items: center; gap: 4px; color: #8e8885; font-size: 11px; margin-top: 2px; }
+.copy-icon { color: #8e8885; cursor: pointer; }
+.page-vol { font-size: 12px; font-weight: 700; color: #231f20; }
+
+/* Dark Mode Overrides for AI/GEO & Reddit Rows */
+html[data-theme="dark"] .reddit-opportunity-row,
+html[data-theme="dark"] .geo-stat-card,
+html[data-theme="dark"] .citation-sources-table,
+html[data-theme="dark"] .cited-pages-table { border-color: #2b2626; background: #161313; color: #f0ece8; }
+
+html[data-theme="dark"] .reddit-post-title,
+html[data-theme="dark"] .geo-stat-main,
+html[data-theme="dark"] .geo-stat-sub strong,
+html[data-theme="dark"] .page-query-info strong,
+html[data-theme="dark"] .page-vol { color: #f5f1ed; }
+
+html[data-theme="dark"] .reddit-opportunity-row,
+html[data-theme="dark"] .citation-row-item,
+html[data-theme="dark"] .cited-page-row { border-color: #242020; }
+
+html[data-theme="dark"] .subreddit-pill { background: #3b1d1d; color: #f87171; }
+html[data-theme="dark"] .reddit-post-btn { background: #f5f1ed; color: #111; border-color: #f5f1ed; }
+
