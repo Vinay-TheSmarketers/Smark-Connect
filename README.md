@@ -125,7 +125,7 @@ Build and test the image locally with Docker Desktop:
 docker build -t smark-connect .
 ```
 
-For Render, create a PostgreSQL database and a Docker web service from this repository. Set `DATABASE_URL`, `AUTH_SECRET`, `SECRET_ENCRYPTION_KEY`, and the public Render URL as `AUTH_URL`. Use `pnpm exec prisma migrate deploy` as the pre-deploy command; the Docker `CMD` runs `pnpm start`, which reads `process.env.PORT` and binds through `HOSTNAME=0.0.0.0`. Configure `/api/health` as the health-check path. The image includes Chromium, its Linux dependencies, and the Python PDF renderer. No external speed-test API key is required.
+For Render, create a PostgreSQL database and a Docker web service from this repository. Set `DATABASE_URL`, `AUTH_SECRET`, `SECRET_ENCRYPTION_KEY`, and the public Render URL as `AUTH_URL`. The Docker `CMD` runs `pnpm start`; its `prestart` lifecycle automatically runs `prisma migrate deploy` before Next.js starts, so the free tier does not need a pre-deploy command. The server reads `process.env.PORT` and binds through `HOSTNAME=0.0.0.0`. Configure `/api/health` as the health-check path. The image includes Chromium, its Linux dependencies, and the Python PDF renderer. No external speed-test API key is required.
 
 On Render's free tier, Chromium cold starts and constrained CPU/memory can make audits slow, and the service may spin down between requests. The one-audit worker protects the instance, but queued in-process work is not durable across a restart; job records remain in PostgreSQL and may need a retry after an interrupted deployment or spin-down. Use one instance with the current queue design.
 
