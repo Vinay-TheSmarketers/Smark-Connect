@@ -344,8 +344,40 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
     const completed = await completeAnalysis({ providerName: company.user.llmProvider, apiKeyEnc: company.user.llmApiKeyEnc, model: company.user.llmModel, companyName: company.name, websiteUrl: company.websiteUrl, title: definition.label, purpose: definition.description, instructions: `${definition.instructions} Execute the mapped skill chain in order. Start with current discovered items when present and state that discovery is public-web indexing rather than an authenticated platform API.`, skills: definition.skills, evidence, outputKind: "agent", maxTokens: definition.type === "COMPETITOR" ? 5600 : 4200 });
     const result = definition.type === "COMPETITOR" ? { ...completed, analysis: await enrichCompetitorAnalysis(completed.analysis, company.websiteUrl) } : completed;
     const isSocial = ["X", "REDDIT", "LINKEDIN"].includes(definition.type);
-    const liveFindings: Finding[] = liveItems.slice(0, 4).map((item) => ({ title: definition.type === "REDDIT" ? `Target-customer thread: ${item.title}` : item.title, evidence: `${item.excerpt || "Current public result discovered."}${item.publishedAt ? ` Published ${new Date(item.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}.` : " Publication date was not supplied by the index."}`, impact: definition.type === "REDDIT" ? "This public thread may reveal a target customer's job, pain, objection, or buying intent. Treat identity and fit as unverified until the thread is reviewed manually." : `Current conversation or content signal discovered through ${item.discoverySource}; validate the destination before acting.`, action: liveResearchAction(definition.type), kind: isSocial ? (definition.type === "REDDIT" ? "comment_opportunity" : "previous_post") : "insight", platform: isSocial ? definition.type : "", sourceLabel: item.discoverySource, publishedAt: item.publishedAt ?? "", draftContent: "", recommendedResponse: "", tags: [], companyName: "", officialWebsite: "", logoUrl: "", competitiveAttributes: [], priority: "high", confidence: 84, sourceUrls: [item.url] }));
-    const modelHasSourcedSocial = isSocial && result.analysis.findings.some((finding) => finding.sourceUrls.length > 0 && ["previous_post", "comment_opportunity"].includes(finding.kind));
+    const liveFindings: Finding[] = liveItems.slice(0, 4).map((item) => {
+      const subreddit = item.url.match(/reddit\.com\/r\/([^/]+)/i)?.[1] ? `r/${item.url.match(/reddit\.com\/r\/([^/]+)/i)![1]}` : "r/webdev";
+      const isReddit = definition.type === "REDDIT";
+      const isLinkedIn = definition.type === "LINKEDIN";
+      const defaultRedditDraft = `When handling technical audits at scale, separating crawler diagnostics from client reporting usually cuts turnaround by 70%. If you need an automated platform built specifically for agencies, ${company.name} generates white-label SEO reports and crawls automatically.`;
+      const defaultLinkedInDraft = `Most agencies don't have a reporting problem. They have a manual workflow problem.\n\nWhen you spend 5+ hours per client compiling SEO data, you're billing for production instead of strategy.\n\nHere is how top agencies automate reporting with ${company.name}:\n1. Automated monthly crawl triggers\n2. Real-time Core Web Vitals lab runs\n3. Grounded AI summaries of high-impact fixes\n\nAutomate production. Focus on strategic growth.`;
+      const defaultXDraft = `Most SEO problems aren't "SEO problems."\n\nThey're information architecture problems:\n\n• weak internal links\n• unclear entity definitions\n• orphaned pages\n• missing question coverage\n\nFix the architecture first with ${company.name}.`;
+
+      return {
+        title: isReddit ? `Target-customer thread: ${item.title}` : isLinkedIn ? `Content angle: ${item.title}` : item.title,
+        evidence: `${item.excerpt || "Current public signal discovered."}${item.publishedAt ? ` Published ${new Date(item.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}.` : " Publication date was not supplied by the index."}`,
+        impact: isReddit
+          ? "High buyer intent matching automated audit and reporting capabilities. Treat identity as unverified until reviewed."
+          : isLinkedIn
+          ? "Emerging audience pain point with strong thought-leadership content potential."
+          : "High-resonance short-form insight for technical founders and marketers on X.",
+        action: liveResearchAction(definition.type),
+        kind: isReddit ? ("comment_opportunity" as const) : ("new_post" as const),
+        platform: isSocial ? definition.type : "",
+        sourceLabel: item.discoverySource,
+        publishedAt: item.publishedAt ?? "",
+        draftContent: isLinkedIn ? defaultLinkedInDraft : isReddit ? "" : defaultXDraft,
+        recommendedResponse: isReddit ? defaultRedditDraft : "",
+        tags: isReddit ? [subreddit, "buying_intent"] : isLinkedIn ? ["thought_leadership", "agency_growth"] : ["seo_insights", "growth"],
+        companyName: company.name,
+        officialWebsite: company.websiteUrl,
+        logoUrl: "",
+        competitiveAttributes: [],
+        priority: "high" as const,
+        confidence: 88,
+        sourceUrls: [item.url],
+      };
+    });
+    const modelHasSourcedSocial = isSocial && result.analysis.findings.some((finding) => finding.sourceUrls.length > 0 && ["previous_post", "comment_opportunity", "new_post"].includes(finding.kind));
     const combined = definition.type === "COMPETITOR" ? result.analysis.findings : [...result.analysis.findings, ...(modelHasSourcedSocial ? [] : liveFindings)].slice(0, 10);
     await db.$transaction([
       db.agentRun.update({ where: { id: run.id }, data: { status: "DONE", summary: `${liveItems.length ? `${liveItems.length} current public results reviewed. ` : "No current indexed items were available. "}${result.analysis.summary}`, output: combined as unknown as Prisma.InputJsonValue, sources: Array.from(new Set(combined.flatMap((finding) => finding.sourceUrls))) as unknown as Prisma.InputJsonValue, skills: { mapped: definition.skills, execution: result.execution } as unknown as Prisma.InputJsonValue, confidence: Math.round(combined.reduce((total, finding) => total + finding.confidence, 0) / Math.max(1, combined.length)), tokensUsed: result.tokensUsed, completedAt: new Date() } }),

@@ -64,7 +64,7 @@ export type EvaluatedOpportunity = {
 };
 
 /**
- * Calculates Opportunity Score based on explicit scoring model:
+ * Calculates Opportunity Score based on explicit 6-factor scoring model:
  * Total = Relevance(30) + Intent(20) + AudienceFit(15) + ProductFit(15) + Recency(10) + Actionability(10)
  */
 export function scoreOpportunity(params: {
@@ -117,35 +117,39 @@ export function evaluateRedditCandidate(params: {
   matchedTopics?: string[];
   companyName: string;
 }): EvaluatedOpportunity {
-  const isDirectRecommendation = /recommend|tool|software|alternative|best|using|software/i.test(params.title);
-  const isAgency = /agency|agencies|client|workflow|manual/i.test(params.title + " " + (params.body ?? ""));
+  const text = `${params.title} ${params.body ?? ""}`.toLowerCase();
+  const isDirectRecommendation = /recommend|tool|software|alternative|best|using|software|pick|switch/i.test(text);
+  const isAgency = /agency|agencies|client|workflow|manual|freelance|consultant/i.test(text);
+  const isPain = /slow|broken|manual|takes too long|waste|hate|struggling|hard|frustrated/i.test(text);
 
-  const score = scoreOpportunity({
-    relevance: 28,
-    intent: isDirectRecommendation ? 20 : 14,
-    audienceFit: isAgency ? 15 : 12,
-    productFit: 15,
-    recency: 9,
-    actionability: 9,
-  });
+  const relevance = Math.min(30, (isAgency ? 12 : 8) + (isPain ? 10 : 6) + (isDirectRecommendation ? 8 : 6));
+  const intent = isDirectRecommendation ? 20 : isPain ? 16 : 12;
+  const audienceFit = isAgency ? 15 : 12;
+  const productFit = isDirectRecommendation && isAgency ? 15 : 13;
+  const recency = 9;
+  const actionability = isDirectRecommendation ? 10 : 8;
+
+  const score = scoreOpportunity({ relevance, intent, audienceFit, productFit, recency, actionability });
 
   const whyMatched = [
-    isAgency ? "✓ Audience = SEO Agency / Founder" : "✓ Audience = Digital Marketer",
-    "✓ Problem = Manual audit & reporting bottleneck",
-    `✓ Product = ${params.companyName} automated audit platform`,
-    isDirectRecommendation ? "✓ User explicitly requested recommendation" : "✓ High intent topic discussion",
+    isAgency ? "✓ Audience = SEO Agency / Digital Consultant" : "✓ Audience = In-house Growth Marketer",
+    isPain ? "✓ Problem = High manual labor & workflow bottleneck" : "✓ Topic = Tool selection & technical evaluation",
+    `✓ Product = ${params.companyName} automated intelligence platform`,
+    isDirectRecommendation ? "✓ User explicitly requested solution recommendations" : "✓ High commercial intent discussion",
     "✓ Discussion active within recent monitoring window",
   ];
+
+  const sub = params.subreddit.replace(/^r\//, "");
 
   return {
     id: params.id,
     platform: "reddit",
     title: params.title,
-    whatHappened: `Agency owner asking about ${params.subreddit} workflows on Reddit`,
+    whatHappened: `Target-customer discussion in r/${sub}: "${params.title}"`,
     whyMatters: "Strong buying intent and direct fit with automated auditing and client reporting capabilities.",
     whatToDo: "Reply with helpful workflow advice and softly introduce automated audit reports.",
     score,
-    intentLabel: isDirectRecommendation ? "Recommendation Request" : "Solution Search",
+    intentLabel: isDirectRecommendation ? "Recommendation Request" : isPain ? "Pain Expression" : "Solution Search",
     spamRisk: 0.12,
     whyMatched,
     evidenceQuotes: [
@@ -167,7 +171,7 @@ export function evaluateLinkedInOpportunity(params: {
   companyName: string;
 }): EvaluatedOpportunity {
   const score = scoreOpportunity({
-    relevance: 27,
+    relevance: 28,
     intent: 18,
     audienceFit: 15,
     productFit: 15,
@@ -186,13 +190,13 @@ export function evaluateLinkedInOpportunity(params: {
     intentLabel: "Thought Leadership",
     spamRisk: 0.05,
     whyMatched: [
-      "✓ Audience = Agency Founders & Executives",
+      "✓ Audience = Agency Founders & Growth Executives",
       `✓ Signal Cluster = ${params.signalCount} monitored discussions`,
       `✓ Product Fit = Automated ${params.topic}`,
       "✓ Content Gap = No related LinkedIn post published in 30 days",
     ],
     evidenceQuotes: [
-      `"12 monitored Reddit & search discussions regarding ${params.topic}"`,
+      `"${params.signalCount} monitored Reddit & search discussions regarding ${params.topic}"`,
       `"Matches core product feature: ${params.companyName} automated reporting"`,
     ],
     suggestedAngle: `Why agencies should stop treating ${params.topic} as manual production work`,
@@ -221,12 +225,12 @@ export function evaluateXOpportunity(params: {
   companyName: string;
 }): EvaluatedOpportunity {
   const score = scoreOpportunity({
-    relevance: 26,
+    relevance: 27,
     intent: 17,
     audienceFit: 14,
     productFit: 14,
-    recency: 7,
-    actionability: 6,
+    recency: 8,
+    actionability: 7,
   });
 
   return {
@@ -259,4 +263,24 @@ They're information architecture problems:
 
 Fix the architecture first.`,
   };
+}
+
+/**
+ * Deduplicates and clusters related signals by normalized topic
+ */
+export function clusterSignals(signals: MarketSignal[]): Array<{ topic: string; signals: MarketSignal[]; totalStrength: number }> {
+  const clusters = new Map<string, MarketSignal[]>();
+
+  for (const signal of signals) {
+    const norm = signal.topic.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+    const existing = clusters.get(norm) ?? [];
+    existing.push(signal);
+    clusters.set(norm, existing);
+  }
+
+  return Array.from(clusters.entries()).map(([topic, items]) => ({
+    topic,
+    signals: items,
+    totalStrength: items.reduce((sum, item) => sum + item.strength, 0) / items.length,
+  }));
 }
