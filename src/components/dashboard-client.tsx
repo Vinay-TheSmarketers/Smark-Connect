@@ -33,18 +33,18 @@ type DashboardData = {
 const coreDocumentOrder = ["COMPANY_INTELLIGENCE", "SEO_AUDIT", "GEO_AUDIT", "COMPETITOR_ANALYSIS", "AUDIENCE_ANALYSIS", "CONTENT_AUDIT"];
 const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Company Intelligence", SEO_AUDIT: "SEO Audit", GEO_AUDIT: "GEO and AI Visibility", COMPETITOR_ANALYSIS: "Competitor Analysis", AUDIENCE_ANALYSIS: "Audience Analysis", CONTENT_AUDIT: "Content Audit and Strategy" };
 const primaryAgents = [
-  ["X_INFLUENCER", "X INFLUENCER AGENT", "✦", "Launch your first campaign (1000 influencers are waiting)", false],
-  ["REDDIT", "REDDIT AGENT", "●", "2 opportunities ready", true],
-  ["GEO", "GEO AGENT", "◇", "2 citation gaps detected", true],
-  ["SEO", "SEO AGENT", "◎", "2 recommendations ready", true],
-  ["X", "X AGENT", "𝕏", "2 ideas ready", false],
-  ["AI_CMO", "AI CMO DIRECTOR", "✦", "Strategic executive synthesis", false],
-  ["TECHNICAL_SEO", "TECHNICAL SEO AGENT", "⚙", "Technical diagnostic and crawlability", false],
-  ["COMPETITOR", "COMPETITOR AGENT", "◫", "6 verified competitors", false],
-  ["AUDIENCE", "AUDIENCE AGENT", "◉", "ICP, jobs and voice-of-customer", false],
-  ["CONTENT_AUDIT", "CONTENT STRATEGY AGENT", "≡", "Content gaps and editorial briefs", false],
-  ["ARTICLES", "ARTICLES AGENT", "✎", "Evidence-led article briefs", false],
-  ["LINKEDIN", "LINKEDIN AGENT", "in", "Drafts and comment opportunities", false],
+  ["X_INFLUENCER", "X INFLUENCER AGENT", "✦", "Launch your first campaign (1000 influencers are waiting)"],
+  ["REDDIT", "REDDIT AGENT", "●", "2 opportunities ready"],
+  ["GEO", "GEO AGENT", "◇", "2 citation gaps detected"],
+  ["SEO", "SEO AGENT", "◎", "2 recommendations ready"],
+  ["X", "X AGENT", "𝕏", "2 ideas ready"],
+  ["AI_CMO", "AI CMO DIRECTOR", "✦", "Strategic executive synthesis"],
+  ["TECHNICAL_SEO", "TECHNICAL SEO AGENT", "⚙", "Technical diagnostic and crawlability"],
+  ["COMPETITOR", "COMPETITOR AGENT", "◫", "6 verified competitors"],
+  ["AUDIENCE", "AUDIENCE AGENT", "◉", "ICP, jobs and voice-of-customer"],
+  ["CONTENT_AUDIT", "CONTENT STRATEGY AGENT", "≡", "Content gaps and editorial briefs"],
+  ["ARTICLES", "ARTICLES AGENT", "✎", "Evidence-led article briefs"],
+  ["LINKEDIN", "LINKEDIN AGENT", "in", "Drafts and comment opportunities"],
 ] as const;
 const agentLogoPaths: Record<string, string> = {
   X: "/agent-logos/x.svg",
@@ -273,7 +273,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [selectedDocument, setSelectedDocument] = useState<WorkspaceDocument | null>(null);
   const [expandedAgent, setExpandedAgent] = useState<string | null>("X");
   const [analysisTab, setAnalysisTab] = useState<"seo" | "links" | "technical" | "geo">("seo");
-  const [showGoogleConnect, setShowGoogleConnect] = useState(true);
   const [vitalsDevice, setVitalsDevice] = useState<"desktop" | "mobile">("desktop");
   const [companyMenu, setCompanyMenu] = useState(false);
   const [agentTray, setAgentTray] = useState(false);
@@ -516,40 +515,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             {(["seo", "links", "technical", "geo"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "seo" || tabName === "geo" ? tabName.toUpperCase() : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
           </div>
           {analysisTab === "seo" && <>
-            {showGoogleConnect && <div className="google-connect-section">
-              <div className="google-connect-header">
-                <span className="eyebrow">CONNECT GOOGLE SERVICES</span>
-                <button type="button" className="close-btn" onClick={() => setShowGoogleConnect(false)} aria-label="Dismiss">&times;</button>
-              </div>
-              <div className="google-services-grid">
-                <div className="google-service-card">
-                  <div className="service-card-info">
-                    <span className="service-icon analytics-icon">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="13" width="4" height="8" rx="1" fill="#f59e0b"/><rect x="10" y="8" width="4" height="13" rx="1" fill="#f59e0b"/><rect x="17" y="3" width="4" height="18" rx="1" fill="#f59e0b"/></svg>
-                    </span>
-                    <div><strong>Google Analytics</strong><small>Traffic &amp; behavior</small></div>
-                  </div>
-                  <div className="service-chart-preview">
-                    <div className="chart-bar-preview"><span style={{ height: "35%" }} /><span style={{ height: "60%" }} /><span style={{ height: "45%" }} /><span style={{ height: "80%" }} /><span style={{ height: "65%" }} /><span style={{ height: "95%" }} /></div>
-                    <div className="lock-overlay"><Lock size={12} /></div>
-                  </div>
-                  <button type="button" className="service-connect-btn">Connect</button>
-                </div>
-                <div className="google-service-card">
-                  <div className="service-card-info">
-                    <span className="service-icon gsc-icon">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 17L9 11L13 15L21 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </span>
-                    <div><strong>Search Console</strong><small>Search rankings</small></div>
-                  </div>
-                  <div className="service-chart-preview">
-                    <svg className="chart-line-preview" viewBox="0 0 100 40" preserveAspectRatio="none"><path d="M0 32 Q 25 15, 50 25 T 100 8" fill="none" stroke="#38bdf8" strokeWidth="2.5" /></svg>
-                    <div className="lock-overlay"><Lock size={12} /></div>
-                  </div>
-                  <button type="button" className="service-connect-btn">Connect</button>
-                </div>
-              </div>
-            </div>}
             <div className="pagespeed-scores-section">
               <div className="section-title-row">
                 <div><strong>PageSpeed Scores</strong><small>Lighthouse scores from Google</small></div>
@@ -613,7 +578,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       <section className="agents-pane pane" {...paneProps("agents")}>
         <div className="pane-header"><span><Bot size={15} /><span className="pane-title-text">Agents Feed</span><span className="live-dot" /></span><div className="pane-tool-group"><button type="button" className="pane-tool-btn" title="Grid view"><LayoutGrid size={13} /></button><button type="button" className="pane-tool-btn" title="Settings"><Settings size={13} /></button></div>{paneControls("agents")}</div>
-        <div className="agents-list">{primaryAgents.map(([type, label, icon, defaultSubtitle, isUpgrade]) => {
+        <div className="agents-list">{primaryAgents.map(([type, label, icon, defaultSubtitle]) => {
           const run = data.agents.find((item) => item.agentType === type);
           const open = expandedAgent === type;
           let items = findings(run?.output);
@@ -629,7 +594,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             <button className="agent-summary" type="button" onClick={() => setExpandedAgent(open ? null : type)}>
               <AgentLogo type={type} fallback={icon} />
               <span><strong>{label}</strong><small>{running ? "Fetching current public sources and building recommendations…" : run ? agentStatusSummary(type, run, items) : defaultSubtitle}</small></span>
-              {isUpgrade ? <span className="upgrade-pill"><Lock size={10} /> Upgrade</span> : <ChevronDown className={open ? "rotated" : ""} size={15} />}
+              <ChevronDown className={open ? "rotated" : ""} size={15} />
             </button>
             {open && <div className="agent-output">
               {type === "X" && <div className="agent-voice-banner"><div className="voice-icon-box">𝕏</div><div className="voice-text"><strong>Post in your voice, daily</strong><small>Teach it your voice.</small></div><button type="button" className="voice-setup-btn">Set up &rarr;</button></div>}

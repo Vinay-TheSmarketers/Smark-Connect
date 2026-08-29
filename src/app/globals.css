@@ -1078,7 +1078,7 @@ html[data-theme="dark"] .company-context-evidence { color: #8f8883; font-size: 1
 .voice-text small { display: block; color: var(--muted); font-size: 7.5px; }
 .voice-setup-btn { padding: 5px 9px; border-radius: 99px; border: 1px solid #111; background: #111; color: #fff; font-size: 7.5px; font-weight: 700; cursor: pointer; }
 .live-social-post-card { padding: 12px; border: 1px solid #eadfd9; border-radius: 10px; background: #fff; margin-bottom: 8px; display: grid; gap: 8px; }
-.post-copy-body { font-size: 8.5px; line-height: 1.55; color: #2c272a; white-space: pre-wrap; }
+.post-copy-body { font-size: 12px; line-height: 1.6; color: #3c3639; white-space: pre-wrap; font-family: inherit; }
 .post-card-bottom-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
 .post-check-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #ded5d0; background: #fff; color: #8e8885; display: grid; place-items: center; cursor: pointer; }
 .post-check-btn.completed { background: #e7fbf5; color: #087c5c; border-color: #a7f3d0; }
@@ -1110,7 +1110,7 @@ html[data-theme="dark"] .agent-voice-banner { border-color: #332d2b; background:
 html[data-theme="dark"] .voice-text strong { color: #f5f1ed; }
 html[data-theme="dark"] .voice-setup-btn { background: #f5f1ed; color: #111; border-color: #f5f1ed; }
 html[data-theme="dark"] .live-social-post-card { border-color: #2e2927; background: #181515; color: #f5f1ed; }
-html[data-theme="dark"] .post-copy-body { color: #eae5e1; }
+html[data-theme="dark"] .post-copy-body { color: #f0ece8; font-size: 14px; line-height: 1.6; font-weight: 500; }
 html[data-theme="dark"] .post-check-btn { border-color: #3d3634; background: #24201f; color: #bcb5b0; }
 html[data-theme="dark"] .post-publish-btn { background: #fff; color: #111; border-color: #fff; }
 html[data-theme="dark"] .pane-tool-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
