@@ -50,6 +50,7 @@ export type LighthouseErrorCode =
   | "TIMEOUT"
   | "BROWSER_FAILURE"
   | "UNSUPPORTED_WEBSITE"
+  | "STORAGE_UNAVAILABLE"
   | "SERVER_OVERLOAD"
   | "RATE_LIMITED"
   | "AUDIT_FAILED";

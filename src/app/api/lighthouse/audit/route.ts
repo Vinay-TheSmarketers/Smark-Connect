@@ -6,6 +6,7 @@ import { canAcceptLighthouseJob, enqueueLighthouseJob } from "@/lib/lighthouse/q
 import { LighthouseAuditError } from "@/lib/lighthouse/types";
 import { lighthouseCacheKey, MAX_AUDIT_URL_LENGTH, normalizeAuditTarget } from "@/lib/lighthouse/url";
 import { isActiveDuplicate, isReusableAudit } from "@/lib/lighthouse/policy";
+import { isLighthouseStorageMissing, LIGHTHOUSE_STORAGE_MESSAGE } from "@/lib/lighthouse/storage";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,7 @@ const requestSchema = z.object({
 
 function statusForCode(code: LighthouseAuditError["code"]) {
   if (code === "RATE_LIMITED") return 429;
-  if (code === "SERVER_OVERLOAD") return 503;
+  if (code === "SERVER_OVERLOAD" || code === "STORAGE_UNAVAILABLE") return 503;
   if (code === "PRIVATE_URL" || code === "INVALID_URL") return 400;
   if (code === "UNREACHABLE") return 422;
   return 422;
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
     enqueueLighthouseJob(job.id);
     return Response.json({ jobId: job.id, status: "queued", cached: false }, { status: 202 });
   } catch (error) {
+    if (isLighthouseStorageMissing(error)) return Response.json({ error: LIGHTHOUSE_STORAGE_MESSAGE, code: "STORAGE_UNAVAILABLE" }, { status: 503 });
     const auditError = error instanceof LighthouseAuditError ? error : new LighthouseAuditError("AUDIT_FAILED", error instanceof Error ? error.message : "The Lighthouse audit could not be queued.");
     return Response.json({ error: auditError.message, code: auditError.code }, { status: statusForCode(auditError.code) });
   }

@@ -35,6 +35,7 @@ const userFacingErrors: Record<string, string> = {
   TIMEOUT: "The website did not finish within the 180-second audit limit.",
   BROWSER_FAILURE: "The audit browser stopped unexpectedly. You can safely retry.",
   UNSUPPORTED_WEBSITE: "This website could not be audited because its response or redirects are unsupported.",
+  STORAGE_UNAVAILABLE: "Lighthouse storage is not ready. Apply the database migrations and retry.",
   SERVER_OVERLOAD: "The single audit worker is at capacity. Try again shortly.",
   RATE_LIMITED: "The hourly Lighthouse audit limit has been reached.",
 };
