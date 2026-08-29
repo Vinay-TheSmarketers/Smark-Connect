@@ -40,7 +40,7 @@ const userFacingErrors: Record<string, string> = {
   RATE_LIMITED: "The hourly Lighthouse audit limit has been reached.",
 };
 
-function AuditSkeleton({ status }: { status: "queued" | "running" }) {
+export function AuditSkeleton({ status }: { status: "queued" | "running" }) {
   return <div className="lighthouse-progress" role="status" aria-live="polite">
     <div className="lighthouse-progress-copy"><span>{status === "queued" ? "Queued behind the current audit" : "Running Lighthouse in an isolated browser"}</span><strong>{status === "queued" ? "Waiting for the audit worker…" : "Measuring page load, accessibility, SEO, and best practices…"}</strong></div>
     <div className="audit-progress-rail"><span className={status} /></div>
@@ -48,36 +48,7 @@ function AuditSkeleton({ status }: { status: "queued" | "running" }) {
   </div>;
 }
 
-export function LighthouseReportView({ report, cacheHit, busy = false, onRunFresh }: { report: LighthouseReport; cacheHit: boolean; busy?: boolean; onRunFresh?: () => void }) {
-  const metrics = [
-    ["FCP", report.metrics.firstContentfulPaint.value, "ms"],
-    ["LCP", report.metrics.largestContentfulPaint.value, "ms"],
-    ["CLS", report.metrics.cumulativeLayoutShift.value, "cls"],
-    ["TBT", report.metrics.totalBlockingTime.value, "ms"],
-    ["Speed Index", report.metrics.speedIndex.value, "ms"],
-    ["Interactive", report.metrics.timeToInteractive.value, "ms"],
-    ["Page size", report.metrics.totalPageSize.value, "bytes"],
-    ["Requests", report.metrics.requestCount.value, "count"],
-  ] as const;
-  const scores = [
-    ["Performance", report.scores.performance],
-    ["Accessibility", report.scores.accessibility],
-    ["SEO", report.scores.seo],
-    ["Best practices", report.scores.bestPractices],
-  ] as const;
-
-  return <div className="lighthouse-report">
-    <div className="lighthouse-success" role="status"><CheckCircle2 size={15} /><span><strong>Report ready</strong><small>{cacheHit ? "Reused from the 24-hour cache" : `Completed ${new Date(report.fetchedAt).toLocaleString("en-IN")}`}</small></span><button type="button" onClick={onRunFresh} disabled={busy}><RotateCcw size={12} /> Run fresh</button></div>
-    <div className="lighthouse-scores">{scores.map(([label, score]) => <div className={scoreClass(score)} key={label}><strong>{score ?? "—"}<small>{score === null ? "" : "%"}</small></strong><span>{label}</span></div>)}</div>
-    <div className="lighthouse-metrics">{metrics.map(([label, value, kind]) => <div key={label}><span>{label}</span><strong>{formatMetric(value, kind)}</strong></div>)}</div>
-    <details className="lighthouse-findings" open><summary>Top opportunities <span>{report.opportunities.length}</span></summary>{report.opportunities.length ? <ol>{report.opportunities.map((item) => <li key={item.id}><strong>{item.title}</strong><small>{item.displayValue ?? (item.savingsMs ? `Potential savings ${formatMetric(item.savingsMs, "ms")}` : "Review in the audit details")}</small></li>)}</ol> : <p>No scored performance opportunities were returned.</p>}</details>
-    <div className="lighthouse-audit-groups"><details><summary>Failed audits <span>{report.failedAudits.length}</span></summary><ul>{report.failedAudits.map((item) => <li key={item.id}>{item.title}</li>)}</ul></details><details><summary>Passed audits <span>{report.passedAudits.length}</span></summary><ul>{report.passedAudits.map((item) => <li key={item.id}>{item.title}</li>)}</ul></details></div>
-    {report.warnings.length > 0 && <details className="lighthouse-warnings"><summary><AlertTriangle size={12} /> Diagnostic warnings <span>{report.warnings.length}</span></summary><ul>{report.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></details>}
-    <div className="lighthouse-report-meta"><ShieldCheck size={12} /><span>Lighthouse {report.lighthouseVersion} · {report.strategy} · lab test, not field data</span><a href={report.finalUrl} target="_blank" rel="noreferrer">Open tested page <ExternalLink size={10} /></a></div>
-  </div>;
-}
-
-export function LighthouseAuditPanel({ defaultUrl }: { defaultUrl: string }) {
+export function useLighthouseAudit(defaultUrl: string) {
   const [strategy, setStrategy] = useState<LighthouseStrategy>("mobile");
   const [status, setStatus] = useState<JobStatus>("idle");
   const [jobId, setJobId] = useState("");
@@ -146,12 +117,56 @@ export function LighthouseAuditPanel({ defaultUrl }: { defaultUrl: string }) {
     return () => { mounted.current = false; };
   }, [defaultUrl, startAudit]);
 
-  function selectStrategy(nextStrategy: LighthouseStrategy) {
+  const selectStrategy = useCallback((nextStrategy: LighthouseStrategy) => {
     if (nextStrategy === strategy) return;
     setStrategy(nextStrategy);
     void startAudit(false, nextStrategy);
-  }
+  }, [startAudit, strategy]);
 
+  return {
+    strategy,
+    status,
+    jobId,
+    report,
+    error,
+    errorCode,
+    cacheHit,
+    selectStrategy,
+    startAudit,
+  };
+}
+
+export function LighthouseReportView({ report, cacheHit, busy = false, onRunFresh }: { report: LighthouseReport; cacheHit: boolean; busy?: boolean; onRunFresh?: () => void }) {
+  const metrics = [
+    ["FCP", report.metrics.firstContentfulPaint.value, "ms"],
+    ["LCP", report.metrics.largestContentfulPaint.value, "ms"],
+    ["CLS", report.metrics.cumulativeLayoutShift.value, "cls"],
+    ["TBT", report.metrics.totalBlockingTime.value, "ms"],
+    ["Speed Index", report.metrics.speedIndex.value, "ms"],
+    ["Interactive", report.metrics.timeToInteractive.value, "ms"],
+    ["Page size", report.metrics.totalPageSize.value, "bytes"],
+    ["Requests", report.metrics.requestCount.value, "count"],
+  ] as const;
+  const scores = [
+    ["Performance", report.scores.performance],
+    ["Accessibility", report.scores.accessibility],
+    ["SEO", report.scores.seo],
+    ["Best practices", report.scores.bestPractices],
+  ] as const;
+
+  return <div className="lighthouse-report">
+    <div className="lighthouse-success" role="status"><CheckCircle2 size={15} /><span><strong>Report ready</strong><small>{cacheHit ? "Reused from the 24-hour cache" : `Completed ${new Date(report.fetchedAt).toLocaleString("en-IN")}`}</small></span><button type="button" onClick={onRunFresh} disabled={busy}><RotateCcw size={12} /> Run fresh</button></div>
+    <div className="lighthouse-scores">{scores.map(([label, score]) => <div className={scoreClass(score)} key={label}><strong>{score ?? "—"}<small>{score === null ? "" : "%"}</small></strong><span>{label}</span></div>)}</div>
+    <div className="lighthouse-metrics">{metrics.map(([label, value, kind]) => <div key={label}><span>{label}</span><strong>{formatMetric(value, kind)}</strong></div>)}</div>
+    <details className="lighthouse-findings" open><summary>Top opportunities <span>{report.opportunities.length}</span></summary>{report.opportunities.length ? <ol>{report.opportunities.map((item) => <li key={item.id}><strong>{item.title}</strong><small>{item.displayValue ?? (item.savingsMs ? `Potential savings ${formatMetric(item.savingsMs, "ms")}` : "Review in the audit details")}</small></li>)}</ol> : <p>No scored performance opportunities were returned.</p>}</details>
+    <div className="lighthouse-audit-groups"><details><summary>Failed audits <span>{report.failedAudits.length}</span></summary><ul>{report.failedAudits.map((item) => <li key={item.id}>{item.title}</li>)}</ul></details><details><summary>Passed audits <span>{report.passedAudits.length}</span></summary><ul>{report.passedAudits.map((item) => <li key={item.id}>{item.title}</li>)}</ul></details></div>
+    {report.warnings.length > 0 && <details className="lighthouse-warnings"><summary><AlertTriangle size={12} /> Diagnostic warnings <span>{report.warnings.length}</span></summary><ul>{report.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></details>}
+    <div className="lighthouse-report-meta"><ShieldCheck size={12} /><span>Lighthouse {report.lighthouseVersion} · {report.strategy} · lab test, not field data</span><a href={report.finalUrl} target="_blank" rel="noreferrer">Open tested page <ExternalLink size={10} /></a></div>
+  </div>;
+}
+
+export function LighthouseAuditPanel({ defaultUrl }: { defaultUrl: string }) {
+  const { strategy, status, jobId, report, error, errorCode, cacheHit, selectStrategy, startAudit } = useLighthouseAudit(defaultUrl);
   const busy = status === "queued" || status === "running";
   const targetLabel = (() => { try { return new URL(defaultUrl).hostname; } catch { return defaultUrl; } })();
   return <section className="lighthouse-panel" aria-labelledby="lighthouse-heading">

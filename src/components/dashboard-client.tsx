@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, FileText, Globe2, GripVertical, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, Send, Settings, Sparkles, XCircle, X as CloseIcon } from "lucide-react";
+import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, FileText, Globe2, GripVertical, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Sparkles, XCircle, X as CloseIcon } from "lucide-react";
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { formatSkillName } from "@/lib/skills/format";
@@ -13,7 +13,7 @@ import { Brand } from "./brand";
 import { DocumentWorkspace, type WorkspaceDocument } from "./document-workspace";
 import { LogoutButton } from "./logout-button";
 import { ModuleIcon, isCoreModule } from "./module-icon";
-import { LighthouseAuditPanel } from "./lighthouse-audit-panel";
+import { AuditSkeleton, LighthouseAuditPanel, useLighthouseAudit } from "./lighthouse-audit-panel";
 
 type FindingKind = "current_status" | "previous_post" | "new_post" | "comment_opportunity" | "audience_signal" | "insight";
 type Finding = { title?: string; evidence?: string; impact?: string; action?: string; description?: string; kind?: FindingKind; platform?: string; sourceLabel?: string; publishedAt?: string; draftContent?: string; recommendedResponse?: string; tags?: string[]; priority?: string; confidence?: number; sourceUrls?: string[]; companyName?: string; officialWebsite?: string; logoUrl?: string; competitiveAttributes?: string[] };
@@ -290,7 +290,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [documents, setDocuments] = useState(data.documents);
   const [selectedDocument, setSelectedDocument] = useState<WorkspaceDocument | null>(null);
   const [expandedAgent, setExpandedAgent] = useState<string | null>("X");
-  const [analysisTab, setAnalysisTab] = useState<"health" | "links" | "technical" | "aigeo" | "checks">("health");
+  const [analysisTab, setAnalysisTab] = useState<"health" | "links" | "technical" | "aigeo">("health");
+  const lighthouse = useLighthouseAudit(data.company.websiteUrl);
   const [vitalsDevice, setVitalsDevice] = useState<"desktop" | "mobile">("desktop");
   const [companyMenu, setCompanyMenu] = useState(false);
   const [agentTray, setAgentTray] = useState(false);
@@ -530,35 +531,111 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         <div className="pane-header"><span><Activity size={15} /><span className="pane-title-text">Analytics</span></span><span className="live-dot" />{paneControls("analytics")}</div>
         <div className="analytics-content">
           <div className="analytics-tabs">
-            {(["health", "links", "technical", "aigeo", "checks"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "aigeo" ? "AI/GEO" : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
+            {(["health", "links", "technical", "aigeo"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "aigeo" ? "AI/GEO" : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
           </div>
           {analysisTab === "health" && <div className="analytics-health-section">
-            <div className="lab-runs-banner"><span>Based on Core Web Vitals guidance; lab runs may differ from real users.</span></div>
-            <div className="section-header-block"><h3>SEO Health</h3><p>On-page metadata and content signals</p></div>
-            <div className="health-signal-table">
-              <div className="table-header-row"><span>SIGNAL</span><span>VALUE</span></div>
-              <div className="table-row-item warn"><span><AlertTriangle size={13} /> Meta Title</span><strong className="val-warn">67 chars</strong></div>
-              <div className="table-row-item warn"><span><AlertTriangle size={13} /> Meta Description</span><strong className="val-warn">111 chars</strong></div>
-              <div className="table-row-item pass"><span><CheckCircle2 size={13} /> Canonical URL</span><strong className="val-pass">Set</strong></div>
-              <div className="table-row-item pass"><span><CheckCircle2 size={13} /> Language</span><strong className="val-pass">en</strong></div>
-              <div className="table-row-item warn"><span><AlertTriangle size={13} /> Mobile Friendly</span><strong className="val-warn">No</strong></div>
-              <div className="table-row-item warn"><span><AlertTriangle size={13} /> Image Alt Tags</span><strong className="val-warn">0/15</strong></div>
-              <div className="table-row-item pass"><span><CheckCircle2 size={13} /> Internal Links</span><strong className="val-pass">{data.pagesRead * 2 || 68}</strong></div>
-              <div className="table-row-item pass"><span><CheckCircle2 size={13} /> External Links</span><strong className="val-pass">15</strong></div>
-              <div className="table-row-item pass"><span><CheckCircle2 size={13} /> Word Count</span><strong className="val-pass">508</strong></div>
-              <div className="table-row-item warn"><span><AlertTriangle size={13} /> Readability</span><strong className="val-warn">Standard</strong></div>
-            </div>
-            <div className="section-header-block margin-top"><div className="title-with-badge"><h3>Issues</h3><div className="issues-badge-row"><span className="crit"><XCircle size={10} /> 2</span><span className="warn"><AlertTriangle size={10} /> 5</span><span className="pass"><CheckCircle2 size={10} /> 10</span></div></div><p>Detected on-page problems</p></div>
-            <div className="issues-card-wrapper">
-              <div className="top-issues-bar"><span className="top-label">Top issues</span><div className="top-pill">Your page has 2 H1 tags.</div><span className="total-label">7 total</span></div>
-              <div className="issues-list">
-                <div className="issue-row crit"><span><XCircle size={13} /> Multiple H1 tags found</span><span className="sev-tag crit">Critical</span></div>
-                <div className="issue-row crit"><span><XCircle size={13} /> Images missing alt text</span><span className="sev-tag crit">Critical</span></div>
-                <div className="issue-row warn"><span><AlertTriangle size={13} /> Title tag too long</span><span className="sev-tag warn">Warning</span></div>
-                <div className="issue-row warn"><span><AlertTriangle size={13} /> Render-blocking resources detected</span><span className="sev-tag warn">Warning</span></div>
-                <div className="issue-row warn"><span><AlertTriangle size={13} /> Low content-to-code ratio</span><span className="sev-tag warn">Warning</span></div>
+            <div className="lab-runs-banner">
+              <span>Based on real-time Google Lighthouse audit results; lab runs measure live page performance.</span>
+              <div className="banner-controls">
+                <div className="vitals-device-toggle">
+                  <button type="button" className={lighthouse.strategy === "mobile" ? "active" : ""} onClick={() => lighthouse.selectStrategy("mobile")} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}>Mobile</button>
+                  <button type="button" className={lighthouse.strategy === "desktop" ? "active" : ""} onClick={() => lighthouse.selectStrategy("desktop")} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}>Desktop</button>
+                </div>
+                <button type="button" className="run-fresh-btn" onClick={() => void lighthouse.startAudit(true)} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}><RotateCcw size={11} /> Refresh</button>
               </div>
             </div>
+
+            {(lighthouse.status === "queued" || lighthouse.status === "running") && <AuditSkeleton status={lighthouse.status} />}
+
+            {lighthouse.status === "failed" && <div className="lighthouse-error" role="alert"><AlertTriangle size={17} /><div><strong>Lighthouse audit not completed</strong><span>{lighthouse.error}</span></div><button type="button" onClick={() => void lighthouse.startAudit(true)}><RotateCcw size={12} /> Try again</button></div>}
+
+            {lighthouse.report && <>
+              <div className="pagespeed-scores-section">
+                <div className="section-title-row">
+                  <div><strong>PageSpeed Scores</strong><small>Lighthouse scores from live browser lab run</small></div>
+                  <span className="audit-date">Audited: {new Date(lighthouse.report.fetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+                <div className="gauges-row">
+                  <div className={`score-gauge-ring ${lighthouse.report.scores.performance !== null && lighthouse.report.scores.performance >= 90 ? "good" : lighthouse.report.scores.performance !== null && lighthouse.report.scores.performance >= 50 ? "warn" : "bad"}`}><div className="ring"><span>{lighthouse.report.scores.performance ?? "—"}</span></div><small>Performance</small></div>
+                  <div className={`score-gauge-ring ${lighthouse.report.scores.accessibility !== null && lighthouse.report.scores.accessibility >= 90 ? "good" : lighthouse.report.scores.accessibility !== null && lighthouse.report.scores.accessibility >= 50 ? "warn" : "bad"}`}><div className="ring"><span>{lighthouse.report.scores.accessibility ?? "—"}</span></div><small>Accessibility</small></div>
+                  <div className={`score-gauge-ring ${lighthouse.report.scores.bestPractices !== null && lighthouse.report.scores.bestPractices >= 90 ? "good" : lighthouse.report.scores.bestPractices !== null && lighthouse.report.scores.bestPractices >= 50 ? "warn" : "bad"}`}><div className="ring"><span>{lighthouse.report.scores.bestPractices ?? "—"}</span></div><small>Best Practices</small></div>
+                  <div className={`score-gauge-ring ${lighthouse.report.scores.seo !== null && lighthouse.report.scores.seo >= 90 ? "good" : lighthouse.report.scores.seo !== null && lighthouse.report.scores.seo >= 50 ? "warn" : "bad"}`}><div className="ring"><span>{lighthouse.report.scores.seo ?? "—"}</span></div><small>SEO</small></div>
+                </div>
+              </div>
+
+              <div className="core-vitals-section margin-top">
+                <div className="section-title-row">
+                  <div><strong>Core Web Vitals &amp; Lab Metrics</strong><small>{lighthouse.report.strategy.toUpperCase()} strategy</small></div>
+                </div>
+                <div className="vitals-cards-grid">
+                  <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> FCP</span><strong className="vital-val">{lighthouse.report.metrics.firstContentfulPaint.displayValue ?? "—"}</strong><small className="vital-status">First Contentful Paint</small></div>
+                  <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> LCP</span><strong className="vital-val">{lighthouse.report.metrics.largestContentfulPaint.displayValue ?? "—"}</strong><small className="vital-status">Largest Contentful Paint</small></div>
+                  <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> TBT</span><strong className="vital-val">{lighthouse.report.metrics.totalBlockingTime.displayValue ?? "—"}</strong><small className="vital-status">Total Blocking Time</small></div>
+                  <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> CLS</span><strong className="vital-val">{lighthouse.report.metrics.cumulativeLayoutShift.displayValue ?? "—"}</strong><small className="vital-status">Cumulative Layout Shift</small></div>
+                </div>
+              </div>
+
+              <div className="section-header-block margin-top">
+                <div className="title-with-badge">
+                  <h3>Issues &amp; Opportunities</h3>
+                  <div className="issues-badge-row">
+                    <span className="crit"><XCircle size={10} /> {lighthouse.report.failedAudits.length}</span>
+                    <span className="warn"><AlertTriangle size={10} /> {lighthouse.report.opportunities.length}</span>
+                    <span className="pass"><CheckCircle2 size={10} /> {lighthouse.report.passedAudits.length}</span>
+                  </div>
+                </div>
+                <p>Detected performance, accessibility, and SEO issues</p>
+              </div>
+
+              <div className="issues-card-wrapper">
+                <div className="top-issues-bar">
+                  <span className="top-label">Top issue</span>
+                  <div className="top-pill">{lighthouse.report.failedAudits[0]?.title ?? lighthouse.report.opportunities[0]?.title ?? "All automated audits passed"}</div>
+                  <span className="total-label">{lighthouse.report.failedAudits.length + lighthouse.report.opportunities.length} total</span>
+                </div>
+                <div className="issues-list">
+                  {lighthouse.report.failedAudits.map((item) => (
+                    <div key={item.id} className="issue-row crit">
+                      <span><XCircle size={13} /> {item.title}</span>
+                      <span className="sev-tag crit">Critical</span>
+                    </div>
+                  ))}
+                  {lighthouse.report.opportunities.map((item) => (
+                    <div key={item.id} className="issue-row warn">
+                      <span><AlertTriangle size={13} /> {item.title}</span>
+                      <span className="sev-tag warn">{item.displayValue ?? "Opportunity"}</span>
+                    </div>
+                  ))}
+                  {lighthouse.report.failedAudits.length === 0 && lighthouse.report.opportunities.length === 0 && (
+                    <div className="issue-row pass">
+                      <span><CheckCircle2 size={13} /> No critical issues detected</span>
+                      <span className="sev-tag pass">Clean</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="section-header-block margin-top row-space">
+                <div>
+                  <h3>Passed Checks</h3>
+                  <p>All on-page signals verified by Lighthouse</p>
+                </div>
+                <span className="passed-count-tag">{lighthouse.report.passedAudits.length} passed</span>
+              </div>
+
+              <div className="passed-checks-table">
+                <div className="table-header-row">
+                  <span>CHECK</span>
+                  <span>AUDIT KEY</span>
+                </div>
+                {lighthouse.report.passedAudits.map((item) => (
+                  <div key={item.id} className="check-row-item">
+                    <span><CheckCircle2 size={13} className="check-icon" /> {item.title}</span>
+                    <span className="cat-label">{item.id}</span>
+                  </div>
+                ))}
+              </div>
+            </>}
           </div>}
           {analysisTab === "links" && <div className="analytics-links-section">
             <div className="links-progress-card">
@@ -693,22 +770,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 </div>
                 <strong className="page-vol">2,900 /mo</strong>
               </div>
-            </div>
-          </div>}
-          {analysisTab === "checks" && <div className="analytics-checks-section">
-            <div className="checks-filter-row"><span className="page-label"><FileText size={12} /> PAGE</span><select className="page-select-dropdown"><option>Homepage</option><option>Pricing</option><option>Features</option></select></div>
-            <div className="section-header-block margin-top row-space"><div><h3>Passed Checks</h3><p>All on-page signals that are correctly configured</p></div><span className="passed-count-tag">10 passed</span></div>
-            <div className="passed-checks-table">
-              <div className="table-header-row"><span>CHECK</span><span>CATEGORY</span></div>
-              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> Canonical tag present</span><span className="cat-label">Canonical URL</span></div>
-              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> HTTPS enabled</span><span className="cat-label">HTTPS</span></div>
-              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> No mixed content</span><span className="cat-label">Security</span></div>
-              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> Open Graph tags present</span><span className="cat-label">Open Graph</span></div>
-              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> Favicon present</span><span className="cat-label">Favicon</span></div>
-              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> No broken links found</span><span className="cat-label">Broken Links</span></div>
-              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> HTML doctype present</span><span className="cat-label">HTML Doctype</span></div>
-              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> Adequate word count</span><span className="cat-label">Word Count</span></div>
-              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> Internal links present</span><span className="cat-label">Internal Links</span></div>
             </div>
           </div>}
         </div>
