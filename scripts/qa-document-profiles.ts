@@ -72,7 +72,7 @@ async function main() {
   const selectedProfiles = process.env.QA_DOCUMENT_TYPE ? profiles.filter(([documentType]) => documentType === process.env.QA_DOCUMENT_TYPE) : profiles;
   if (!selectedProfiles.length) throw new Error(`Unknown QA_DOCUMENT_TYPE: ${process.env.QA_DOCUMENT_TYPE}`);
   for (const [documentType, title] of selectedProfiles) {
-    const result = await createVisualReport({ companyName: "Smark Connect QA", title, documentType, markdown: sampleMarkdown(title), updatedAt: new Date("2026-08-29T00:00:00Z"), sourceCount: 7 });
+    const result = await createVisualReport({ companyName: "Smark Connect Quality Assurance Company With a Deliberately Long Name", companyWebsite: "https://example.com", companyCategory: "B2B marketing technology", companyBrief: "Smark Connect Quality Assurance Company With a Deliberately Long Name is a B2B marketing technology company. Its public website is example.com. This analysis evaluates its current digital presence, performance, visibility, and opportunities for improvement.", skills: [{ repository: "claude-seo-main", skill: "technical-seo-audit", phase: "Evidence review", reason: "Inspect technical constraints and order remediation dependencies." }, { repository: "openclaw-marketing-skills-main", skill: "content-strategy", phase: "Decision synthesis", reason: "Connect evidence to an actionable editorial system." }], title, documentType, markdown: sampleMarkdown(title), updatedAt: new Date("2026-08-29T00:00:00Z"), sourceCount: 7 });
     const filename = `${documentType.toLowerCase()}.pdf`;
     await writeFile(path.join(outputDirectory, filename), result.pdf);
     await writeFile(path.join(outputDirectory, filename.replace(/\.pdf$/, ".html")), result.html);

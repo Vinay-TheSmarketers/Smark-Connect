@@ -3,6 +3,7 @@ import { DashboardClient } from "@/components/dashboard-client";
 import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { ALL_DOCUMENTS } from "@/lib/skills/registry";
+import { createCompanyBrief } from "@/lib/company-brief";
 
 export default async function DashboardPage({ params }: PageProps<"/dashboard/[companyId]">) {
   const user = await requireUser();
@@ -30,7 +31,7 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
   const latestAgents = Array.from(new Map(company.agentRuns.map((run) => [run.agentType, run])).values());
   const latestAudits = Array.from(new Map(company.pageSpeedAudits.map((audit) => [audit.strategy, audit])).values());
   return <DashboardClient data={{
-    company: { id: company.id, name: company.name, websiteUrl: company.websiteUrl, logoUrl: company.logoUrl, category: company.category, description: company.description, lastAuditedAt: company.lastAuditedAt?.toISOString() ?? null },
+    company: { id: company.id, name: company.name, websiteUrl: company.websiteUrl, logoUrl: company.logoUrl, category: company.category, description: company.description, companyBrief: createCompanyBrief(company), lastAuditedAt: company.lastAuditedAt?.toISOString() ?? null },
     companies,
     user: { name: user.name, email: user.email, llmProvider: user.llmProvider, llmKeyPreview: user.llmKeyPreview, demoMode: user.demoMode, tokenBudget: user.tokenBudget, tokenUsed: user.tokenUsed },
     documents: company.documents.map((document) => ({ ...document, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() })),

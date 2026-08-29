@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CheckCircle2, Clock3, Download, FileSpreadsheet, FileText, RefreshCw, ShieldCheck, Sparkles, X } from "lucide-react";
 import { unwrapStructuredText } from "@/lib/text-format";
+import { formatSkillName } from "@/lib/skills/format";
 import { isCoreModule, ModuleIcon } from "./module-icon";
 
 export type WorkspaceDocument = {
@@ -49,18 +50,75 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
+function ReportPreviewSkeleton() {
+  return <div className="report-preview-loading" role="status" aria-live="polite" aria-label="Preparing your report">
+    <div className="report-loading-message"><Sparkles size={15} /><span><strong>Preparing your report…</strong><small>Building the visual report and completing layout checks.</small></span></div>
+    <article className="report-skeleton-page" aria-hidden="true">
+      <header><i className="skeleton-kicker" /><i className="skeleton-title" /><i className="skeleton-title short" /></header>
+      <section className="skeleton-company"><i /><div><b /><b /><b /></div></section>
+      <section className="skeleton-context"><i /><b /><b /></section>
+      <section className="skeleton-metrics"><span /><span /><span /><span /></section>
+      <section className="skeleton-agent-grid"><div><i /><b /><b /></div><div><i /><b /><b /></div></section>
+      <section className="skeleton-skill-grid"><span /><span /><span /></section>
+      <section className="skeleton-visuals"><div className="skeleton-chart"><i /><i /><i /><i /></div><div className="skeleton-recommendations"><b /><b /><b /><b /></div></section>
+    </article>
+  </div>;
+}
+
 export function DocumentWorkspace({ document, onClose, onUpdate }: { document: WorkspaceDocument; onClose: () => void; onUpdate: (document: WorkspaceDocument) => void }) {
   const [tab, setTab] = useState<"document" | "pdf">("document");
   const [focused, setFocused] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [pdfState, setPdfState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [pdfError, setPdfError] = useState("");
+  const [pdfUrl, setPdfUrl] = useState("");
+  const pdfUrlRef = useRef("");
   const skills = provenance(document.skillProvenance);
   const metadata = documentMetadata(document.metadata);
   const execution = skillExecution(metadata.skillExecution);
   const cleanContent = useMemo(() => unwrapStructuredText(document.contentMarkdown), [document.contentMarkdown]);
   const preparedDemo = metadata.generationMode === "prepared-demo";
   const estimatedEditTokens = useMemo(() => Math.max(700, Math.ceil(((focused ? document.contentMarkdown.length : document.contentMarkdown.length * 2.4) + prompt.length) / 4)), [document.contentMarkdown, focused, prompt]);
+
+  useEffect(() => () => { if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current); }, []);
+
+  async function generatePdf(download = false) {
+    if (pdfState === "loading") return;
+    setPdfState("loading");
+    setPdfError("");
+    try {
+      const response = await fetch(`/api/documents/${document.id}/export?format=pdf&preview=1`, { cache: "no-store" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? "The PDF could not be generated.");
+      }
+      const blob = await response.blob();
+      if (blob.type !== "application/pdf" && !blob.type.includes("pdf")) throw new Error("The report service returned an invalid PDF response.");
+      const nextUrl = URL.createObjectURL(blob);
+      if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+      pdfUrlRef.current = nextUrl;
+      setPdfUrl(nextUrl);
+      setPdfState("ready");
+      if (download) {
+        const link = window.document.createElement("a");
+        link.href = nextUrl;
+        link.download = `${document.title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "report"}.pdf`;
+        window.document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+    } catch (cause) {
+      setPdfState("error");
+      setPdfError(cause instanceof Error ? cause.message : "The PDF could not be generated.");
+    }
+  }
+
+  function openPdfPreview() {
+    setTab("pdf");
+    if (pdfState === "idle" || pdfState === "error") void generatePdf(false);
+  }
 
   async function editDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -89,16 +147,16 @@ export function DocumentWorkspace({ document, onClose, onUpdate }: { document: W
           <a href={`/api/documents/${document.id}/export?format=docx`}><Download size={14} /> DOCX</a>
           <a className="spreadsheet-action" href={`/api/documents/${document.id}/export?format=xlsx`}><FileSpreadsheet size={14} /> XLSX</a>
           <a href={`/api/documents/${document.id}/export?format=html`}><Download size={14} /> HTML</a>
-          <a href={`/api/documents/${document.id}/export?format=pdf`}><Download size={14} /> PDF</a>
+          <button className="generate-pdf-action" type="button" disabled={pdfState === "loading"} onClick={() => void generatePdf(true)}><Download size={14} /> {pdfState === "loading" ? "Preparing PDF" : "Generate PDF"}</button>
           <button type="button" onClick={onClose} aria-label="Close document"><X size={17} /></button>
         </div>
       </header>
-      <div className="document-tabs"><button className={tab === "document" ? "active" : ""} onClick={() => setTab("document")}>Document</button><button className={tab === "pdf" ? "active" : ""} onClick={() => setTab("pdf")}>PDF preview</button><span>DOCX · XLSX · HTML · PDF</span></div>
+      <div className="document-tabs"><button className={tab === "document" ? "active" : ""} onClick={() => setTab("document")}>Document</button><button className={tab === "pdf" ? "active" : ""} onClick={openPdfPreview}>PDF preview</button><span>DOCX · XLSX · HTML · PDF</span></div>
       <div className="document-body">
-        {tab === "document" ? <><details className={`skill-receipt ${execution ? "verified" : preparedDemo ? "demo" : "legacy"}`} open><summary><span>{execution ? <ShieldCheck size={15} /> : <Clock3 size={15} />}{execution ? "Verified skill execution receipt" : preparedDemo ? "Prepared demo document" : "Skill execution receipt unavailable"}</span><small>{execution ? `${execution.steps.length} files executed` : `${skills.length} skills mapped`}</small></summary>{execution ? <div className="skill-receipt-body"><div className="receipt-facts"><span><strong>Provider</strong>{providerLabel(execution.provider)}</span><span><strong>Model</strong>{execution.model}</span><span><strong>Executed</strong>{formatTimestamp(execution.executedAt)}</span><span><strong>Status</strong><em><CheckCircle2 size={11} /> Complete</em></span></div><ol>{execution.steps.map((step) => <li key={`${step.step}-${step.repository}-${step.skill}`}><span>{step.step}</span><div><strong>{step.repository}/{step.skill}</strong><small>{step.phase} · {step.reason}</small><code>{step.source} · sha256:{step.digest.slice(0, 12)} · {formatNumber(step.charactersProvided)} chars</code>{step.references.length > 0 && <small>References: {step.references.join(", ")}</small>}</div></li>)}</ol></div> : <div className="skill-receipt-note"><strong>{preparedDemo ? "This is sample content, not a live provider result." : "The ordered skill plan is stored, but this older document predates execution receipts."}</strong><p>{preparedDemo ? "Connect a real API provider and run a new audit to generate a report with file-level hashes and execution metadata." : "Regenerate the document to create a verifiable receipt."}</p></div>}</details><div className="spreadsheet-callout"><FileSpreadsheet size={17} /><div><strong>Spreadsheet-ready</strong><span>Download an editable XLSX with an overview, module sheets, filterable tables, and source register.</span></div><a href={`/api/documents/${document.id}/export?format=xlsx`}>Generate XLSX</a></div><article className="document-page"><div className="document-kicker">THE SMARKETERS / AI CMO REPORT</div><ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent}</ReactMarkdown><footer><span>Smark Connect</span><span>Professionally formatted on export</span></footer></article></> : <iframe title={`${document.title} PDF preview`} key={`${document.id}-${document.version}`} src={`/api/documents/${document.id}/export?format=pdf&preview=1`} />}
+        {tab === "document" ? <><details className={`skill-receipt ${execution ? "verified" : preparedDemo ? "demo" : "legacy"}`} open><summary><span>{execution ? <ShieldCheck size={15} /> : <Clock3 size={15} />}{execution ? "Verified skill execution receipt" : preparedDemo ? "Prepared demo document" : "Skill execution receipt unavailable"}</span><small>{execution ? `${execution.steps.length} files executed` : `${skills.length} skills mapped`}</small></summary>{execution ? <div className="skill-receipt-body"><div className="receipt-facts"><span><strong>Provider</strong>{providerLabel(execution.provider)}</span><span><strong>Model</strong>{execution.model}</span><span><strong>Executed</strong>{formatTimestamp(execution.executedAt)}</span><span><strong>Status</strong><em><CheckCircle2 size={11} /> Complete</em></span></div><ol>{execution.steps.map((step) => <li key={`${step.step}-${step.repository}-${step.skill}`}><span>{step.step}</span><div><strong>{formatSkillName(step.skill)}</strong><small>{step.phase} · {step.reason}</small><code>{step.repository} · {step.source} · sha256:{step.digest.slice(0, 12)} · {formatNumber(step.charactersProvided)} chars</code>{step.references.length > 0 && <small>References: {step.references.join(", ")}</small>}</div></li>)}</ol></div> : <div className="skill-receipt-note"><strong>{preparedDemo ? "This is sample content, not a live provider result." : "The ordered skill plan is stored, but this older document predates execution receipts."}</strong><p>{preparedDemo ? "Connect a real API provider and run a new audit to generate a report with file-level hashes and execution metadata." : "Regenerate the document to create a verifiable receipt."}</p></div>}</details><div className="spreadsheet-callout"><FileSpreadsheet size={17} /><div><strong>Spreadsheet-ready</strong><span>Download an editable XLSX with an overview, module sheets, filterable tables, and source register.</span></div><a href={`/api/documents/${document.id}/export?format=xlsx`}>Generate XLSX</a></div><article className="document-page"><div className="document-kicker">THE SMARKETERS / AI CMO REPORT</div><ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent}</ReactMarkdown><footer><span>Smark Connect</span><span>Professionally formatted on export</span></footer></article></> : <div className="pdf-preview-stage">{pdfState === "loading" && <ReportPreviewSkeleton />}{pdfState === "error" && <div className="pdf-preview-error" role="alert"><strong>We couldn’t prepare this PDF.</strong><p>{pdfError}</p><button type="button" onClick={() => void generatePdf(false)}>Try again</button></div>}{pdfState === "ready" && pdfUrl && <><div className="pdf-preview-success" role="status"><CheckCircle2 size={14} /><span>Your PDF is ready to preview and download.</span></div><iframe title={`${document.title} PDF preview`} key={`${document.id}-${document.version}-${pdfUrl}`} src={pdfUrl} /></>}{pdfState === "idle" && <ReportPreviewSkeleton />}</div>}
       </div>
       <aside className="document-editor">
-        <div className="skill-provenance"><span>Ordered skill chain</span><div>{skills.map((skill, index) => <em key={`${skill.repository}-${skill.skill}`} title={skill.reason}>{index + 1}. {skill.skill}</em>)}</div></div>
+        <div className="skill-provenance"><span>Ordered skill chain</span><div>{skills.map((skill, index) => <em key={`${skill.repository}-${skill.skill}`} title={skill.reason}>{index + 1}. {formatSkillName(skill.skill)}</em>)}</div></div>
         <form onSubmit={editDocument}>
           <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Ask Smark Connect to strengthen a section, add evidence, change tone, or restructure this report…" rows={3} />
           <div className="editor-controls">

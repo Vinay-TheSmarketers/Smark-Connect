@@ -65,6 +65,13 @@ enum RunStatus {
   ERROR
 }
 
+enum LighthouseJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 model User {
   id              String           @id @default(cuid())
   name            String?
@@ -82,8 +89,32 @@ model User {
   tokenUsed       Int              @default(0)
   companies       Company[]
   chatAttachments ChatAttachment[]
+  lighthouseAudits LighthouseAuditJob[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+}
+
+model LighthouseAuditJob {
+  id            String              @id @default(cuid())
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  normalizedUrl String
+  strategy      String
+  cacheKey      String
+  status        LighthouseJobStatus @default(QUEUED)
+  cacheHit      Boolean             @default(false)
+  result        Json?
+  errorCode     String?
+  errorMessage  String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([cacheKey, status, completedAt])
+  @@index([status, createdAt])
 }
 
 model Company {

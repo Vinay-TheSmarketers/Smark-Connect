@@ -34,7 +34,7 @@ function pythonExecutable() {
 function runPythonTiming(websiteUrl: string, strategy: "mobile" | "desktop"): Promise<PythonTimingReceipt> {
   const script = path.join(process.cwd(), "scripts", "simple-page-speed.py");
   return new Promise((resolve, reject) => {
-    const child = spawn(pythonExecutable(), [script], { cwd: process.cwd(), stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+    const child = spawn(/*turbopackIgnore: true*/ pythonExecutable(), [script], { cwd: process.cwd(), stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8");

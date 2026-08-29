@@ -6,6 +6,7 @@ ENV NODE_ENV="production"
 ENV PORT="3000"
 ENV HOSTNAME="0.0.0.0"
 ENV CHROME_PATH="/usr/bin/chromium"
+ENV PUPPETEER_EXECUTABLE_PATH="/usr/bin/chromium"
 ENV SMARK_REPORT_PYTHON="/opt/smark-report-venv/bin/python"
 
 RUN apt-get update \

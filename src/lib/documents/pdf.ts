@@ -9,7 +9,8 @@ import { Launcher } from "chrome-launcher";
 
 export type VisualReportCompetitor = { companyName: string; officialWebsite: string; logoUrl: string; logoDataUrl?: string; positioning: string; competitiveAttributes: string[] };
 export type VisualReportModule = { type: string; title: string; markdown: string; competitors?: VisualReportCompetitor[] };
-export type VisualReportArgs = { companyName: string; title: string; documentType?: string; markdown: string; updatedAt: Date; sourceCount: number; modules?: VisualReportModule[] };
+export type VisualReportSkill = { repository: string; skill: string; phase?: string; reason?: string };
+export type VisualReportArgs = { companyName: string; companyWebsite?: string; companyCategory?: string | null; companyBrief?: string; title: string; documentType?: string; markdown: string; updatedAt: Date; sourceCount: number; skills?: VisualReportSkill[]; modules?: VisualReportModule[] };
 export type VisualReportResult = { pdf: Buffer; html: Buffer; qa: { passes: number; final: { pageCount: number; issues: string[]; visualizationCount?: number; visualSectionShare?: number; reportProfile?: string } } };
 
 const reportCache = new Map<string, VisualReportResult>();

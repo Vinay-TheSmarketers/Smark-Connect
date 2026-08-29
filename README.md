@@ -4,7 +4,7 @@ Smark Connect is a multi-company, BYOK AI CMO application. A user connects a sup
 
 ## What runs for each company
 
-The first audit crawls up to 20 public pages, captures official mobile and desktop Google PageSpeed snapshots, and runs these six documents concurrently:
+The first audit crawls up to 20 public pages, captures a lightweight Python HTTP timing baseline, and runs these six documents concurrently:
 
 1. Company Intelligence
 2. SEO Audit
@@ -27,6 +27,30 @@ Each core document includes:
 - Version history in PostgreSQL
 - Branded DOCX download
 - Branded PDF download and in-app PDF preview
+
+PDF preview generation uses an in-page report skeleton with matching report geometry, a reduced-motion mode, an explicit ready state, and a recoverable retry state. Every PDF type has its own visual report profile and is quality-checked for at least 30% visualized analysis sections. The same concise company brief and skill typography hierarchy appear in the web report and exported PDF.
+
+## Self-hosted Lighthouse audits
+
+The Analytics pane can run Lighthouse without Google PageSpeed Insights. Audits execute in local Chromium through Puppeteer Core and Lighthouse, covering performance, accessibility, SEO, and best practices.
+
+### API
+
+`POST /api/lighthouse/audit`
+
+```json
+{
+  "url": "https://example.com",
+  "strategy": "mobile",
+  "fresh": false
+}
+```
+
+The authenticated endpoint validates a public HTTP(S) URL, blocks local/private/reserved destinations, revalidates redirect targets, prevents active duplicates, applies a per-user rate limit, checks the 24-hour PostgreSQL cache, creates a job, and returns `202` with a job ID. Set `fresh` to `true` to bypass only the completed-result cache.
+
+`GET /api/lighthouse/audit/:jobId` returns `queued`, `running`, `completed`, or `failed`, plus the completed report or a stable error code. The browser client polls this endpoint every 2.5 seconds.
+
+The worker is an in-process, concurrency-one queue intended for one Render web-service instance. Multiple instances require a distributed queue and worker lock. Jobs and cached results are stored in PostgreSQL; no audit result depends on Render's ephemeral filesystem.
 
 Exports follow the approved Smarketers cream, blush, violet, and Arial visual system.
 
@@ -74,13 +98,16 @@ pnpm build
 pnpm smoke # requires the built app to be running on AUTH_URL
 ```
 
+The Lighthouse test suite covers URL safety, cache reuse and expiry, duplicate jobs, overall timeout behavior, Chromium cleanup on success and failure, unreachable websites, mobile and desktop configuration, and completed report rendering.
+
 ## Production requirements
 
 - Managed PostgreSQL `DATABASE_URL`
 - Unique `AUTH_SECRET` and `SECRET_ENCRYPTION_KEY`
 - The three skill repositories available as sibling directories, or an equivalent packaged skill volume
 - Provider API keys supplied by each user
-- Optional `PAGESPEED_API_KEY` for higher Google PageSpeed API quotas
+- Chromium at `PUPPETEER_EXECUTABLE_PATH` or `CHROME_PATH` (the Docker image configures `/usr/bin/chromium`)
+- Optional `LIGHTHOUSE_RATE_LIMIT_PER_HOUR` (default `5`) and `LIGHTHOUSE_MAX_QUEUE_DEPTH` (default `5`)
 - Approved OAuth applications before enabling external publishing or first-party platform connectors
 
 ## Container deployment
@@ -93,6 +120,12 @@ Build and test the image locally with Docker Desktop:
 docker build -t smark-connect .
 ```
 
-For Railway, connect the Git repository, add a PostgreSQL service, reference its `DATABASE_URL`, set `AUTH_SECRET`, `SECRET_ENCRYPTION_KEY`, and `AUTH_URL`, then configure `pnpm exec prisma migrate deploy` as the pre-deploy command and `pnpm start` as the start command. Configure `/api/health` as the health-check path. Never commit `.env`, `.env.local`, database credentials, or provider keys.
+For Render, create a PostgreSQL database and a Docker web service from this repository. Set `DATABASE_URL`, `AUTH_SECRET`, `SECRET_ENCRYPTION_KEY`, and the public Render URL as `AUTH_URL`. Use `pnpm exec prisma migrate deploy` as the pre-deploy command; the Docker `CMD` runs `pnpm start`, which reads `process.env.PORT` and binds through `HOSTNAME=0.0.0.0`. Configure `/api/health` as the health-check path. The image includes Chromium, its Linux dependencies, and the Python PDF renderer. No Google PageSpeed API key is required.
+
+On Render's free tier, Chromium cold starts and constrained CPU/memory can make audits slow, and the service may spin down between requests. The one-audit worker protects the instance, but queued in-process work is not durable across a restart; job records remain in PostgreSQL and may need a retry after an interrupted deployment or spin-down. Use one instance with the current queue design.
+
+The Python URL timing result remains visible as a basic fallback. It reports HTTP status, response timing, and HTML transfer size, and is explicitly not labeled as Lighthouse.
+
+Never commit `.env`, `.env.local`, database credentials, or provider keys.
 
 Backlink counts, Search Console index coverage, live social threads, and answer-engine citation share are never fabricated. Their interfaces explicitly remain unavailable until an approved official or first-party source is connected.

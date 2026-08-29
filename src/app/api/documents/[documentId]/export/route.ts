@@ -7,10 +7,17 @@ import type { VisualReportCompetitor } from "@/lib/documents/pdf";
 import { safeFilename } from "@/lib/documents/content";
 import { fetchCompanyLogoAsset } from "@/lib/company-logo";
 import { CORE_DOCUMENTS } from "@/lib/skills/registry";
+import { createCompanyBrief } from "@/lib/company-brief";
 
 export const runtime = "nodejs";
 
 type ReportMetadata = { sources?: unknown[]; competitors?: VisualReportCompetitor[] };
+type ReportSkill = { repository: string; skill: string; phase?: string; reason?: string };
+
+function reportSkills(value: unknown): ReportSkill[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is ReportSkill => Boolean(item && typeof item === "object" && "repository" in item && "skill" in item)).slice(0, 12);
+}
 
 async function reportCompetitors(metadata: ReportMetadata): Promise<VisualReportCompetitor[]> {
   const competitors = Array.isArray(metadata.competitors) ? metadata.competitors.slice(0, 10) : [];
@@ -44,7 +51,7 @@ export async function GET(request: Request, context: { params: Promise<{ documen
     const itemMetadata = (item.metadata as ReportMetadata | null) ?? {};
     return { type: item.type, title: item.title, markdown: item.contentMarkdown, competitors: item.type === "COMPETITOR_ANALYSIS" ? await reportCompetitors(itemMetadata) : [] };
   }));
-  const args = { companyName: document.company.name, title: includeAllModules && modules.length > 1 ? "Strategic Intelligence Report" : document.title, documentType: includeAllModules ? "STRATEGIC_INTELLIGENCE" : document.type, markdown: document.contentMarkdown, updatedAt: document.updatedAt, sourceCount: includeAllModules && modules.length > 1 ? coreDocuments.reduce((total, item) => { const itemMetadata = (item.metadata as ReportMetadata | null) ?? {}; return total + (Array.isArray(itemMetadata.sources) ? itemMetadata.sources.length : 0); }, 0) : Array.isArray(metadata.sources) ? metadata.sources.length : 0, modules: includeAllModules && modules.length > 1 ? modules : undefined };
+  const args = { companyName: document.company.name, companyWebsite: document.company.websiteUrl, companyCategory: document.company.category, companyBrief: createCompanyBrief(document.company), skills: reportSkills(document.skillProvenance), title: includeAllModules && modules.length > 1 ? "Strategic Intelligence Report" : document.title, documentType: includeAllModules ? "STRATEGIC_INTELLIGENCE" : document.type, markdown: document.contentMarkdown, updatedAt: document.updatedAt, sourceCount: includeAllModules && modules.length > 1 ? coreDocuments.reduce((total, item) => { const itemMetadata = (item.metadata as ReportMetadata | null) ?? {}; return total + (Array.isArray(itemMetadata.sources) ? itemMetadata.sources.length : 0); }, 0) : Array.isArray(metadata.sources) ? metadata.sources.length : 0, modules: includeAllModules && modules.length > 1 ? modules : undefined };
   const body = format === "docx" ? await createBrandedDocx(args) : format === "xlsx" ? await createBrandedXlsx(args) : format === "html" ? await createBrandedHtml(args) : await createBrandedPdf(args);
   const extension = format;
   const contentType = format === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : format === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : format === "html" ? "text/html; charset=utf-8" : "application/pdf";

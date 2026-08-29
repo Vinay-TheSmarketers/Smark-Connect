@@ -41,6 +41,9 @@ importers:
       pdfkit:
         specifier: ^0.20.1
         version: 0.20.1
+      puppeteer-core:
+        specifier: 25.9.0
+        version: 25.9.0
       react:
         specifier: 19.2.8
         version: 19.2.8
