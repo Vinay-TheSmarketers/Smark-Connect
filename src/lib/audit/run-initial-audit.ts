@@ -4,6 +4,24 @@ import { buildEvidencePack, deriveResearchTopics, runAgentAnalysis, runCmoSynthe
 import { CORE_DOCUMENTS, INITIAL_AGENT_TYPES } from "@/lib/skills/registry";
 import { runPageSpeed } from "./pagespeed";
 
+const CHANNEL_AGENT_TIMEOUT_MS = 90_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 async function setProgress(jobId: string, companyId: string, progress: number, step: string) {
   await db.$transaction([
     db.auditJob.update({ where: { id: jobId }, data: { progress, step } }),
@@ -91,10 +109,16 @@ export async function runInitialAudit(jobId: string): Promise<void> {
     await setProgress(jobId, company.id, 76, "Running core channel agents from the shared company foundation");
     let agentsCompleted = 0;
     const channelResults = await Promise.allSettled(INITIAL_AGENT_TYPES.map(async (agentType) => {
-      const result = await runAgentAnalysis({ companyId: company.id, userId: company.userId, agentType });
-      agentsCompleted += 1;
-      await setProgress(jobId, company.id, 76 + agentsCompleted * 3, `Completed ${agentsCompleted} of ${INITIAL_AGENT_TYPES.length} channel agents`);
-      return result;
+      try {
+        return await withTimeout(
+          runAgentAnalysis({ companyId: company.id, userId: company.userId, agentType }),
+          CHANNEL_AGENT_TIMEOUT_MS,
+          `${agentType} agent timed out after ${Math.round(CHANNEL_AGENT_TIMEOUT_MS / 1000)} seconds.`,
+        );
+      } finally {
+        agentsCompleted += 1;
+        await setProgress(jobId, company.id, 76 + agentsCompleted * 3, `Processed ${agentsCompleted} of ${INITIAL_AGENT_TYPES.length} channel agents`);
+      }
     }));
     const channelFailures = channelResults.filter((result) => result.status === "rejected").length;
 
