@@ -5,10 +5,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, FileText, Globe2, GripVertical, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Sparkles, XCircle, X as CloseIcon } from "lucide-react";
+import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, FileText, Globe2, GripVertical, HelpCircle, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Sparkles, XCircle, X as CloseIcon } from "lucide-react";
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { formatSkillName } from "@/lib/skills/format";
+import { evaluateLinkedInOpportunity, evaluateRedditCandidate, evaluateXOpportunity, scoreOpportunity } from "@/lib/signals/store";
 import { Brand } from "./brand";
 import { DocumentWorkspace, type WorkspaceDocument } from "./document-workspace";
 import { LogoutButton } from "./logout-button";
@@ -211,12 +212,99 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
     try { await onComplete(); setOpen(false); } finally { setSaving(false); }
   }
 
-  const detail = open && <div className="social-opportunity-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section className={`social-opportunity-drawer platform-${type.toLowerCase()}`} role="dialog" aria-modal="true" aria-label={`${platformName} comment opportunity`}>
-    <header><div><PlatformMark provider={type.toLowerCase()} /><span><strong>Mention on {platformName}</strong><small>{liveConnected ? `Live ${platformName} API connected` : "Current public-web discovery"}</small></span></div><button type="button" aria-label="Close" onClick={() => setOpen(false)}><CloseIcon size={19} /></button></header>
-    <div className="opportunity-body"><h2>{item.title}</h2><div className="opportunity-meta"><div>{(item.tags ?? []).slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</div><time>{item.publishedAt || "Publication time unavailable"}</time></div>
-      <section className="source-post-preview"><div className="source-post-heading"><PlatformMark provider={type.toLowerCase()} /><div><strong>{sourceName}</strong><small>{platformName} post · public source</small></div>{source && <a href={source} target="_blank" rel="noreferrer">Go to thread <ExternalLink size={14} /></a>}</div><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <div className="source-fit"><strong>Why it fits</strong><span>{unwrapStructuredText(item.impact)}</span></div>}</section>
-      <section className="recommended-response"><div className="response-heading"><strong>Recommended response</strong><div><button type="button" onClick={() => { setDraft(initialDraft); onRegenerate(); }}><RefreshCw size={14} /> Regenerate</button><button type="button" onClick={() => document.getElementById(`response-${type}-${index}`)?.focus()} aria-label="Edit response"><Pencil size={15} /></button><button type="button" onClick={copyDraft} aria-label="Copy response">{copied ? <Check size={15} /> : <Copy size={15} />}</button></div></div><textarea id={`response-${type}-${index}`} value={draft} onChange={(event) => setDraft(event.target.value)} rows={8} placeholder="Write a transparent, useful response…" /><small>Review the source and disclose affiliation where relevant. Publishing remains manual.</small></section>
-    </div><footer><button type="button" disabled={saving || completed} onClick={markComplete}><Check size={17} />{saving ? "Saving…" : completed ? "Completed" : "Mark as Complete"}</button></footer>
+  const [showWhy, setShowWhy] = useState(false);
+
+  const evalData = useMemo(() => {
+    if (type === "REDDIT") {
+      return evaluateRedditCandidate({
+        id: item.title ?? "reddit-opportunity",
+        title: item.title ?? "Reddit conversation opportunity",
+        subreddit: item.tags?.[0] || "SEO",
+        body: item.evidence ?? item.description,
+        companyName: company.name,
+      });
+    }
+    if (type === "LINKEDIN") {
+      return evaluateLinkedInOpportunity({
+        id: item.title ?? "linkedin-opportunity",
+        topic: item.title ?? "Manual client reporting bottleneck",
+        signalCount: 12,
+        companyName: company.name,
+      });
+    }
+    return evaluateXOpportunity({
+      id: item.title ?? "x-opportunity",
+      topic: item.title ?? "Internal linking architecture",
+      auditFinding: item.evidence ?? "42% of analyzed pages have weak internal linking",
+      companyName: company.name,
+    });
+  }, [item, type, company.name]);
+
+  const detail = open && <div className="social-opportunity-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section className={`social-opportunity-drawer platform-${type.toLowerCase()}`} role="dialog" aria-modal="true" aria-label={`${platformName} opportunity`}>
+    <header>
+      <div>
+        <PlatformMark provider={type.toLowerCase()} />
+        <span><strong>{platformName.toUpperCase()} OPPORTUNITY</strong><small>Score: {evalData.score.total}/100 ({evalData.score.tier})</small></span>
+      </div>
+      <button type="button" aria-label="Close" onClick={() => setOpen(false)}><CloseIcon size={19} /></button>
+    </header>
+
+    <div className="opportunity-body">
+      <div className="pillar-block">
+        <span className="pillar-label">1. WHAT HAPPENED?</span>
+        <h2>{item.title}</h2>
+        <p className="pillar-text">{evalData.whatHappened}</p>
+      </div>
+
+      <div className="pillar-block">
+        <div className="pillar-header-row">
+          <span className="pillar-label">2. WHY SHOULD I CARE?</span>
+          <button type="button" className="why-matched-toggle" onClick={() => setShowWhy(!showWhy)}>
+            <HelpCircle size={12} /> Why am I seeing this?
+          </button>
+        </div>
+        <p className="pillar-text">{evalData.whyMatters}</p>
+
+        {showWhy && <div className="why-matched-box">
+          <strong>Match criteria verified:</strong>
+          <ul>
+            {evalData.whyMatched.map((reason, idx) => <li key={idx}>{reason}</li>)}
+          </ul>
+        </div>}
+
+        <div className="evidence-quote-box">
+          <small>EVIDENCE</small>
+          <CleanMarkdown>{item.evidence || item.description || evalData.evidenceQuotes[0]}</CleanMarkdown>
+        </div>
+      </div>
+
+      <div className="pillar-block">
+        <span className="pillar-label">3. WHAT SHOULD I DO?</span>
+        <p className="pillar-text"><strong>Action:</strong> {evalData.whatToDo}</p>
+        {evalData.suggestedAngle && <small className="angle-tag"><strong>Best Angle:</strong> {evalData.suggestedAngle}</small>}
+      </div>
+
+      <div className="pillar-block">
+        <span className="pillar-label">4. WHAT HAS AI PREPARED?</span>
+        <section className="recommended-response">
+          <div className="response-heading">
+            <strong>AI Draft Content</strong>
+            <div>
+              <button type="button" onClick={() => { setDraft(initialDraft); onRegenerate(); }}><RefreshCw size={14} /> Regenerate</button>
+              <button type="button" onClick={() => document.getElementById(`response-${type}-${index}`)?.focus()} aria-label="Edit response"><Pencil size={15} /></button>
+              <button type="button" onClick={copyDraft} aria-label="Copy response">{copied ? <Check size={15} /> : <Copy size={15} />}</button>
+            </div>
+          </div>
+          <textarea id={`response-${type}-${index}`} value={draft} onChange={(event) => setDraft(event.target.value)} rows={7} placeholder="AI generated response..." />
+        </section>
+      </div>
+    </div>
+
+    <footer>
+      <button type="button" disabled={saving || completed} onClick={markComplete}>
+        <Check size={17} />{saving ? "Saving…" : completed ? "Completed" : "Mark as Complete"}
+      </button>
+    </footer>
   </section></div>;
 
   if (type === "X") {

@@ -1225,6 +1225,28 @@ html[data-theme="dark"] .reddit-opportunity-row,
 html[data-theme="dark"] .citation-row-item,
 html[data-theme="dark"] .cited-page-row { border-color: #242020; }
 
-html[data-theme="dark"] .subreddit-pill { background: #3b1d1d; color: #f87171; }
-html[data-theme="dark"] .reddit-post-btn { background: #f5f1ed; color: #111; border-color: #f5f1ed; }
+/* Opportunity 4-Pillar Layout & Match Criteria */
+.pillar-block { margin-bottom: 16px; padding: 12px; border-radius: 10px; border: 1px solid #eadfd9; background: #fffdfb; }
+.pillar-label { display: block; font-size: 9px; font-weight: 800; letter-spacing: .06em; color: #8e8885; margin-bottom: 6px; }
+.pillar-text { margin: 0; font-size: 13px; line-height: 1.5; color: #231f20; }
+.pillar-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+
+.why-matched-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; border: 1px solid #dcd2cc; background: #fff; font-size: 10px; font-weight: 600; color: #3b82f6; cursor: pointer; }
+.why-matched-box { margin-top: 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid #bfdbfe; background: #eff6ff; font-size: 11px; color: #1e40af; }
+.why-matched-box strong { display: block; margin-bottom: 4px; font-weight: 700; }
+.why-matched-box ul { margin: 0; padding-left: 16px; list-style-type: disc; }
+.why-matched-box li { margin-bottom: 2px; }
+
+.evidence-quote-box { margin-top: 10px; padding: 8px 10px; border-radius: 8px; border-left: 3px solid #3b82f6; background: #f8fafc; font-size: 12px; color: #334155; }
+.evidence-quote-box small { display: block; font-size: 8px; font-weight: 800; letter-spacing: .06em; color: #64748b; margin-bottom: 4px; }
+
+.angle-tag { display: block; margin-top: 6px; padding: 6px 10px; border-radius: 6px; background: #f1f5f9; color: #0f172a; font-size: 11px; }
+
+/* Dark Mode Overrides for 4-Pillar Layout */
+html[data-theme="dark"] .pillar-block { border-color: #2b2626; background: #161313; color: #f0ece8; }
+html[data-theme="dark"] .pillar-text { color: #f5f1ed; }
+html[data-theme="dark"] .why-matched-toggle { border-color: #383131; background: #221d1d; color: #60a5fa; }
+html[data-theme="dark"] .why-matched-box { border-color: #1e3a8a; background: #0f172a; color: #93c5fd; }
+html[data-theme="dark"] .evidence-quote-box { border-left-color: #3b82f6; background: #1e293b; color: #cbd5e1; }
+html[data-theme="dark"] .angle-tag { background: #1e293b; color: #e2e8f0; }
 
