@@ -54,10 +54,14 @@ export async function runInitialAudit(jobId: string): Promise<void> {
       fcp: number | null;
       tbt: number | null;
       cls: number | null;
+      statusCode: number | null;
+      responseTime: number | null;
+      ttfb: number | null;
+      transferSize: number | null;
       source: string;
       error: string | null;
     }> = company.pageSpeedAudits;
-    let externalFailures = reuseEvidence ? pageSpeed.filter((audit) => audit.source !== "Google PageSpeed Insights API v5").length : 0;
+    let externalFailures = reuseEvidence ? pageSpeed.filter((audit) => Boolean(audit.error)).length : 0;
     if (reuseEvidence) {
       await setProgress(jobId, company.id, 28, `Reusing ${pages.length} saved public pages and PageSpeed evidence`);
     } else {
@@ -72,18 +76,17 @@ export async function runInitialAudit(jobId: string): Promise<void> {
         db.pageSpeedAudit.deleteMany({ where: { companyId: company.id } }),
       ]);
 
-      await setProgress(jobId, company.id, 28, `Read ${pages.length} public pages; collecting official PageSpeed snapshots`);
+      await setProgress(jobId, company.id, 28, `Read ${pages.length} public pages; running lightweight Python URL timing tests`);
       const pageSpeedSettled = await Promise.allSettled([runPageSpeed(company.websiteUrl, "mobile"), runPageSpeed(company.websiteUrl, "desktop")]);
       pageSpeed = [];
       for (const [index, result] of pageSpeedSettled.entries()) {
         const strategy = index === 0 ? "mobile" : "desktop";
         if (result.status === "fulfilled") {
           const stored = await db.pageSpeedAudit.create({ data: { companyId: company.id, ...result.value } });
-          if (result.value.source !== "Google PageSpeed Insights API v5") externalFailures += 1;
           pageSpeed.push(stored);
         } else {
           externalFailures += 1;
-          const stored = await db.pageSpeedAudit.create({ data: { companyId: company.id, strategy, source: "Google PageSpeed Insights API v5", error: result.reason instanceof Error ? result.reason.message : "PageSpeed failed" } });
+          const stored = await db.pageSpeedAudit.create({ data: { companyId: company.id, strategy, source: "Python URL timing test", error: result.reason instanceof Error ? result.reason.message : "URL timing test failed" } });
           pageSpeed.push(stored);
         }
       }

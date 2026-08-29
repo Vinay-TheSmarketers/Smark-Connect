@@ -165,7 +165,11 @@ model PageSpeedAudit {
   fcp           Float?
   tbt           Float?
   cls           Float?
-  source        String   @default("Google PageSpeed Insights")
+  statusCode    Int?
+  responseTime  Float?
+  ttfb          Float?
+  transferSize  Int?
+  source        String   @default("Python URL timing test")
   error         String?
   createdAt     DateTime @default(now())
 
