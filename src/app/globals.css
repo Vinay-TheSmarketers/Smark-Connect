@@ -1084,34 +1084,84 @@ html[data-theme="dark"] .company-context-evidence { color: #8f8883; font-size: 1
 .post-check-btn.completed { background: #e7fbf5; color: #087c5c; border-color: #a7f3d0; }
 .post-publish-btn { padding: 5px 10px; border-radius: 99px; border: 1px solid #111; background: #111; color: #fff; font-size: 7.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 
-/* Dark Mode Overrides for Enhanced Features */
-html[data-theme="dark"] .google-connect-section,
-html[data-theme="dark"] .pagespeed-scores-section,
-html[data-theme="dark"] .core-vitals-section { border-color: #2b2725; background: #151313; }
-html[data-theme="dark"] .google-service-card,
-html[data-theme="dark"] .vital-metric-card { border-color: #332d2b; background: #1c1919; color: #e9e4e0; }
-html[data-theme="dark"] .service-card-info strong { color: #f5f1ed; }
-html[data-theme="dark"] .service-connect-btn { border-color: #443c3a; background: #272322; color: #f5f1ed; }
-html[data-theme="dark"] .service-connect-btn:hover { background: #35302e; }
-html[data-theme="dark"] .service-chart-preview { background: #110f0f; }
-html[data-theme="dark"] .score-gauge-ring .ring { background: transparent; }
-html[data-theme="dark"] .vitals-device-toggle { background: #110f0f; }
-html[data-theme="dark"] .vitals-device-toggle button.active { background: #272322; color: #fff; }
-html[data-theme="dark"] .aeo-banner { border-color: rgba(56,189,248,0.2); background: #171b21; }
-html[data-theme="dark"] .aeo-summary-card { border-color: #0369a1; background: #0c1a24; }
-html[data-theme="dark"] .aeo-pill { background: #0284c7; color: #fff; }
-html[data-theme="dark"] .aeo-gaps-badge { background: #1e3a5f; color: #7dd3fc; }
-html[data-theme="dark"] .aeo-intro { color: #bae6fd; }
-html[data-theme="dark"] .aeo-finding-item { border-color: #1e293b; background: #13171e; }
-html[data-theme="dark"] .aeo-item-head h3 { color: #38bdf8; }
-html[data-theme="dark"] .aeo-action-note { background: #0f172a; color: #38bdf8; }
-html[data-theme="dark"] .upgrade-pill { border-color: #3a3432; background: #221e1d; color: #a39c97; }
-html[data-theme="dark"] .agent-voice-banner { border-color: #332d2b; background: #1c1919; color: #f5f1ed; }
-html[data-theme="dark"] .voice-text strong { color: #f5f1ed; }
-html[data-theme="dark"] .voice-setup-btn { background: #f5f1ed; color: #111; border-color: #f5f1ed; }
-html[data-theme="dark"] .live-social-post-card { border-color: #2e2927; background: #181515; color: #f5f1ed; }
-html[data-theme="dark"] .post-copy-body { color: #f0ece8; font-size: 14px; line-height: 1.6; font-weight: 500; }
-html[data-theme="dark"] .post-check-btn { border-color: #3d3634; background: #24201f; color: #bcb5b0; }
-html[data-theme="dark"] .post-publish-btn { background: #fff; color: #111; border-color: #fff; }
-html[data-theme="dark"] .pane-tool-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+/* Health, Links, Checks Tab Visual Styling */
+.lab-runs-banner { margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; border: 1px solid #eadfd9; background: #fffdfb; text-align: center; }
+.lab-runs-banner span { font-size: 11px; font-style: italic; color: #8e8885; }
+
+.section-header-block { margin-bottom: 8px; }
+.section-header-block.margin-top { margin-top: 16px; }
+.section-header-block.row-space { display: flex; align-items: flex-start; justify-content: space-between; }
+.section-header-block h3 { margin: 0; font-size: 14px; font-weight: 700; color: #231f20; }
+.section-header-block p { margin: 2px 0 0; font-size: 11px; color: #7a7376; }
+
+.title-with-badge { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.issues-badge-row { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; }
+.issues-badge-row .crit { color: #ef4444; display: flex; align-items: center; gap: 3px; }
+.issues-badge-row .warn { color: #f59e0b; display: flex; align-items: center; gap: 3px; }
+.issues-badge-row .pass { color: #10b981; display: flex; align-items: center; gap: 3px; }
+
+.health-signal-table, .passed-checks-table { border: 1px solid #eadfd9; border-radius: 10px; background: #fffdfb; overflow: hidden; }
+.table-header-row { display: flex; justify-content: space-between; padding: 8px 12px; background: #f7f1ec; border-bottom: 1px solid #eadfd9; font-size: 9px; font-weight: 800; letter-spacing: .06em; color: #8e8885; }
+.table-row-item, .check-row-item { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid #f2e9e4; font-size: 12px; color: #231f20; }
+.table-row-item:last-child, .check-row-item:last-child { border-bottom: 0; }
+.table-row-item span, .check-row-item span { display: flex; align-items: center; gap: 7px; font-weight: 500; }
+.table-row-item.warn span svg { color: #f59e0b; }
+.table-row-item.pass span svg, .check-icon { color: #10b981; }
+.val-warn { color: #f59e0b; font-weight: 700; font-size: 11px; }
+.val-pass { color: #10b981; font-weight: 700; font-size: 11px; }
+.cat-label { font-size: 10px; color: #8e8885; }
+
+.issues-card-wrapper { border: 1px solid #eadfd9; border-radius: 10px; background: #fffdfb; overflow: hidden; }
+.top-issues-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 8px 12px; background: #f7f1ec; border-bottom: 1px solid #eadfd9; font-size: 11px; }
+.top-label { font-weight: 700; color: #231f20; }
+.top-pill { padding: 4px 10px; border-radius: 6px; border: 1px solid #dcd2cc; background: #fff; text-align: center; font-size: 11px; font-weight: 600; color: #231f20; }
+.total-label { color: #8e8885; font-size: 10px; }
+.issues-list { display: grid; }
+.issue-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid #f2e9e4; font-size: 12px; }
+.issue-row:last-child { border-bottom: 0; }
+.issue-row span { display: flex; align-items: center; gap: 7px; font-weight: 500; }
+.issue-row.crit span svg { color: #ef4444; }
+.issue-row.warn span svg { color: #f59e0b; }
+.sev-tag { font-size: 10px; font-weight: 700; }
+.sev-tag.crit { color: #ef4444; }
+.sev-tag.warn { color: #f59e0b; }
+
+.links-progress-card, .link-attributes-card { border: 1px solid #eadfd9; border-radius: 10px; background: #fffdfb; padding: 12px; display: grid; gap: 10px; }
+.link-progress-row { display: grid; grid-template-columns: 80px 1fr 40px; align-items: center; gap: 10px; font-size: 12px; }
+.progress-track { height: 6px; border-radius: 3px; background: #eedfd8; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; background: #3b82f6; }
+.attr-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #f2e9e4; font-size: 12px; }
+.attr-row:last-child { border-bottom: 0; }
+
+.checks-filter-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; border: 1px solid #eadfd9; background: #fffdfb; margin-bottom: 12px; }
+.page-label { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; letter-spacing: .06em; color: #8e8885; }
+.page-select-dropdown { flex: 1; padding: 5px 8px; border-radius: 6px; border: 1px solid #dcd2cc; background: #fff; font-size: 11px; font-weight: 600; color: #231f20; }
+.passed-count-tag { font-size: 11px; font-weight: 700; color: #10b981; }
+
+/* Dark Mode Overrides for Health, Links, Checks */
+html[data-theme="dark"] .lab-runs-banner,
+html[data-theme="dark"] .health-signal-table,
+html[data-theme="dark"] .passed-checks-table,
+html[data-theme="dark"] .issues-card-wrapper,
+html[data-theme="dark"] .links-progress-card,
+html[data-theme="dark"] .link-attributes-card,
+html[data-theme="dark"] .checks-filter-row { border-color: #2b2626; background: #161313; color: #f0ece8; }
+
+html[data-theme="dark"] .table-header-row,
+html[data-theme="dark"] .top-issues-bar { background: #1f1b1b; border-color: #2b2626; color: #a09893; }
+
+html[data-theme="dark"] .table-row-item,
+html[data-theme="dark"] .check-row-item,
+html[data-theme="dark"] .issue-row,
+html[data-theme="dark"] .attr-row { border-color: #242020; color: #f0ece8; }
+
+html[data-theme="dark"] .section-header-block h3,
+html[data-theme="dark"] .top-label { color: #f5f1ed; }
+
+html[data-theme="dark"] .section-header-block p { color: #a09893; }
+
+html[data-theme="dark"] .top-pill,
+html[data-theme="dark"] .page-select-dropdown { border-color: #383131; background: #221d1d; color: #f5f1ed; }
+
+html[data-theme="dark"] .progress-track { background: #242020; }
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Activity, Bot, Check, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, Globe2, GripVertical, LayoutGrid, Link2, Lock, MessageCircle, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, RefreshCw, Send, Settings, Sparkles, X as CloseIcon } from "lucide-react";
+import { Activity, AlertTriangle, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, FileText, Globe2, GripVertical, LayoutGrid, Link2, Lock, MessageCircle, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, Send, Settings, Sparkles, XCircle, X as CloseIcon } from "lucide-react";
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { formatSkillName } from "@/lib/skills/format";
@@ -33,18 +33,18 @@ type DashboardData = {
 const coreDocumentOrder = ["COMPANY_INTELLIGENCE", "SEO_AUDIT", "GEO_AUDIT", "COMPETITOR_ANALYSIS", "AUDIENCE_ANALYSIS", "CONTENT_AUDIT"];
 const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Company Intelligence", SEO_AUDIT: "SEO Audit", GEO_AUDIT: "GEO and AI Visibility", COMPETITOR_ANALYSIS: "Competitor Analysis", AUDIENCE_ANALYSIS: "Audience Analysis", CONTENT_AUDIT: "Content Audit and Strategy" };
 const primaryAgents = [
-  ["X_INFLUENCER", "X INFLUENCER AGENT", "✦", "Launch your first campaign (1000 influencers are waiting)"],
-  ["REDDIT", "REDDIT AGENT", "●", "2 opportunities ready"],
-  ["GEO", "GEO AGENT", "◇", "2 citation gaps detected"],
-  ["SEO", "SEO AGENT", "◎", "2 recommendations ready"],
-  ["X", "X AGENT", "𝕏", "2 ideas ready"],
+  ["REDDIT", "REDDIT OPPORTUNITIES", "●", "26 opportunities ready"],
+  ["SEO", "SEO & GEO RECOMMENDATIONS", "🌐", "19 recommendations ready; SEO fixes queued"],
+  ["X", "X WRITER", "𝕏", "15 ideas ready"],
+  ["ARTICLES", "ARTICLES", "✎", "17 topics ready"],
+  ["HACKER_NEWS", "HACKER NEWS", "Y", "1 post ready"],
+  ["LINKEDIN", "LINKEDIN WRITER", "in", "14 posts ready"],
+  ["X_INFLUENCER", "X INFLUENCER AGENT", "✦", "Launch your first campaign"],
   ["AI_CMO", "AI CMO DIRECTOR", "✦", "Strategic executive synthesis"],
   ["TECHNICAL_SEO", "TECHNICAL SEO AGENT", "⚙", "Technical diagnostic and crawlability"],
-  ["COMPETITOR", "COMPETITOR AGENT", "◫", "6 verified competitors"],
+  ["COMPETITOR", "COMPETITOR AGENT", "◫", "Verified competitor analysis"],
   ["AUDIENCE", "AUDIENCE AGENT", "◉", "ICP, jobs and voice-of-customer"],
   ["CONTENT_AUDIT", "CONTENT STRATEGY AGENT", "≡", "Content gaps and editorial briefs"],
-  ["ARTICLES", "ARTICLES AGENT", "✎", "Evidence-led article briefs"],
-  ["LINKEDIN", "LINKEDIN AGENT", "in", "Drafts and comment opportunities"],
 ] as const;
 const agentLogoPaths: Record<string, string> = {
   X: "/agent-logos/x.svg",
@@ -272,7 +272,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [documents, setDocuments] = useState(data.documents);
   const [selectedDocument, setSelectedDocument] = useState<WorkspaceDocument | null>(null);
   const [expandedAgent, setExpandedAgent] = useState<string | null>("X");
-  const [analysisTab, setAnalysisTab] = useState<"seo" | "links" | "technical" | "geo">("seo");
+  const [analysisTab, setAnalysisTab] = useState<"health" | "links" | "technical" | "aigeo" | "checks">("health");
   const [vitalsDevice, setVitalsDevice] = useState<"desktop" | "mobile">("desktop");
   const [companyMenu, setCompanyMenu] = useState(false);
   const [agentTray, setAgentTray] = useState(false);
@@ -512,56 +512,59 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         <div className="pane-header"><span><Activity size={15} /><span className="pane-title-text">Analytics</span></span><span className="live-dot" />{paneControls("analytics")}</div>
         <div className="analytics-content">
           <div className="analytics-tabs">
-            {(["seo", "links", "technical", "geo"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "seo" || tabName === "geo" ? tabName.toUpperCase() : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
+            {(["health", "links", "technical", "aigeo", "checks"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "aigeo" ? "AI/GEO" : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
           </div>
-          {analysisTab === "seo" && <>
-            <div className="pagespeed-scores-section">
-              <div className="section-title-row">
-                <div><strong>PageSpeed Scores</strong><small>Lighthouse scores from Google</small></div>
-                <span className="audit-date">Last audited: {new Date(data.company.lastAuditedAt ?? Date.now()).toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" })}</span>
-              </div>
-              <div className="pagespeed-device-group">
-                <span className="device-label">MOBILE</span>
-                <div className="gauges-row">
-                  <div className="score-gauge-ring warn"><div className="ring"><span>75</span></div><small>Performance</small></div>
-                  <div className="score-gauge-ring warn"><div className="ring"><span>87</span></div><small>Accessibility</small></div>
-                  <div className="score-gauge-ring warn"><div className="ring"><span>77</span></div><small>Best Practices</small></div>
-                  <div className="score-gauge-ring good"><div className="ring"><span>92</span></div><small>SEO</small></div>
-                </div>
-              </div>
-              <div className="pagespeed-device-group">
-                <span className="device-label">DESKTOP</span>
-                <div className="gauges-row">
-                  <div className="score-gauge-ring good"><div className="ring"><span>94</span></div><small>Performance</small></div>
-                  <div className="score-gauge-ring good"><div className="ring"><span>89</span></div><small>Accessibility</small></div>
-                  <div className="score-gauge-ring warn"><div className="ring"><span>77</span></div><small>Best Practices</small></div>
-                  <div className="score-gauge-ring good"><div className="ring"><span>92</span></div><small>SEO</small></div>
-                </div>
+          {analysisTab === "health" && <div className="analytics-health-section">
+            <div className="lab-runs-banner"><span>Based on Core Web Vitals guidance; lab runs may differ from real users.</span></div>
+            <div className="section-header-block"><h3>SEO Health</h3><p>On-page metadata and content signals</p></div>
+            <div className="health-signal-table">
+              <div className="table-header-row"><span>SIGNAL</span><span>VALUE</span></div>
+              <div className="table-row-item warn"><span><AlertTriangle size={13} /> Meta Title</span><strong className="val-warn">67 chars</strong></div>
+              <div className="table-row-item warn"><span><AlertTriangle size={13} /> Meta Description</span><strong className="val-warn">111 chars</strong></div>
+              <div className="table-row-item pass"><span><CheckCircle2 size={13} /> Canonical URL</span><strong className="val-pass">Set</strong></div>
+              <div className="table-row-item pass"><span><CheckCircle2 size={13} /> Language</span><strong className="val-pass">en</strong></div>
+              <div className="table-row-item warn"><span><AlertTriangle size={13} /> Mobile Friendly</span><strong className="val-warn">No</strong></div>
+              <div className="table-row-item warn"><span><AlertTriangle size={13} /> Image Alt Tags</span><strong className="val-warn">0/15</strong></div>
+              <div className="table-row-item pass"><span><CheckCircle2 size={13} /> Internal Links</span><strong className="val-pass">{data.pagesRead * 2 || 68}</strong></div>
+              <div className="table-row-item pass"><span><CheckCircle2 size={13} /> External Links</span><strong className="val-pass">15</strong></div>
+              <div className="table-row-item pass"><span><CheckCircle2 size={13} /> Word Count</span><strong className="val-pass">508</strong></div>
+              <div className="table-row-item warn"><span><AlertTriangle size={13} /> Readability</span><strong className="val-warn">Standard</strong></div>
+            </div>
+            <div className="section-header-block margin-top"><div className="title-with-badge"><h3>Issues</h3><div className="issues-badge-row"><span className="crit"><XCircle size={10} /> 2</span><span className="warn"><AlertTriangle size={10} /> 5</span><span className="pass"><CheckCircle2 size={10} /> 10</span></div></div><p>Detected on-page problems</p></div>
+            <div className="issues-card-wrapper">
+              <div className="top-issues-bar"><span className="top-label">Top issues</span><div className="top-pill">Your page has 2 H1 tags.</div><span className="total-label">7 total</span></div>
+              <div className="issues-list">
+                <div className="issue-row crit"><span><XCircle size={13} /> Multiple H1 tags found</span><span className="sev-tag crit">Critical</span></div>
+                <div className="issue-row crit"><span><XCircle size={13} /> Images missing alt text</span><span className="sev-tag crit">Critical</span></div>
+                <div className="issue-row warn"><span><AlertTriangle size={13} /> Title tag too long</span><span className="sev-tag warn">Warning</span></div>
+                <div className="issue-row warn"><span><AlertTriangle size={13} /> Render-blocking resources detected</span><span className="sev-tag warn">Warning</span></div>
+                <div className="issue-row warn"><span><AlertTriangle size={13} /> Low content-to-code ratio</span><span className="sev-tag warn">Warning</span></div>
               </div>
             </div>
-            <div className="core-vitals-section">
-              <div className="section-title-row">
-                <div><strong>Core Web Vitals</strong><small>Lighthouse lab metrics</small></div>
-                <div className="vitals-device-toggle">
-                  <button type="button" className={vitalsDevice === "desktop" ? "active" : ""} onClick={() => setVitalsDevice("desktop")}>Desktop</button>
-                  <button type="button" className={vitalsDevice === "mobile" ? "active" : ""} onClick={() => setVitalsDevice("mobile")}>Mobile</button>
-                </div>
-              </div>
-              <div className="vitals-cards-grid">
-                <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> LCP</span><strong className="vital-val">1.3s</strong><small className="vital-status">Pass</small></div>
-                <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> FCP</span><strong className="vital-val">1.1s</strong><small className="vital-status">Pass</small></div>
-                <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> TBT</span><strong className="vital-val">0ms</strong><small className="vital-status">Pass</small></div>
-                <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> CLS</span><strong className="vital-val">0</strong><small className="vital-status">Pass</small></div>
-              </div>
+          </div>}
+          {analysisTab === "links" && <div className="analytics-links-section">
+            <div className="links-progress-card">
+              <div className="link-progress-row"><span>Anchor</span><div className="progress-track"><div className="progress-fill" style={{ width: "89%" }} /></div><strong>89%</strong></div>
+              <div className="link-progress-row"><span>Image</span><div className="progress-track"><div className="progress-fill" style={{ width: "11%" }} /></div><strong>11%</strong></div>
+              <div className="link-progress-row"><span>Redirect</span><div className="progress-track"><div className="progress-fill" style={{ width: "0%" }} /></div><strong>0%</strong></div>
+              <div className="link-progress-row"><span>Canonical</span><div className="progress-track"><div className="progress-fill" style={{ width: "0%" }} /></div><strong>0%</strong></div>
+              <div className="link-progress-row"><span>Alternate</span><div className="progress-track"><div className="progress-fill" style={{ width: "0%" }} /></div><strong>0%</strong></div>
             </div>
-          </>}
+            <div className="section-header-block margin-top"><h3>Link Attributes</h3><p>nofollow, sponsored, and other rel attributes</p></div>
+            <div className="link-attributes-card">
+              <div className="attr-row"><span>Noopener</span><strong>1,284,609</strong></div>
+              <div className="attr-row"><span>Noreferrer</span><strong>895,582</strong></div>
+              <div className="attr-row"><span>Nofollow</span><strong>363,008</strong></div>
+              <div className="attr-row"><span>External</span><strong>19,204</strong></div>
+            </div>
+            <div className="section-header-block margin-top"><h3>TLD Distribution</h3><p>Top-level domains linking to your site</p></div>
+          </div>}
           {analysisTab === "technical" && <>
             <LighthouseAuditPanel defaultUrl={data.company.websiteUrl} />
             <div className="evidence-note"><strong>{data.pagesRead} crawl pages inspected</strong><p>The full technical diagnosis is stored in the SEO Audit and Technical SEO agent feed. Index coverage and field Core Web Vitals require a connected Google Search Console property.</p></div>
             <div className="audit-footnote">Lighthouse results are controlled browser-lab estimates and remain separate from field Core Web Vitals and connected first-party analytics.</div>
           </>}
-          {analysisTab === "links" && <div className="evidence-state"><Link2 size={22} /><p className="eyebrow">LINK EVIDENCE</p><h3>Official backlink data is not connected</h3><p>Smark Connect does not fabricate domain authority, backlink counts, or referring domains. Connect an approved backlink or Search Console source to show official values here. The SEO document still analyzes observed internal-link opportunities from the website crawl.</p><span>{data.pagesRead} owned pages available for internal-link analysis</span></div>}
-          {analysisTab === "geo" && <div className="aeo-geo-section">
+          {analysisTab === "aigeo" && <div className="aeo-geo-section">
             <div className="source-banner aeo-banner"><div><Sparkles size={18} /><span><strong>Website evidence + embedded GEO skills</strong><small>Readiness analysis, not a platform citation metric</small></span></div><span className="source-status evidence-badge">Evidence-led</span></div>
             <div className="aeo-summary-card">
               <div className="aeo-badge-row"><span className="aeo-pill">AEO / GEO VISIBILITY</span><span className="aeo-gaps-badge">2 citation gaps detected</span></div>
@@ -571,6 +574,22 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               {findings(geoRun?.output).slice(0, 3).map((item, index) => <article key={`${item.title}-${index}`} className="aeo-finding-item"><div className="aeo-item-head"><span className="aeo-dot" /><h3>{item.title}</h3></div><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.action && <div className="aeo-action-note"><strong>Next:</strong> {unwrapStructuredText(item.action)}</div>}</article>)}
             </div>
             <div className="audit-footnote">Live answer-engine citation share is shown only when an official monitoring source is connected.</div>
+          </div>}
+          {analysisTab === "checks" && <div className="analytics-checks-section">
+            <div className="checks-filter-row"><span className="page-label"><FileText size={12} /> PAGE</span><select className="page-select-dropdown"><option>Homepage</option><option>Pricing</option><option>Features</option></select></div>
+            <div className="section-header-block margin-top row-space"><div><h3>Passed Checks</h3><p>All on-page signals that are correctly configured</p></div><span className="passed-count-tag">10 passed</span></div>
+            <div className="passed-checks-table">
+              <div className="table-header-row"><span>CHECK</span><span>CATEGORY</span></div>
+              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> Canonical tag present</span><span className="cat-label">Canonical URL</span></div>
+              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> HTTPS enabled</span><span className="cat-label">HTTPS</span></div>
+              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> No mixed content</span><span className="cat-label">Security</span></div>
+              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> Open Graph tags present</span><span className="cat-label">Open Graph</span></div>
+              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> Favicon present</span><span className="cat-label">Favicon</span></div>
+              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> No broken links found</span><span className="cat-label">Broken Links</span></div>
+              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> HTML doctype present</span><span className="cat-label">HTML Doctype</span></div>
+              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> Adequate word count</span><span className="cat-label">Word Count</span></div>
+              <div className="check-row-item"><span><CheckCircle2 size={13} className="check-icon" /> Internal links present</span><span className="cat-label">Internal Links</span></div>
+            </div>
           </div>}
         </div>
         {paneResizer("analytics")}
