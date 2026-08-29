@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Activity, Bot, Check, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, Gauge, Globe2, Link2, MessageCircle, Paperclip, Pencil, Plus, RefreshCw, Send, Settings, Sparkles, X as CloseIcon } from "lucide-react";
+import { Activity, Bot, Check, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, Gauge, Globe2, GripVertical, Link2, MessageCircle, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, RefreshCw, Send, Settings, Sparkles, X as CloseIcon } from "lucide-react";
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { Brand } from "./brand";
@@ -40,6 +40,26 @@ const agentLogoPaths: Record<string, string> = {
   REDDIT: "/agent-logos/reddit.svg",
   LINKEDIN: "/agent-logos/linkedin.svg",
 };
+
+type PaneId = "context" | "analytics" | "agents" | "chat";
+type PaneSizes = Record<PaneId, number>;
+
+const defaultPaneOrder: PaneId[] = ["context", "analytics", "agents", "chat"];
+const defaultPaneSizes: PaneSizes = { context: 23, analytics: 29, agents: 25, chat: 23 };
+const paneMinimums: Record<PaneId, number> = { context: 220, analytics: 330, agents: 300, chat: 300 };
+const paneLabels: Record<PaneId, string> = { context: "Context", analytics: "Analytics", agents: "Agents Feed", chat: "AI CMO" };
+
+function isPaneId(value: unknown): value is PaneId {
+  return typeof value === "string" && defaultPaneOrder.includes(value as PaneId);
+}
+
+function documentPreview(document: WorkspaceDocument) {
+  return unwrapStructuredText(document.contentMarkdown)
+    .replace(/[#*_>`|\[\]()~-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 190);
+}
 
 function CompanyLogo({ company, size = 28, eager = false }: { company: { id: string; name: string }; size?: number; eager?: boolean }) {
   const [failed, setFailed] = useState(false);
@@ -218,6 +238,12 @@ function ScoreGauge({ label, score }: { label: string; score: number | null }) {
 
 export function DashboardClient({ data }: { data: DashboardData }) {
   const router = useRouter();
+  const workspaceRef = useRef<HTMLElement>(null);
+  const [paneOrder, setPaneOrder] = useState<PaneId[]>(defaultPaneOrder);
+  const [paneSizes, setPaneSizes] = useState<PaneSizes>(defaultPaneSizes);
+  const [collapsedPanes, setCollapsedPanes] = useState<PaneId[]>([]);
+  const [draggingPane, setDraggingPane] = useState<PaneId | null>(null);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
   const [documents, setDocuments] = useState(data.documents);
   const [selectedDocument, setSelectedDocument] = useState<WorkspaceDocument | null>(null);
   const [expandedAgent, setExpandedAgent] = useState<string | null>("AI_CMO");
@@ -236,6 +262,123 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const audit = useMemo(() => data.audits.find((item) => item.strategy === strategy) ?? data.audits[0], [data.audits, strategy]);
   const geoRun = data.agents.find((item) => item.agentType === "GEO");
   const analysisRunning = data.analysis && ["QUEUED", "RUNNING"].includes(data.analysis.status);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("smark-workspace-layout-v1");
+      if (stored) {
+        const parsed = JSON.parse(stored) as { order?: unknown[]; sizes?: Partial<PaneSizes>; collapsed?: unknown[] };
+        const order = parsed.order?.filter(isPaneId);
+        if (order?.length === defaultPaneOrder.length && new Set(order).size === defaultPaneOrder.length) setPaneOrder(order);
+        if (parsed.sizes) setPaneSizes((current) => ({
+          context: Number(parsed.sizes?.context) || current.context,
+          analytics: Number(parsed.sizes?.analytics) || current.analytics,
+          agents: Number(parsed.sizes?.agents) || current.agents,
+          chat: Number(parsed.sizes?.chat) || current.chat,
+        }));
+        if (parsed.collapsed) setCollapsedPanes(parsed.collapsed.filter(isPaneId));
+      }
+    } catch {
+      window.localStorage.removeItem("smark-workspace-layout-v1");
+    } finally {
+      setWorkspaceReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!workspaceReady) return;
+    window.localStorage.setItem("smark-workspace-layout-v1", JSON.stringify({ order: paneOrder, sizes: paneSizes, collapsed: collapsedPanes }));
+  }, [collapsedPanes, paneOrder, paneSizes, workspaceReady]);
+
+  const gridStyle = useMemo(() => ({
+    "--pane-columns": paneOrder.map((id) => collapsedPanes.includes(id) ? "72px" : `minmax(${paneMinimums[id]}px, ${paneSizes[id]}fr)`).join(" "),
+  } as React.CSSProperties), [collapsedPanes, paneOrder, paneSizes]);
+
+  function nextExpandedPane(id: PaneId) {
+    const index = paneOrder.indexOf(id);
+    return paneOrder.slice(index + 1).find((candidate) => !collapsedPanes.includes(candidate));
+  }
+
+  function resizePanePair(id: PaneId, delta: number) {
+    const next = nextExpandedPane(id);
+    const width = workspaceRef.current?.clientWidth ?? 1200;
+    if (!next || collapsedPanes.includes(id)) return;
+    const leftMinimum = paneMinimums[id] / width * 100;
+    const rightMinimum = paneMinimums[next] / width * 100;
+    setPaneSizes((current) => {
+      const total = current[id] + current[next];
+      const left = Math.min(total - rightMinimum, Math.max(leftMinimum, current[id] + delta));
+      return { ...current, [id]: left, [next]: total - left };
+    });
+  }
+
+  function startPaneResize(id: PaneId, event: React.PointerEvent<HTMLDivElement>) {
+    const next = nextExpandedPane(id);
+    if (!next || collapsedPanes.includes(id)) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const width = workspaceRef.current?.clientWidth ?? 1200;
+    const startLeft = paneSizes[id];
+    const startRight = paneSizes[next];
+    const leftMinimum = paneMinimums[id] / width * 100;
+    const rightMinimum = paneMinimums[next] / width * 100;
+    document.documentElement.classList.add("resizing-workspace");
+    const move = (moveEvent: PointerEvent) => {
+      const total = startLeft + startRight;
+      const proposed = startLeft + ((moveEvent.clientX - startX) / width * 100);
+      const left = Math.min(total - rightMinimum, Math.max(leftMinimum, proposed));
+      setPaneSizes((current) => ({ ...current, [id]: left, [next]: total - left }));
+    };
+    const stop = () => {
+      document.documentElement.classList.remove("resizing-workspace");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop, { once: true });
+  }
+
+  function togglePane(id: PaneId) {
+    setCollapsedPanes((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
+  function movePane(dragged: PaneId, target: PaneId) {
+    if (dragged === target) return;
+    setPaneOrder((current) => {
+      const next = current.filter((id) => id !== dragged);
+      next.splice(next.indexOf(target), 0, dragged);
+      return next;
+    });
+  }
+
+  function paneProps(id: PaneId) {
+    return {
+      "data-pane-id": id,
+      "data-collapsed": collapsedPanes.includes(id),
+      "data-dragging": draggingPane === id,
+      style: { order: paneOrder.indexOf(id) },
+      onDragOver: (event: React.DragEvent<HTMLElement>) => event.preventDefault(),
+      onDrop: (event: React.DragEvent<HTMLElement>) => {
+        event.preventDefault();
+        const dragged = event.dataTransfer.getData("text/smark-pane");
+        if (isPaneId(dragged)) movePane(dragged, id);
+        setDraggingPane(null);
+      },
+    };
+  }
+
+  function paneControls(id: PaneId) {
+    const collapsed = collapsedPanes.includes(id);
+    return <div className="pane-layout-controls">
+        <button className="pane-drag-grip" type="button" draggable aria-label={`Drag ${paneLabels[id]} pane`} title="Drag to move this pane" onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/smark-pane", id); setDraggingPane(id); }} onDragEnd={() => setDraggingPane(null)}><GripVertical size={14} /></button>
+        <button className="pane-collapse" type="button" aria-label={`${collapsed ? "Expand" : "Minimize"} ${paneLabels[id]} pane`} title={`${collapsed ? "Expand" : "Minimize"} pane`} onClick={() => togglePane(id)}>{collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}</button>
+      </div>;
+  }
+
+  function paneResizer(id: PaneId) {
+    const lastExpanded = !nextExpandedPane(id);
+    return !lastExpanded && !collapsedPanes.includes(id) ? <div className="column-resizer" role="separator" aria-label={`Resize ${paneLabels[id]} pane`} aria-orientation="vertical" tabIndex={0} onPointerDown={(event) => startPaneResize(id, event)} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); resizePanePair(id, event.key === "ArrowLeft" ? -2 : 2); } }} /> : null;
+  }
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -322,17 +465,18 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       <nav className="dashboard-actions"><Link href={`/dashboard/${data.company.id}/reporting`}>Reporting</Link><Link href="/settings/credits" aria-label="Settings"><Settings size={16} /></Link><span className="avatar-small">{(data.user.name ?? data.user.email).slice(0, 2).toUpperCase()}</span><LogoutButton /></nav>
     </header>
 
-    <section className="dashboard-grid">
-      <aside className="company-pane pane">
-        <div className="pane-header"><span><Globe2 size={15} /> Company</span><span className="account-count">{data.companies.length} account{data.companies.length === 1 ? "" : "s"}</span></div>
+    <section className="dashboard-grid" ref={workspaceRef} style={gridStyle}>
+      <aside className="company-pane pane" {...paneProps("context")}>
+        <div className="pane-header"><span><Globe2 size={15} /><span className="pane-title-text">Context</span></span><span className="account-count">{data.companies.length} account{data.companies.length === 1 ? "" : "s"}</span>{paneControls("context")}</div>
         <div className="company-content"><div className="company-title-row"><CompanyLogo company={data.company} size={34} eager /><h1>{data.company.name}</h1></div><span className="category-pill">{data.company.category ?? "Company"}</span><a className="company-url" href={data.company.websiteUrl} target="_blank" rel="noreferrer"><Link2 size={12} />{new URL(data.company.websiteUrl).hostname}</a><p className="company-description">{data.company.description ?? "Company intelligence is still being prepared."}</p>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length < 6 && <div className="analysis-resume"><Sparkles size={15} /><div><strong>{analysisRunning ? `${data.analysis?.progress ?? 0}% · research running` : `${6 - documents.filter((item) => coreDocumentOrder.includes(item.type)).length} core documents need generation`}</strong><small>{analysisRunning ? data.analysis?.step : "Run the expanded crawl and six concurrent skill analyses."}</small></div>{analysisRunning ? <Link href={`/onboarding/audit/${data.analysis!.jobId}`}>View processing</Link> : <button type="button" disabled={startingAnalysis} onClick={startAnalysis}>{startingAnalysis ? "Starting…" : "Generate now"}</button>}</div>}</div>
-        <section className="pane-section"><div className="section-label-row"><p className="section-label">CORE DOCUMENTS</p><span>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length}/6</span></div><div className="document-list">{coreDocumentOrder.map((type) => { const document = documents.find((item) => item.type === type); return document ? <button type="button" key={type} onClick={() => setSelectedDocument(document)}><ModuleIcon type={type} size={14} /><span>{document.title}</span><small>v{document.version}</small><ChevronRight size={13} /></button> : <button className="pending-document" type="button" key={type} disabled><ModuleIcon type={type} size={14} /><span>{coreDocumentLabels[type]}</span><small>Pending</small></button>; })}</div></section>
+        <section className="pane-section"><div className="section-label-row"><p className="section-label">CORE DOCUMENTS</p><span>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length}/6</span></div><div className="document-list">{coreDocumentOrder.map((type) => { const document = documents.find((item) => item.type === type); return document ? <button type="button" key={type} onClick={() => setSelectedDocument(document)}><ModuleIcon type={type} size={14} /><span className="document-row-title">{document.title}</span><small>v{document.version}</small><ChevronRight size={13} /><span className="document-hover-detail" role="tooltip"><strong>{document.title}</strong><span>{documentPreview(document) || "Open this document to review its complete evidence and recommendations."}{document.contentMarkdown.length > 190 ? "…" : ""}</span><em>{document.tokenEstimate.toLocaleString()} tokens · Updated {new Date(document.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em></span></button> : <button className="pending-document" type="button" key={type} disabled><ModuleIcon type={type} size={14} /><span>{coreDocumentLabels[type]}</span><small>Pending</small></button>; })}</div></section>
         <section className="pane-section extended-documents"><div className="section-label-row"><p className="section-label">SKILL-GENERATED DOCUMENTS</p><span>On demand</span></div><div>{EXTENDED_DOCUMENTS.map((definition) => { const document = documents.find((item) => item.type === definition.type); const pending = generatingDocument === definition.type; return <article key={definition.type}><span className="extended-document-icon"><Sparkles size={13} /></span><div><strong>{definition.title}</strong><small>Generated only through its ordered local skill chain</small><SkillChainPreview skills={definition.skills} /></div>{document ? <button type="button" onClick={() => setSelectedDocument(document)}>Open v{document.version}</button> : <button type="button" disabled={Boolean(generatingDocument)} onClick={() => generateDocument(definition.type)}>{pending ? <RefreshCw className="spin" size={12} /> : <Plus size={12} />}{pending ? "Generating" : "Generate"}</button>}</article>; })}</div></section>
         <section className="pane-section company-sources"><p className="section-label">SOURCE COVERAGE</p><div><strong>{data.pagesRead}</strong><span>public pages read · up to 48 per expanded run</span></div><div><strong>Sitemap + internal links</strong><span>Priority services, industries, proof, resources, and articles</span></div><div className="research-suggestions"><span>Stronger research connections</span><p>Search Console</p><p>GA4 + CRM</p><p>Backlink source</p><p>Answer-engine monitoring</p></div></section>
+        {paneResizer("context")}
       </aside>
 
-      <section className="analytics-pane pane">
-        <div className="pane-header"><span><Activity size={15} /> Official Sources</span><span className="live-dot" /></div>
+      <section className="analytics-pane pane" {...paneProps("analytics")}>
+        <div className="pane-header"><span><Activity size={15} /><span className="pane-title-text">Analytics</span></span><span className="live-dot" />{paneControls("analytics")}</div>
         <div className="analytics-content">
           <div className="analytics-tabs">
             {(["seo", "links", "technical", "geo"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "seo" || tabName === "geo" ? tabName.toUpperCase() : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
@@ -352,10 +496,11 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           {analysisTab === "links" && <div className="evidence-state"><Link2 size={22} /><p className="eyebrow">LINK EVIDENCE</p><h3>Official backlink data is not connected</h3><p>Smark Connect does not fabricate domain authority, backlink counts, or referring domains. Connect an approved backlink or Search Console source to show official values here. The SEO document still analyzes observed internal-link opportunities from the website crawl.</p><span>{data.pagesRead} owned pages available for internal-link analysis</span></div>}
           {analysisTab === "geo" && <><div className="source-banner"><div><Sparkles size={18} /><span><strong>Website evidence + embedded GEO skills</strong><small>Readiness analysis, not a platform citation metric</small></span></div><span className="source-status">Evidence-led</span></div><div className="evidence-note"><strong>{unwrapStructuredText(geoRun?.summary ?? "GEO analysis is pending")}</strong>{findings(geoRun?.output).slice(0, 3).map((item, index) => <article key={`${item.title}-${index}`}><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.action && <small>Next: {unwrapStructuredText(item.action)}</small>}</article>)}</div><div className="audit-footnote">Live answer-engine citation share is shown only when an official monitoring source is connected.</div></>}
         </div>
+        {paneResizer("analytics")}
       </section>
 
-      <section className="agents-pane pane">
-        <div className="pane-header"><span><Bot size={15} /> Agents Feed</span><button className="add-agent-button" onClick={() => setAgentTray(true)}><Plus size={13} /> Add agents</button></div>
+      <section className="agents-pane pane" {...paneProps("agents")}>
+        <div className="pane-header"><span><Bot size={15} /><span className="pane-title-text">Agents Feed</span></span><button className="add-agent-button" onClick={() => setAgentTray(true)}><Plus size={13} /> Add agents</button>{paneControls("agents")}</div>
         <div className="agents-list">{primaryAgents.map(([type, label, icon]) => {
           const run = data.agents.find((item) => item.agentType === type);
           const open = expandedAgent === type;
@@ -370,9 +515,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             </div>}
           </div>;
         })}{agentError && <p className="agent-error">{agentError}</p>}</div>
+        {paneResizer("agents")}
       </section>
 
-      <aside className="chat-pane pane"><div className="chat-hero"><span className="agent-icon agent-ai_cmo"><Bot size={16} /></span><div><strong>Your AI CMO</strong><small>Grounded in {documents.length} documents and {data.pagesRead} sources</small></div></div><div className="chat-messages">{messages.map((message, index) => <div className={`chat-message ${message.role}`} key={index}>{message.role === "assistant" && <span className="chat-role"><Sparkles size={13} /> CMO</span>}<ReactMarkdown>{message.content}</ReactMarkdown></div>)}{chatPending && <div className="chat-message assistant typing"><span /><span /><span /></div>}</div><form className="chat-composer" onSubmit={sendMessage}><textarea name="message" rows={3} placeholder="Ask for a detailed priority analysis or campaign decision…" required /><div><button type="button" className="attach-button" aria-label="Attach client context"><Paperclip size={16} /></button><span>Uses your connected provider and company evidence</span><button className="send-button" type="submit" disabled={chatPending}><Send size={14} /></button></div></form></aside>
+      <aside className="chat-pane pane" {...paneProps("chat")}><div className="pane-header"><span><MessageCircle size={15} /><span className="pane-title-text">AI CMO</span></span>{paneControls("chat")}</div><div className="chat-hero"><span className="agent-icon agent-ai_cmo"><Bot size={16} /></span><div><strong>Your AI CMO</strong><small>Grounded in {documents.length} documents and {data.pagesRead} sources</small></div></div><div className="chat-messages">{messages.map((message, index) => <div className={`chat-message ${message.role}`} key={index}>{message.role === "assistant" && <span className="chat-role"><Sparkles size={13} /> CMO</span>}<ReactMarkdown>{message.content}</ReactMarkdown></div>)}{chatPending && <div className="chat-message assistant typing"><span /><span /><span /></div>}</div><form className="chat-composer" onSubmit={sendMessage}><textarea name="message" rows={3} placeholder="Ask me anything…" required /><div><button type="button" className="attach-button" aria-label="Attach client context"><Paperclip size={16} /></button><span>Uses your company evidence</span><button className="send-button" type="submit" disabled={chatPending}><Send size={14} /></button></div></form>{paneResizer("chat")}</aside>
     </section>
 
     {selectedDocument && <DocumentWorkspace document={selectedDocument} onClose={() => setSelectedDocument(null)} onUpdate={updateDocument} />}
