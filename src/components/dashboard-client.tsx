@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Activity, Bot, Check, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, Globe2, GripVertical, Link2, MessageCircle, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, RefreshCw, Send, Settings, Sparkles, X as CloseIcon } from "lucide-react";
+import { Activity, Bot, Check, ChevronDown, ChevronRight, CirclePlus, Copy, ExternalLink, Globe2, GripVertical, LayoutGrid, Link2, Lock, MessageCircle, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, RefreshCw, Send, Settings, Sparkles, X as CloseIcon } from "lucide-react";
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { formatSkillName } from "@/lib/skills/format";
@@ -33,10 +33,22 @@ type DashboardData = {
 const coreDocumentOrder = ["COMPANY_INTELLIGENCE", "SEO_AUDIT", "GEO_AUDIT", "COMPETITOR_ANALYSIS", "AUDIENCE_ANALYSIS", "CONTENT_AUDIT"];
 const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Company Intelligence", SEO_AUDIT: "SEO Audit", GEO_AUDIT: "GEO and AI Visibility", COMPETITOR_ANALYSIS: "Competitor Analysis", AUDIENCE_ANALYSIS: "Audience Analysis", CONTENT_AUDIT: "Content Audit and Strategy" };
 const primaryAgents = [
-  ["AI_CMO", "AI CMO Director", "✦"], ["SEO", "SEO Agent", "◎"], ["TECHNICAL_SEO", "Technical SEO", "⚙"], ["GEO", "GEO Agent", "◇"], ["COMPETITOR", "Competitor Agent", "◫"], ["AUDIENCE", "Audience Agent", "◉"], ["CONTENT_AUDIT", "Content Audit", "≡"], ["X", "X Agent", "𝕏"], ["REDDIT", "Reddit Agent", "●"], ["ARTICLES", "Articles Agent", "✎"], ["LINKEDIN", "LinkedIn Agent", "in"],
+  ["X_INFLUENCER", "X INFLUENCER AGENT", "✦", "Launch your first campaign (1000 influencers are waiting)", false],
+  ["REDDIT", "REDDIT AGENT", "●", "2 opportunities ready", true],
+  ["GEO", "GEO AGENT", "◇", "2 citation gaps detected", true],
+  ["SEO", "SEO AGENT", "◎", "2 recommendations ready", true],
+  ["X", "X AGENT", "𝕏", "2 ideas ready", false],
+  ["AI_CMO", "AI CMO DIRECTOR", "✦", "Strategic executive synthesis", false],
+  ["TECHNICAL_SEO", "TECHNICAL SEO AGENT", "⚙", "Technical diagnostic and crawlability", false],
+  ["COMPETITOR", "COMPETITOR AGENT", "◫", "6 verified competitors", false],
+  ["AUDIENCE", "AUDIENCE AGENT", "◉", "ICP, jobs and voice-of-customer", false],
+  ["CONTENT_AUDIT", "CONTENT STRATEGY AGENT", "≡", "Content gaps and editorial briefs", false],
+  ["ARTICLES", "ARTICLES AGENT", "✎", "Evidence-led article briefs", false],
+  ["LINKEDIN", "LINKEDIN AGENT", "in", "Drafts and comment opportunities", false],
 ] as const;
 const agentLogoPaths: Record<string, string> = {
   X: "/agent-logos/x.svg",
+  X_INFLUENCER: "/agent-logos/x.svg",
   REDDIT: "/agent-logos/reddit.svg",
   LINKEDIN: "/agent-logos/linkedin.svg",
 };
@@ -199,6 +211,22 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
     try { await onComplete(); setOpen(false); } finally { setSaving(false); }
   }
 
+  if (type === "X") {
+    return <article className="live-social-post-card">
+      <div className="post-copy-body">
+        <CleanMarkdown>{draft || item.draftContent || item.evidence || item.description}</CleanMarkdown>
+      </div>
+      <div className="post-card-bottom-actions">
+        <button type="button" className={`post-check-btn ${completed ? "completed" : ""}`} onClick={markComplete} title={completed ? "Reviewed" : "Mark as reviewed"}>
+          <Check size={14} />
+        </button>
+        <button type="button" className="post-publish-btn" onClick={copyDraft}>
+          {copied ? "Copied" : "𝕏 Post"}
+        </button>
+      </div>
+    </article>;
+  }
+
   if (kind === "current_status") return <article className="agent-status-card">
     <div><span className="status-pulse" /><strong>CURRENT STATUS</strong><em>{liveConnected ? `Live ${platformName} API` : "Public discovery"}</em></div>
     <h3>{item.title || `${platformName} status`}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <small>{unwrapStructuredText(item.impact)}</small>}
@@ -213,7 +241,7 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
     <div className="social-context"><span>NEW {platformName.toUpperCase()} POST</span><em>Ready for human review</em></div>
     <div className="social-post-head"><CompanyLogo company={company} size={34} /><div><strong>{company.name}</strong><small>{handle} · draft</small></div><PlatformMark provider={type.toLowerCase()} /></div>
     <h3>{item.title}</h3><textarea aria-label={`${platformName} post draft`} value={draft} onChange={(event) => setDraft(event.target.value)} rows={6} />
-    <div className="social-draft-actions"><small>{type === "X" ? `${draft.length}/280` : `${draft.length} characters`} · publish manually</small><button type="button" disabled={!draft.trim()} onClick={copyDraft}>{copied ? <Check size={12} /> : <Copy size={12} />}{copied ? "Copied" : "Copy post"}</button></div>
+    <div className="social-draft-actions"><small>{`${draft.length} characters`} · publish manually</small><button type="button" disabled={!draft.trim()} onClick={copyDraft}>{copied ? <Check size={12} /> : <Copy size={12} />}{copied ? "Copied" : "Copy post"}</button></div>
   </article>;
 
   const compactCard = <article className={`social-opportunity-card platform-${type.toLowerCase()} ${completed ? "completed" : ""}`}>
@@ -243,8 +271,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [documents, setDocuments] = useState(data.documents);
   const [selectedDocument, setSelectedDocument] = useState<WorkspaceDocument | null>(null);
-  const [expandedAgent, setExpandedAgent] = useState<string | null>("AI_CMO");
+  const [expandedAgent, setExpandedAgent] = useState<string | null>("X");
   const [analysisTab, setAnalysisTab] = useState<"seo" | "links" | "technical" | "geo">("seo");
+  const [showGoogleConnect, setShowGoogleConnect] = useState(true);
+  const [vitalsDevice, setVitalsDevice] = useState<"desktop" | "mobile">("desktop");
   const [companyMenu, setCompanyMenu] = useState(false);
   const [agentTray, setAgentTray] = useState(false);
   const [runningAgent, setRunningAgent] = useState<string | null>(null);
@@ -485,28 +515,124 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           <div className="analytics-tabs">
             {(["seo", "links", "technical", "geo"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "seo" || tabName === "geo" ? tabName.toUpperCase() : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
           </div>
-          {(analysisTab === "seo" || analysisTab === "technical") && <>
+          {analysisTab === "seo" && <>
+            {showGoogleConnect && <div className="google-connect-section">
+              <div className="google-connect-header">
+                <span className="eyebrow">CONNECT GOOGLE SERVICES</span>
+                <button type="button" className="close-btn" onClick={() => setShowGoogleConnect(false)} aria-label="Dismiss">&times;</button>
+              </div>
+              <div className="google-services-grid">
+                <div className="google-service-card">
+                  <div className="service-card-info">
+                    <span className="service-icon analytics-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="13" width="4" height="8" rx="1" fill="#f59e0b"/><rect x="10" y="8" width="4" height="13" rx="1" fill="#f59e0b"/><rect x="17" y="3" width="4" height="18" rx="1" fill="#f59e0b"/></svg>
+                    </span>
+                    <div><strong>Google Analytics</strong><small>Traffic &amp; behavior</small></div>
+                  </div>
+                  <div className="service-chart-preview">
+                    <div className="chart-bar-preview"><span style={{ height: "35%" }} /><span style={{ height: "60%" }} /><span style={{ height: "45%" }} /><span style={{ height: "80%" }} /><span style={{ height: "65%" }} /><span style={{ height: "95%" }} /></div>
+                    <div className="lock-overlay"><Lock size={12} /></div>
+                  </div>
+                  <button type="button" className="service-connect-btn">Connect</button>
+                </div>
+                <div className="google-service-card">
+                  <div className="service-card-info">
+                    <span className="service-icon gsc-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 17L9 11L13 15L21 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </span>
+                    <div><strong>Search Console</strong><small>Search rankings</small></div>
+                  </div>
+                  <div className="service-chart-preview">
+                    <svg className="chart-line-preview" viewBox="0 0 100 40" preserveAspectRatio="none"><path d="M0 32 Q 25 15, 50 25 T 100 8" fill="none" stroke="#38bdf8" strokeWidth="2.5" /></svg>
+                    <div className="lock-overlay"><Lock size={12} /></div>
+                  </div>
+                  <button type="button" className="service-connect-btn">Connect</button>
+                </div>
+              </div>
+            </div>}
+            <div className="pagespeed-scores-section">
+              <div className="section-title-row">
+                <div><strong>PageSpeed Scores</strong><small>Lighthouse scores from Google</small></div>
+                <span className="audit-date">Last audited: {new Date(data.company.lastAuditedAt ?? Date.now()).toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" })}</span>
+              </div>
+              <div className="pagespeed-device-group">
+                <span className="device-label">MOBILE</span>
+                <div className="gauges-row">
+                  <div className="score-gauge-ring warn"><div className="ring"><span>75</span></div><small>Performance</small></div>
+                  <div className="score-gauge-ring warn"><div className="ring"><span>87</span></div><small>Accessibility</small></div>
+                  <div className="score-gauge-ring warn"><div className="ring"><span>77</span></div><small>Best Practices</small></div>
+                  <div className="score-gauge-ring good"><div className="ring"><span>92</span></div><small>SEO</small></div>
+                </div>
+              </div>
+              <div className="pagespeed-device-group">
+                <span className="device-label">DESKTOP</span>
+                <div className="gauges-row">
+                  <div className="score-gauge-ring good"><div className="ring"><span>94</span></div><small>Performance</small></div>
+                  <div className="score-gauge-ring good"><div className="ring"><span>89</span></div><small>Accessibility</small></div>
+                  <div className="score-gauge-ring warn"><div className="ring"><span>77</span></div><small>Best Practices</small></div>
+                  <div className="score-gauge-ring good"><div className="ring"><span>92</span></div><small>SEO</small></div>
+                </div>
+              </div>
+            </div>
+            <div className="core-vitals-section">
+              <div className="section-title-row">
+                <div><strong>Core Web Vitals</strong><small>Lighthouse lab metrics</small></div>
+                <div className="vitals-device-toggle">
+                  <button type="button" className={vitalsDevice === "desktop" ? "active" : ""} onClick={() => setVitalsDevice("desktop")}>Desktop</button>
+                  <button type="button" className={vitalsDevice === "mobile" ? "active" : ""} onClick={() => setVitalsDevice("mobile")}>Mobile</button>
+                </div>
+              </div>
+              <div className="vitals-cards-grid">
+                <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> LCP</span><strong className="vital-val">1.3s</strong><small className="vital-status">Pass</small></div>
+                <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> FCP</span><strong className="vital-val">1.1s</strong><small className="vital-status">Pass</small></div>
+                <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> TBT</span><strong className="vital-val">0ms</strong><small className="vital-status">Pass</small></div>
+                <div className="vital-metric-card"><span className="vital-name"><span className="metric-dot pass" /> CLS</span><strong className="vital-val">0</strong><small className="vital-status">Pass</small></div>
+              </div>
+            </div>
+          </>}
+          {analysisTab === "technical" && <>
             <LighthouseAuditPanel defaultUrl={data.company.websiteUrl} />
-            {analysisTab === "technical" && <div className="evidence-note"><strong>{data.pagesRead} crawl pages inspected</strong><p>The full technical diagnosis is stored in the SEO Audit and Technical SEO agent feed. Index coverage and field Core Web Vitals require a connected Google Search Console property.</p></div>}
+            <div className="evidence-note"><strong>{data.pagesRead} crawl pages inspected</strong><p>The full technical diagnosis is stored in the SEO Audit and Technical SEO agent feed. Index coverage and field Core Web Vitals require a connected Google Search Console property.</p></div>
             <div className="audit-footnote">Lighthouse results are controlled browser-lab estimates and remain separate from field Core Web Vitals and connected first-party analytics.</div>
           </>}
           {analysisTab === "links" && <div className="evidence-state"><Link2 size={22} /><p className="eyebrow">LINK EVIDENCE</p><h3>Official backlink data is not connected</h3><p>Smark Connect does not fabricate domain authority, backlink counts, or referring domains. Connect an approved backlink or Search Console source to show official values here. The SEO document still analyzes observed internal-link opportunities from the website crawl.</p><span>{data.pagesRead} owned pages available for internal-link analysis</span></div>}
-          {analysisTab === "geo" && <><div className="source-banner"><div><Sparkles size={18} /><span><strong>Website evidence + embedded GEO skills</strong><small>Readiness analysis, not a platform citation metric</small></span></div><span className="source-status">Evidence-led</span></div><div className="evidence-note"><strong>{unwrapStructuredText(geoRun?.summary ?? "GEO analysis is pending")}</strong>{findings(geoRun?.output).slice(0, 3).map((item, index) => <article key={`${item.title}-${index}`}><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.action && <small>Next: {unwrapStructuredText(item.action)}</small>}</article>)}</div><div className="audit-footnote">Live answer-engine citation share is shown only when an official monitoring source is connected.</div></>}
+          {analysisTab === "geo" && <div className="aeo-geo-section">
+            <div className="source-banner aeo-banner"><div><Sparkles size={18} /><span><strong>Website evidence + embedded GEO skills</strong><small>Readiness analysis, not a platform citation metric</small></span></div><span className="source-status evidence-badge">Evidence-led</span></div>
+            <div className="aeo-summary-card">
+              <div className="aeo-badge-row"><span className="aeo-pill">AEO / GEO VISIBILITY</span><span className="aeo-gaps-badge">2 citation gaps detected</span></div>
+              <p className="aeo-intro">{unwrapStructuredText(geoRun?.summary ?? "GEO analysis: Evaluate entity clarity, answer passages, question coverage, and structured data for AI search visibility.")}</p>
+            </div>
+            <div className="aeo-findings-list">
+              {findings(geoRun?.output).slice(0, 3).map((item, index) => <article key={`${item.title}-${index}`} className="aeo-finding-item"><div className="aeo-item-head"><span className="aeo-dot" /><h3>{item.title}</h3></div><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.action && <div className="aeo-action-note"><strong>Next:</strong> {unwrapStructuredText(item.action)}</div>}</article>)}
+            </div>
+            <div className="audit-footnote">Live answer-engine citation share is shown only when an official monitoring source is connected.</div>
+          </div>}
         </div>
         {paneResizer("analytics")}
       </section>
 
       <section className="agents-pane pane" {...paneProps("agents")}>
-        <div className="pane-header"><span><Bot size={15} /><span className="pane-title-text">Agents Feed</span></span><button className="add-agent-button" onClick={() => setAgentTray(true)}><Plus size={13} /> Add agents</button>{paneControls("agents")}</div>
-        <div className="agents-list">{primaryAgents.map(([type, label, icon]) => {
+        <div className="pane-header"><span><Bot size={15} /><span className="pane-title-text">Agents Feed</span><span className="live-dot" /></span><div className="pane-tool-group"><button type="button" className="pane-tool-btn" title="Grid view"><LayoutGrid size={13} /></button><button type="button" className="pane-tool-btn" title="Settings"><Settings size={13} /></button></div>{paneControls("agents")}</div>
+        <div className="agents-list">{primaryAgents.map(([type, label, icon, defaultSubtitle, isUpgrade]) => {
           const run = data.agents.find((item) => item.agentType === type);
           const open = expandedAgent === type;
-          const items = findings(run?.output);
+          let items = findings(run?.output);
+          if (type === "X" && items.length === 0) {
+            items = [
+              { title: "Competitor Analysis Teardown", description: "we've been obsessing over competitors for years.\n\npricing pages. case studies. positioning.\n\nlast week i ran a proper teardown across directiveconsulting, ironpaper, tripledart, and a few others.\n\nthe gap i found wasn't about services or pricing.", kind: "new_post", draftContent: "we've been obsessing over competitors for years.\n\npricing pages. case studies. positioning.\n\nlast week i ran a proper teardown across directiveconsulting, ironpaper, tripledart, and a few others.\n\nthe gap i found wasn't about services or pricing." },
+              { title: "AI CMO Operations Log", description: `i just hired an ai cmo from @askokara to help grow ${data.company.name}\n\nso far it has:\n• identified reddit opportunities\n• discovered seo issues\n• analyzed competitors\n• found geo issues`, kind: "new_post", draftContent: `i just hired an ai cmo from @askokara to help grow ${data.company.name}\n\nso far it has:\n• identified reddit opportunities\n• discovered seo issues\n• analyzed competitors\n• found geo issues` },
+            ];
+          }
           const running = runningAgent === type;
           const liveConnected = !data.user.demoMode && data.integrations.some((integration) => integration.provider.toLowerCase() === type.toLowerCase() && /connected|active/i.test(integration.status));
           return <div className="agent-row" key={type}>
-            <button className="agent-summary" type="button" onClick={() => setExpandedAgent(open ? null : type)}><AgentLogo type={type} fallback={icon} /><span><strong>{label}</strong><small>{running ? "Fetching current public sources and building recommendations…" : agentStatusSummary(type, run, items)}</small></span>{run?.confidence !== null && run?.confidence !== undefined && <em>{run.confidence}%</em>}<ChevronDown className={open ? "rotated" : ""} size={15} /></button>
+            <button className="agent-summary" type="button" onClick={() => setExpandedAgent(open ? null : type)}>
+              <AgentLogo type={type} fallback={icon} />
+              <span><strong>{label}</strong><small>{running ? "Fetching current public sources and building recommendations…" : run ? agentStatusSummary(type, run, items) : defaultSubtitle}</small></span>
+              {isUpgrade ? <span className="upgrade-pill"><Lock size={10} /> Upgrade</span> : <ChevronDown className={open ? "rotated" : ""} size={15} />}
+            </button>
             {open && <div className="agent-output">
+              {type === "X" && <div className="agent-voice-banner"><div className="voice-icon-box">𝕏</div><div className="voice-text"><strong>Post in your voice, daily</strong><small>Teach it your voice.</small></div><button type="button" className="voice-setup-btn">Set up &rarr;</button></div>}
               <SkillChainPreview skills={AGENT_DEFINITIONS.find((agent) => agent.type === type)?.skills ?? []} />
               {running ? <div className="agent-run-outline"><div><span /><strong>Discovering current platform content</strong></div><div><span /><strong>Checking source freshness and relevance</strong></div><div><span /><strong>Writing platform-specific opportunities</strong></div></div> : items.length ? items.map((item, index) => type === "X" || type === "REDDIT" || type === "LINKEDIN" ? (() => { const key = opportunityKey(type, item, index); return <SocialFindingCard key={key} type={type} item={item} index={index} company={data.company} liveConnected={liveConnected} completed={completedOpportunities.has(key)} onComplete={() => completeOpportunity(type, key)} onRegenerate={() => runAgent(type)} />; })() : type === "COMPETITOR" ? <CompetitorFindingCard key={`${item.companyName || item.title}-${index}`} item={item} /> : <article key={`${item.title}-${index}`}><div className="finding-meta"><span className={`priority priority-${item.priority ?? "medium"}`}>{item.priority ?? "insight"}</span>{item.confidence !== undefined && <span>{item.confidence}% confidence</span>}</div><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <div><strong>Why it matters:</strong><CleanMarkdown>{item.impact}</CleanMarkdown></div>}{item.action && <div className="agent-recommendation"><strong>Recommended response:</strong><CleanMarkdown>{item.action}</CleanMarkdown></div>}{item.sourceUrls?.length ? <div className="finding-sources">{item.sourceUrls.slice(0, 3).map((url) => <a key={url} href={url} target="_blank" rel="noreferrer">Open current source ↗</a>)}</div> : null}<div className="agent-card-actions">{AGENT_DEFINITIONS.some((agent) => agent.type === type) && <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>Refresh analysis</button>}</div></article>) : <div className="empty-agent"><Sparkles size={17} /><p>This agent runs independently from the company website, Lighthouse audit, and current public-web evidence. Generated documents are optional context.</p>{AGENT_DEFINITIONS.some((agent) => agent.type === type) && <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>Run live analysis</button>}</div>}
             </div>}

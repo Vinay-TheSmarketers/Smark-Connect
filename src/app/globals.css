@@ -1009,3 +1009,109 @@ html[data-theme="dark"] .company-context-signals article { border-color: #3c3633
 html[data-theme="dark"] .company-context-signals article > span { color: #c98aff; font-size: 10px; }
 html[data-theme="dark"] .company-context-signals article p { color: #d8d2ce; font-size: 13px; line-height: 1.55; }
 html[data-theme="dark"] .company-context-evidence { color: #8f8883; font-size: 10px; }
+
+/* Enhanced Analytics & Live Agents Feed Styling */
+.google-connect-section { margin-bottom: 14px; padding: 12px; border: 1px solid #eadfd9; border-radius: 12px; background: #fffdfb; }
+.google-connect-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+.google-connect-header .eyebrow { margin: 0; font-size: 8px; font-weight: 800; letter-spacing: .08em; color: var(--muted); }
+.google-connect-header .close-btn { border: 0; background: transparent; font-size: 14px; color: var(--muted); cursor: pointer; }
+.google-services-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.google-service-card { padding: 10px; border: 1px solid #eadfd9; border-radius: 9px; background: #fdfaf8; display: grid; gap: 8px; }
+.service-card-info { display: flex; align-items: center; gap: 7px; }
+.service-card-info strong { display: block; font-size: 9px; font-weight: 700; color: #231f20; }
+.service-card-info small { display: block; color: var(--muted); font-size: 7.5px; }
+.service-chart-preview { position: relative; height: 38px; border-radius: 6px; background: #f4eeee; display: flex; align-items: flex-end; padding: 4px 6px; overflow: hidden; }
+.chart-bar-preview { display: flex; align-items: flex-end; gap: 4px; width: 100%; height: 100%; }
+.chart-bar-preview span { flex: 1; border-radius: 2px 2px 0 0; background: #f59e0b; }
+.chart-line-preview { width: 100%; height: 100%; }
+.lock-overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,0.3); backdrop-filter: blur(1px); color: #fff; }
+.service-connect-btn { width: 100%; padding: 5px 8px; border: 1px solid #d9d0cb; border-radius: 6px; background: #fff; color: #191719; font-size: 8px; font-weight: 700; cursor: pointer; text-align: center; }
+
+.pagespeed-scores-section { margin-top: 12px; margin-bottom: 14px; padding: 12px; border: 1px solid #eadfd9; border-radius: 12px; background: #fffdfb; }
+.section-title-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+.section-title-row strong { display: block; font-size: 11px; font-weight: 800; }
+.section-title-row small { display: block; color: var(--muted); font-size: 8px; margin-top: 2px; }
+.audit-date { font-size: 8px; color: var(--muted); }
+.pagespeed-device-group { margin-top: 10px; }
+.device-label { display: block; font-size: 8px; font-weight: 800; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+.gauges-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; }
+.score-gauge-ring { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.score-gauge-ring .ring { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; border: 2.5px solid currentColor; background: #fff; }
+.score-gauge-ring.good { color: #10b981; }
+.score-gauge-ring.warn { color: #f59e0b; }
+.score-gauge-ring.bad { color: #ef4444; }
+.score-gauge-ring small { font-size: 7.5px; color: var(--muted); line-height: 1.2; }
+
+.core-vitals-section { margin-top: 12px; padding: 12px; border: 1px solid #eadfd9; border-radius: 12px; background: #fffdfb; }
+.vitals-device-toggle { display: flex; padding: 2px; border-radius: 6px; background: #eee7e2; gap: 2px; }
+.vitals-device-toggle button { padding: 3px 8px; border: 0; border-radius: 4px; background: transparent; font-size: 8px; color: var(--muted); cursor: pointer; }
+.vitals-device-toggle button.active { background: #fff; color: #191719; font-weight: 700; }
+.vitals-cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.vital-metric-card { padding: 10px; border: 1px solid #eadfd9; border-radius: 8px; background: #fdfaf8; }
+.vital-name { display: flex; align-items: center; gap: 4px; font-size: 8px; color: var(--muted); font-weight: 600; }
+.vital-name .metric-dot.pass { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
+.vital-val { display: block; margin: 4px 0 2px; font-size: 14px; font-weight: 800; color: #10b981; }
+.vital-status { font-size: 7.5px; color: #10b981; }
+
+.aeo-geo-section { display: grid; gap: 10px; }
+.aeo-banner { border-color: rgba(56,189,248,0.25); background: linear-gradient(135deg, #fff 0%, #f0f9ff 100%); }
+.aeo-banner svg { color: #0284c7; }
+.aeo-summary-card { padding: 12px; border: 1px solid #bae6fd; border-radius: 12px; background: #f0f9ff; }
+.aeo-badge-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.aeo-pill { padding: 3px 6px; border-radius: 99px; background: #0284c7; color: #fff; font-size: 7px; font-weight: 800; letter-spacing: .06em; }
+.aeo-gaps-badge { padding: 3px 6px; border-radius: 99px; background: #e0f2fe; color: #0369a1; font-size: 7px; font-weight: 700; }
+.aeo-intro { margin: 0; font-size: 8.5px; line-height: 1.5; color: #0c4a6e; }
+.aeo-findings-list { display: grid; gap: 8px; }
+.aeo-finding-item { padding: 12px; border: 1px solid #e0f2fe; border-radius: 10px; background: #fff; }
+.aeo-item-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.aeo-dot { width: 6px; height: 6px; border-radius: 50%; background: #0284c7; }
+.aeo-item-head h3 { margin: 0; font-size: 10px; font-weight: 800; color: #0369a1; }
+.aeo-action-note { margin-top: 8px; padding: 6px 8px; border-radius: 6px; background: #f0f9ff; color: #0284c7; font-size: 7.5px; font-weight: 600; }
+
+.pane-tool-group { display: flex; align-items: center; gap: 4px; }
+.pane-tool-btn { width: 22px; height: 22px; display: grid; place-items: center; border: 0; border-radius: 5px; background: transparent; color: #8e8885; cursor: pointer; }
+.pane-tool-btn:hover { background: rgba(0,0,0,0.05); color: #191719; }
+.upgrade-pill { padding: 3px 8px; border-radius: 99px; border: 1px solid #e2dad5; background: #f8f4f1; color: #8e8885; font-size: 7.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+.agent-voice-banner { margin: 0 0 10px; padding: 10px; border-radius: 10px; background: #fff; border: 1px solid #eadfd9; display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px; }
+.voice-icon-box { width: 26px; height: 26px; border-radius: 6px; background: #111; color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 800; }
+.voice-text strong { display: block; font-size: 9px; font-weight: 700; color: #231f20; }
+.voice-text small { display: block; color: var(--muted); font-size: 7.5px; }
+.voice-setup-btn { padding: 5px 9px; border-radius: 99px; border: 1px solid #111; background: #111; color: #fff; font-size: 7.5px; font-weight: 700; cursor: pointer; }
+.live-social-post-card { padding: 12px; border: 1px solid #eadfd9; border-radius: 10px; background: #fff; margin-bottom: 8px; display: grid; gap: 8px; }
+.post-copy-body { font-size: 8.5px; line-height: 1.55; color: #2c272a; white-space: pre-wrap; }
+.post-card-bottom-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.post-check-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #ded5d0; background: #fff; color: #8e8885; display: grid; place-items: center; cursor: pointer; }
+.post-check-btn.completed { background: #e7fbf5; color: #087c5c; border-color: #a7f3d0; }
+.post-publish-btn { padding: 5px 10px; border-radius: 99px; border: 1px solid #111; background: #111; color: #fff; font-size: 7.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+
+/* Dark Mode Overrides for Enhanced Features */
+html[data-theme="dark"] .google-connect-section,
+html[data-theme="dark"] .pagespeed-scores-section,
+html[data-theme="dark"] .core-vitals-section { border-color: #2b2725; background: #151313; }
+html[data-theme="dark"] .google-service-card,
+html[data-theme="dark"] .vital-metric-card { border-color: #332d2b; background: #1c1919; color: #e9e4e0; }
+html[data-theme="dark"] .service-card-info strong { color: #f5f1ed; }
+html[data-theme="dark"] .service-connect-btn { border-color: #443c3a; background: #272322; color: #f5f1ed; }
+html[data-theme="dark"] .service-connect-btn:hover { background: #35302e; }
+html[data-theme="dark"] .service-chart-preview { background: #110f0f; }
+html[data-theme="dark"] .score-gauge-ring .ring { background: transparent; }
+html[data-theme="dark"] .vitals-device-toggle { background: #110f0f; }
+html[data-theme="dark"] .vitals-device-toggle button.active { background: #272322; color: #fff; }
+html[data-theme="dark"] .aeo-banner { border-color: rgba(56,189,248,0.2); background: #171b21; }
+html[data-theme="dark"] .aeo-summary-card { border-color: #0369a1; background: #0c1a24; }
+html[data-theme="dark"] .aeo-pill { background: #0284c7; color: #fff; }
+html[data-theme="dark"] .aeo-gaps-badge { background: #1e3a5f; color: #7dd3fc; }
+html[data-theme="dark"] .aeo-intro { color: #bae6fd; }
+html[data-theme="dark"] .aeo-finding-item { border-color: #1e293b; background: #13171e; }
+html[data-theme="dark"] .aeo-item-head h3 { color: #38bdf8; }
+html[data-theme="dark"] .aeo-action-note { background: #0f172a; color: #38bdf8; }
+html[data-theme="dark"] .upgrade-pill { border-color: #3a3432; background: #221e1d; color: #a39c97; }
+html[data-theme="dark"] .agent-voice-banner { border-color: #332d2b; background: #1c1919; color: #f5f1ed; }
+html[data-theme="dark"] .voice-text strong { color: #f5f1ed; }
+html[data-theme="dark"] .voice-setup-btn { background: #f5f1ed; color: #111; border-color: #f5f1ed; }
+html[data-theme="dark"] .live-social-post-card { border-color: #2e2927; background: #181515; color: #f5f1ed; }
+html[data-theme="dark"] .post-copy-body { color: #eae5e1; }
+html[data-theme="dark"] .post-check-btn { border-color: #3d3634; background: #24201f; color: #bcb5b0; }
+html[data-theme="dark"] .post-publish-btn { background: #fff; color: #111; border-color: #fff; }
+html[data-theme="dark"] .pane-tool-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
