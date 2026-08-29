@@ -33,15 +33,18 @@ export async function GET(request: Request, context: { params: Promise<{ documen
   const requestedFormat = url.searchParams.get("format");
   const format = requestedFormat === "docx" || requestedFormat === "html" || requestedFormat === "xlsx" ? requestedFormat : "pdf";
   const disposition = url.searchParams.get("preview") === "1" ? "inline" : "attachment";
+  // PDF/HTML/DOCX exports are document-specific. XLSX is the intentional
+  // workbook export and includes all core modules as separate sheets.
+  const includeAllModules = format === "xlsx";
   const metadata = (document.metadata as ReportMetadata | null) ?? {};
   const coreOrder = new Map(CORE_DOCUMENTS.map((definition, index) => [definition.type, index]));
-  const siblingDocuments = format === "docx" ? [] : await db.document.findMany({ where: { companyId: document.companyId }, orderBy: { updatedAt: "desc" } });
+  const siblingDocuments = includeAllModules ? await db.document.findMany({ where: { companyId: document.companyId }, orderBy: { updatedAt: "desc" } }) : [];
   const coreDocuments = siblingDocuments.filter((item) => coreOrder.has(item.type)).sort((left, right) => (coreOrder.get(left.type) ?? 99) - (coreOrder.get(right.type) ?? 99));
   const modules = await Promise.all(coreDocuments.map(async (item) => {
     const itemMetadata = (item.metadata as ReportMetadata | null) ?? {};
     return { type: item.type, title: item.title, markdown: item.contentMarkdown, competitors: item.type === "COMPETITOR_ANALYSIS" ? await reportCompetitors(itemMetadata) : [] };
   }));
-  const args = { companyName: document.company.name, title: modules.length > 1 ? "Strategic Intelligence Report" : document.title, markdown: document.contentMarkdown, updatedAt: document.updatedAt, sourceCount: modules.length > 1 ? coreDocuments.reduce((total, item) => { const itemMetadata = (item.metadata as ReportMetadata | null) ?? {}; return total + (Array.isArray(itemMetadata.sources) ? itemMetadata.sources.length : 0); }, 0) : Array.isArray(metadata.sources) ? metadata.sources.length : 0, modules: modules.length > 1 ? modules : undefined };
+  const args = { companyName: document.company.name, title: includeAllModules && modules.length > 1 ? "Strategic Intelligence Report" : document.title, markdown: document.contentMarkdown, updatedAt: document.updatedAt, sourceCount: includeAllModules && modules.length > 1 ? coreDocuments.reduce((total, item) => { const itemMetadata = (item.metadata as ReportMetadata | null) ?? {}; return total + (Array.isArray(itemMetadata.sources) ? itemMetadata.sources.length : 0); }, 0) : Array.isArray(metadata.sources) ? metadata.sources.length : 0, modules: includeAllModules && modules.length > 1 ? modules : undefined };
   const body = format === "docx" ? await createBrandedDocx(args) : format === "xlsx" ? await createBrandedXlsx(args) : format === "html" ? await createBrandedHtml(args) : await createBrandedPdf(args);
   const extension = format;
   const contentType = format === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : format === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : format === "html" ? "text/html; charset=utf-8" : "application/pdf";
