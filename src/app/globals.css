@@ -1341,3 +1341,1199 @@ html[data-theme="dark"] .aeo-pill { background: #262121 !important; color: #d0c8
 html[data-theme="dark"] .aeo-gaps-badge { background: #2f2520 !important; color: #f59e0b !important; }
 html[data-theme="dark"] .aeo-action-note { background: #1c1818 !important; color: #d8d2ce !important; }
 html[data-theme="dark"] .aeo-action-note strong { color: #f5f1ed !important; }
+
+/* ==========================================================================
+   REDDIT OPPORTUNITY DISCOVERY SYSTEM (REF1–REF5)
+   ========================================================================== */
+
+.reddit-opportunity-system {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.reddit-discovery-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #fff8f5;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+}
+
+.discovery-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.discovery-stats .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #c2410c;
+  letter-spacing: .02em;
+}
+
+.live-indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.2);
+  animation: pulse 2s infinite;
+}
+
+.discovery-meta {
+  font-size: 10px;
+  color: #78716c;
+}
+
+.scan-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 99px;
+  border: 1px solid #ea580c;
+  background: #ea580c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+
+.scan-trigger-btn:hover {
+  background: #c2410c;
+}
+
+.scan-trigger-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Filter Tabs */
+.reddit-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f2e9e4;
+}
+
+.reddit-filter-tabs .tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #f5f2ef;
+  color: #57534e;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.reddit-filter-tabs .tab-btn:hover {
+  background: #ede8e4;
+  color: #1c1917;
+}
+
+.reddit-filter-tabs .tab-btn.active {
+  background: #1c1917;
+  color: #fff;
+  border-color: #1c1917;
+}
+
+.tab-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 700;
+  background: #e7e2de;
+  color: #44403c;
+}
+
+.tab-btn.active .tab-badge {
+  background: #44403c;
+  color: #fff;
+}
+
+.tab-badge.high {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.tab-btn.active .tab-badge.high {
+  background: #ea580c;
+  color: #fff;
+}
+
+.tab-badge.replied {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* Opportunity List & Cards */
+.reddit-opportunity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reddit-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+  color: #a8a29e;
+  border: 1px dashed #e7e5e4;
+  border-radius: 12px;
+}
+
+.reddit-empty-state p {
+  margin: 8px 0 2px;
+  font-weight: 600;
+  color: #57534e;
+}
+
+.reddit-empty-state small {
+  font-size: 11px;
+}
+
+.reddit-opportunity-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e7e5e4;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.reddit-opportunity-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.reddit-opportunity-card.score-exceptional {
+  border-left: 4px solid #10b981;
+}
+
+.reddit-opportunity-card.score-high {
+  border-left: 4px solid #0284c7;
+}
+
+.reddit-opportunity-card.score-medium {
+  border-left: 4px solid #f59e0b;
+}
+
+.reddit-opportunity-card.is-replied {
+  opacity: 0.85;
+  background: #fcfdfc;
+  border-color: #bbf7d0;
+}
+
+.reddit-opportunity-card.is-dismissed {
+  opacity: 0.6;
+  background: #fafafa;
+}
+
+/* Card Top Header */
+.card-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.subreddit-identity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.reddit-mark-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.subreddit-name-pill {
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.reddit-engagement-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #78716c;
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.freshness-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #a8a29e;
+  font-size: 10px;
+}
+
+.opportunity-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.score-exceptional .opportunity-score-badge {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.score-high .opportunity-score-badge {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+  color: #0369a1;
+}
+
+.score-medium .opportunity-score-badge {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.score-number {
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: -.02em;
+}
+
+.score-tier {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .03em;
+}
+
+/* Title & Excerpt */
+.opportunity-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #1c1917;
+}
+
+.opportunity-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.opportunity-title a:hover {
+  color: #ea580c;
+}
+
+.opportunity-excerpt {
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 2px solid #fed7aa;
+  background: #fffaf7;
+  color: #57534e;
+  font-size: 11.5px;
+  line-height: 1.5;
+  border-radius: 0 6px 6px 0;
+}
+
+/* Matched Dimension Chips */
+.matched-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.matched-chips-row > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid #e7e5e4;
+  background: #fafaf9;
+  color: #44403c;
+}
+
+.intent-chip {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+.icp-chip {
+  background: #fdf4ff !important;
+  border-color: #f5d0fe !important;
+  color: #86198f !important;
+}
+
+.problem-chip {
+  background: #fff7ed !important;
+  border-color: #fed7aa !important;
+  color: #c2410c !important;
+}
+
+.competitor-chip {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
+}
+
+/* Why Opportunity Callout */
+.why-opportunity-callout {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.why-opportunity-callout strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 2px;
+  letter-spacing: .02em;
+}
+
+.why-opportunity-callout p {
+  margin: 0;
+}
+
+/* Expandable Why Am I Seeing This */
+.why-seeing-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.why-seeing-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #78716c;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.why-seeing-toggle:hover {
+  color: #1c1917;
+}
+
+.evidence-checklist-box {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f5f5f4;
+  border: 1px solid #e7e5e4;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.score-breakdown-mini small {
+  display: block;
+  font-size: 9.5px;
+  color: #78716c;
+  font-family: monospace;
+}
+
+.evidence-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.evidence-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #44403c;
+  line-height: 1.35;
+}
+
+/* Approach & Spam Metadata */
+.approach-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+  font-size: 10.5px;
+  color: #78716c;
+}
+
+.approach-badge strong {
+  color: #292524;
+}
+
+.approach-badge span {
+  color: #ea580c;
+  font-weight: 700;
+}
+
+.spam-risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.risk-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.risk-dot.low {
+  background: #10b981;
+}
+
+.risk-dot.medium {
+  background: #f59e0b;
+}
+
+.open-reddit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #78716c;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.open-reddit-link:hover {
+  color: #ea580c;
+}
+
+/* AI Reply Area */
+.ai-reply-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #fafaf9;
+  border: 1px solid #e7e5e4;
+}
+
+.reply-variant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.variant-pills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.variant-label-prefix {
+  font-size: 10px;
+  font-weight: 800;
+  color: #78716c;
+  margin-right: 4px;
+}
+
+.variant-pill-btn {
+  padding: 3px 8px;
+  border-radius: 99px;
+  border: 1px solid #d6d3d1;
+  background: #fff;
+  color: #57534e;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.variant-pill-btn:hover {
+  border-color: #a8a29e;
+}
+
+.variant-pill-btn.active {
+  background: #ea580c;
+  border-color: #ea580c;
+  color: #fff;
+}
+
+.quick-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 0;
+  background: transparent;
+  color: #78716c;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quick-action-btn:hover {
+  color: #1c1917;
+}
+
+.ai-reply-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e7e5e4;
+  background: #fff;
+  color: #1c1917;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.55;
+  resize: vertical;
+  outline: none;
+}
+
+.ai-reply-textarea:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.08);
+}
+
+.reply-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.char-count-note small {
+  font-size: 9.5px;
+  color: #a8a29e;
+}
+
+.action-buttons-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.footer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .15s;
+  border: 1px solid transparent;
+}
+
+.footer-btn.secondary {
+  background: #f5f5f4;
+  border-color: #d6d3d1;
+  color: #44403c;
+}
+
+.footer-btn.secondary:hover {
+  background: #e7e5e4;
+}
+
+.footer-btn.copy-btn {
+  background: #1c1917;
+  color: #fff;
+}
+
+.footer-btn.copy-btn:hover {
+  background: #ea580c;
+}
+
+.footer-btn.copy-btn.copied {
+  background: #10b981;
+}
+
+.footer-btn.mark-replied-btn {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.footer-btn.mark-replied-btn:hover {
+  background: #dcfce7;
+}
+
+.footer-btn.mark-replied-btn.active {
+  background: #15803d;
+  color: #fff;
+}
+
+.footer-btn.dismiss-btn {
+  background: transparent;
+  color: #a8a29e;
+}
+
+.footer-btn.dismiss-btn:hover {
+  color: #ef4444;
+}
+
+.dismissed-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #a8a29e;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #f5f5f4;
+}
+
+/* ==========================================================================
+   AGENT SETTINGS DASHBOARD (REF4.PNG)
+   ========================================================================== */
+
+.agent-settings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.settings-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-page-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1c1917;
+}
+
+.settings-page-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #78716c;
+}
+
+.settings-save-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid #d6d3d1;
+  background: #fff;
+  color: #1c1917;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  transition: all .2s;
+}
+
+.settings-save-button:hover {
+  background: #f5f5f4;
+  border-color: #a8a29e;
+}
+
+.agent-setting-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e7e5e4;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+.setting-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-title-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.card-icon-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.card-icon-circle.seo {
+  background: #0ea5e9;
+  color: #fff;
+}
+
+.card-icon-circle.reddit {
+  background: #ff4500;
+  color: #fff;
+}
+
+.card-icon-circle.x-brand {
+  background: #000;
+  color: #fff;
+}
+
+.card-title-group h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1c1917;
+}
+
+.card-title-group p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #78716c;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #e7e5e4;
+  transition: .3s;
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: #1c1917;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.setting-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.voice-textarea-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e7e5e4;
+  background: #fffdfa;
+  color: #1c1917;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+}
+
+.voice-textarea-group textarea:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.08);
+}
+
+.form-labeled-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #292524;
+}
+
+.tag-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tag-count-indicator {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a8a29e;
+}
+
+.select-field-row select,
+.form-labeled-section select {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #e7e5e4;
+  background: #fffdfa;
+  color: #1c1917;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.setting-footer-note {
+  font-size: 11px;
+  color: #a8a29e;
+}
+
+/* Tag Manager */
+.tag-manager-box {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #e7e5e4;
+  background: #fffdfa;
+  min-height: 46px;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tag-pill.subreddit {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.tag-pill.keyword {
+  background: #f5f5f4;
+  color: #292524;
+  border: 1px solid #e7e5e4;
+}
+
+.tag-pill button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  opacity: 0.7;
+}
+
+.tag-pill button:hover {
+  opacity: 1;
+}
+
+.add-tag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px dashed #d6d3d1;
+  background: transparent;
+  color: #78716c;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-tag-btn:hover {
+  border-color: #1c1917;
+  color: #1c1917;
+}
+
+.tag-inline-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tag-inline-input input {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #ea580c;
+  font-size: 11px;
+  outline: none;
+}
+
+.tag-inline-input button {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 0;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tag-inline-input button:first-of-type {
+  background: #ea580c;
+  color: #fff;
+}
+
+.tag-inline-input button:last-of-type {
+  background: #e7e5e4;
+  color: #44403c;
+}
+
+/* Search Map Preview Accordion */
+.search-map-preview-accordion {
+  border-top: 1px solid #f2e9e4;
+  padding-top: 10px;
+}
+
+.accordion-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #ea580c;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.search-map-families-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.family-col {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff8f5;
+  border: 1px solid #fed7aa;
+}
+
+.family-col strong {
+  display: block;
+  font-size: 10.5px;
+  color: #9a3412;
+}
+
+.family-col small {
+  display: block;
+  font-size: 9.5px;
+  color: #78716c;
+  margin-top: 2px;
+}
+
+/* X Brand Voice Row */
+.x-brand-voice-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e7e5e4;
+  background: #fffdfa;
+}
+
+.brand-voice-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1c1917;
+}
+
+.brand-voice-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.link-action-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #57534e;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-action-btn.sparkle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #8b2ce0;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.link-action-btn:hover {
+  color: #1c1917;
+}
+
+/* ==========================================================================
+   DARK MODE OVERRIDES
+   ========================================================================== */
+
+html[data-theme="dark"] .reddit-opportunity-card,
+html[data-theme="dark"] .agent-setting-card {
+  background: #141111 !important;
+  border-color: #2b2626 !important;
+}
+
+html[data-theme="dark"] .reddit-discovery-bar {
+  background: #1e130c !important;
+  border-color: #7c2d12 !important;
+}
+
+html[data-theme="dark"] .reddit-filter-tabs .tab-btn {
+  background: #231f1f !important;
+  color: #d6d3d1 !important;
+}
+
+html[data-theme="dark"] .reddit-filter-tabs .tab-btn.active {
+  background: #ea580c !important;
+  color: #fff !important;
+}
+
+html[data-theme="dark"] .opportunity-title {
+  color: #f5f1ed !important;
+}
+
+html[data-theme="dark"] .opportunity-excerpt {
+  background: #1c1410 !important;
+  border-color: #7c2d12 !important;
+  color: #d6d3d1 !important;
+}
+
+html[data-theme="dark"] .why-opportunity-callout {
+  background: #1c1818 !important;
+  border-color: #2b2626 !important;
+  color: #d6d3d1 !important;
+}
+
+html[data-theme="dark"] .why-opportunity-callout strong {
+  color: #f5f1ed !important;
+}
+
+html[data-theme="dark"] .ai-reply-container,
+html[data-theme="dark"] .tag-manager-box,
+html[data-theme="dark"] .x-brand-voice-row,
+html[data-theme="dark"] .voice-textarea-group textarea,
+html[data-theme="dark"] .select-field-row select,
+html[data-theme="dark"] .form-labeled-section select {
+  background: #1a1616 !important;
+  border-color: #2b2626 !important;
+  color: #f5f1ed !important;
+}
+
+html[data-theme="dark"] .ai-reply-textarea {
+  background: #141111 !important;
+  border-color: #2b2626 !important;
+  color: #f5f1ed !important;
+}
+
+html[data-theme="dark"] .variant-pill-btn {
+  background: #262121 !important;
+  border-color: #3b3434 !important;
+  color: #d6d3d1 !important;
+}
+
+html[data-theme="dark"] .variant-pill-btn.active {
+  background: #ea580c !important;
+  color: #fff !important;
+}
+
+html[data-theme="dark"] .settings-save-button {
+  background: #262121 !important;
+  border-color: #3b3434 !important;
+  color: #f5f1ed !important;
+}
+

@@ -1,5 +1,8 @@
+import type { DecisionAction, EvaluatedRedditOpportunity, OpportunityIntent, OpportunityScoreFactors } from "../reddit/scorer";
+import type { ReplyVariant } from "../reddit/writer";
+
 /**
- * Signal Store & Opportunity Evaluation Engine
+ * Signal Store & Action Feed Engine
  *
  * OPPORTUNITY = EXTERNAL SIGNAL × COMPANY RELEVANCE × ACTIONABILITY
  */
@@ -19,7 +22,8 @@ export type SignalType =
   | "recommendation_request"
   | "content_gap"
   | "technical_issue"
-  | "citation_gap";
+  | "citation_gap"
+  | "competitor_dissatisfaction";
 
 export type MarketSignal = {
   id: string;
@@ -32,15 +36,22 @@ export type MarketSignal = {
   createdAt: string;
 };
 
-export type OpportunityScoreBreakdown = {
-  relevance: number; // 0 - 30
-  intent: number; // 0 - 20
-  audienceFit: number; // 0 - 15
-  productFit: number; // 0 - 15
-  recency: number; // 0 - 10
-  actionability: number; // 0 - 10
-  total: number; // 0 - 100
-  tier: "exceptional" | "high" | "medium" | "low";
+export type OpportunityLifecycleStatus =
+  | "new"
+  | "reviewed"
+  | "approved"
+  | "replied"
+  | "dismissed"
+  | "expired";
+
+export type RedditActionFeedOpportunity = EvaluatedRedditOpportunity & {
+  platform: "reddit";
+  replyVariants: ReplyVariant[];
+  lifecycleStatus: OpportunityLifecycleStatus;
+  selectedVariantId?: string;
+  customDraft?: string;
+  completedAt?: string;
+  dismissedAt?: string;
 };
 
 export type EvaluatedOpportunity = {
@@ -50,9 +61,18 @@ export type EvaluatedOpportunity = {
   whatHappened: string;
   whyMatters: string;
   whatToDo: string;
-  score: OpportunityScoreBreakdown;
+  score: {
+    relevance: number;
+    intent: number;
+    audienceFit: number;
+    productFit: number;
+    recency: number;
+    actionability: number;
+    total: number;
+    tier: "exceptional" | "high" | "medium" | "low";
+  };
   intentLabel: string;
-  spamRisk: number; // 0.0 to 1.0
+  spamRisk: number;
   whyMatched: string[];
   evidenceQuotes: string[];
   suggestedAngle?: string;
@@ -64,8 +84,7 @@ export type EvaluatedOpportunity = {
 };
 
 /**
- * Calculates Opportunity Score based on explicit 6-factor scoring model:
- * Total = Relevance(30) + Intent(20) + AudienceFit(15) + ProductFit(15) + Recency(10) + Actionability(10)
+ * Calculates Opportunity Score based on explicit 6-factor legacy scoring model
  */
 export function scoreOpportunity(params: {
   relevance?: number;
@@ -74,7 +93,7 @@ export function scoreOpportunity(params: {
   productFit?: number;
   recency?: number;
   actionability?: number;
-}): OpportunityScoreBreakdown {
+}) {
   const relevance = Math.min(30, Math.max(0, params.relevance ?? 25));
   const intent = Math.min(20, Math.max(0, params.intent ?? 18));
   const audienceFit = Math.min(15, Math.max(0, params.audienceFit ?? 14));
@@ -83,29 +102,14 @@ export function scoreOpportunity(params: {
   const actionability = Math.min(10, Math.max(0, params.actionability ?? 9));
 
   const total = relevance + intent + audienceFit + productFit + recency + actionability;
-  const tier = total >= 90 ? "exceptional" : total >= 80 ? "high" : total >= 65 ? "medium" : "low";
+  const tier: "exceptional" | "high" | "medium" | "low" =
+    total >= 90 ? "exceptional" : total >= 80 ? "high" : total >= 65 ? "medium" : "low";
 
   return { relevance, intent, audienceFit, productFit, recency, actionability, total, tier };
 }
 
 /**
- * Derives Reddit candidate monitoring topics from company memory
- */
-export function deriveRedditMonitoringTopics(companyName: string, category: string | null): string[] {
-  const cat = category || "SEO software";
-  return [
-    `${cat} audit tool`,
-    `best ${cat} software`,
-    `${cat} reporting tool`,
-    `technical ${cat} audit`,
-    `agency ${cat} software`,
-    `automating ${cat} audits`,
-    `alternatives for ${cat}`,
-  ];
-}
-
-/**
- * Evaluates candidate Reddit post signal
+ * Converts evaluated Reddit opportunity into legacy EvaluatedOpportunity format if needed
  */
 export function evaluateRedditCandidate(params: {
   id: string;
@@ -118,7 +122,7 @@ export function evaluateRedditCandidate(params: {
   companyName: string;
 }): EvaluatedOpportunity {
   const text = `${params.title} ${params.body ?? ""}`.toLowerCase();
-  const isDirectRecommendation = /recommend|tool|software|alternative|best|using|software|pick|switch/i.test(text);
+  const isDirectRecommendation = /recommend|tool|software|alternative|best|using|pick|switch/i.test(text);
   const isAgency = /agency|agencies|client|workflow|manual|freelance|consultant/i.test(text);
   const isPain = /slow|broken|manual|takes too long|waste|hate|struggling|hard|frustrated/i.test(text);
 
@@ -132,7 +136,7 @@ export function evaluateRedditCandidate(params: {
   const score = scoreOpportunity({ relevance, intent, audienceFit, productFit, recency, actionability });
 
   const whyMatched = [
-    isAgency ? "✓ Audience = SEO Agency / Digital Consultant" : "✓ Audience = In-house Growth Marketer",
+    isAgency ? "✓ Matches Agency ICP (High Commercial Fit)" : "✓ Matches Target B2B Marketer Profile",
     isPain ? "✓ Problem = High manual labor & workflow bottleneck" : "✓ Topic = Tool selection & technical evaluation",
     `✓ Product = ${params.companyName} automated intelligence platform`,
     isDirectRecommendation ? "✓ User explicitly requested solution recommendations" : "✓ High commercial intent discussion",
@@ -150,11 +154,11 @@ export function evaluateRedditCandidate(params: {
     whatToDo: "Reply with helpful workflow advice and softly introduce automated audit reports.",
     score,
     intentLabel: isDirectRecommendation ? "Recommendation Request" : isPain ? "Pain Expression" : "Solution Search",
-    spamRisk: 0.12,
+    spamRisk: 0.08,
     whyMatched,
     evidenceQuotes: [
       `"${params.title}"`,
-      params.body ? `"${params.body.slice(0, 140)}…"` : `"What auditing software are agencies using? Manual workflows take too long."`,
+      params.body ? `"${params.body.slice(0, 160)}…"` : `"What auditing software are agencies using? Manual workflows take too long."`,
     ],
     aiPreparedDraft: `We ran into the exact same bottleneck when managing client audits. A great approach is separating crawl diagnostics from reporting delivery. If you're looking for an automated option built for agencies, ${params.companyName} automatically runs technical audits and generates white-label reports in minutes.`,
     sourceUrl: params.url,
@@ -266,9 +270,12 @@ Fix the architecture first.`,
 }
 
 /**
- * Deduplicates and clusters related signals by normalized topic
+ * Deduplicates and clusters related signals by normalized topic.
+ * Used to translate recurring Reddit pain points into LinkedIn & X triggers!
  */
-export function clusterSignals(signals: MarketSignal[]): Array<{ topic: string; signals: MarketSignal[]; totalStrength: number }> {
+export function clusterSignals(
+  signals: MarketSignal[]
+): Array<{ topic: string; signals: MarketSignal[]; totalStrength: number }> {
   const clusters = new Map<string, MarketSignal[]>();
 
   for (const signal of signals) {

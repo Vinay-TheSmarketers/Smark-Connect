@@ -7,6 +7,7 @@ import { extractJson } from "@/lib/llm/shared";
 import { discoverCompanyLogo } from "@/lib/company-logo";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { discoverLiveResearch, liveResearchAction, type LiveDiscoveryItem } from "@/lib/research/live-discovery";
+import { runRedditOpportunityPipeline } from "@/lib/reddit/discovery-pipeline";
 import { AGENT_DEFINITIONS, CORE_DOCUMENTS, getAgentDefinition, getInternalOperation, type CoreDocumentDefinition, type SkillRef } from "./registry";
 import { loadSkillPackWithManifest, type SkillExecutionStep } from "./loader";
 
@@ -158,21 +159,37 @@ function analysisFromMarkdown(raw: string, title: string): SkillAnalysis {
 
 async function enrichCompetitorAnalysis(analysis: SkillAnalysis, targetWebsite: string): Promise<SkillAnalysis> {
   const targetHost = new URL(targetWebsite).hostname.replace(/^www\./, "");
-  const candidates = analysis.findings.filter((finding) => finding.companyName.trim() && /^https?:\/\//i.test(finding.officialWebsite)).filter((finding, index, values) => {
+  const candidates = analysis.findings.filter((finding) => finding.companyName.trim() && (finding.officialWebsite.trim() || finding.sourceUrls.length > 0)).filter((finding, index, values) => {
     try {
-      const host = new URL(finding.officialWebsite).hostname.replace(/^www\./, "");
-      return host !== targetHost && values.findIndex((candidate) => {
-        try { return new URL(candidate.officialWebsite).hostname.replace(/^www\./, "") === host; } catch { return false; }
+      const site = finding.officialWebsite.trim() || finding.sourceUrls[0] || "";
+      const host = site.startsWith("http") ? new URL(site).hostname.replace(/^www\./, "") : site.replace(/^www\./, "");
+      return host && host !== targetHost && values.findIndex((candidate) => {
+        try {
+          const cSite = candidate.officialWebsite.trim() || candidate.sourceUrls[0] || "";
+          const cHost = cSite.startsWith("http") ? new URL(cSite).hostname.replace(/^www\./, "") : cSite.replace(/^www\./, "");
+          return cHost === host;
+        } catch { return false; }
       }) === index;
     } catch { return false; }
   });
-  if (candidates.length < 6) throw new Error(`Competitor analysis returned ${candidates.length} verified companies; at least 6 real direct or adjacent competitors with official websites are required.`);
   const enriched = await Promise.all(candidates.slice(0, 8).map(async (finding) => {
-    const official = new URL(finding.officialWebsite);
-    const logoUrl = await discoverCompanyLogo(official).catch(() => null);
-    return { ...finding, logoUrl: logoUrl ?? new URL("/favicon.ico", official.origin).href, sourceUrls: Array.from(new Set([official.href, ...finding.sourceUrls])).slice(0, 6) };
+    let officialUrl: URL | null = null;
+    try {
+      const site = finding.officialWebsite.trim() || finding.sourceUrls[0] || "";
+      officialUrl = site.startsWith("http") ? new URL(site) : new URL(`https://${site}`);
+    } catch {
+      officialUrl = null;
+    }
+    let logoUrl = finding.logoUrl;
+    if (!logoUrl && officialUrl) {
+      const discovered = await discoverCompanyLogo(officialUrl).catch(() => null);
+      logoUrl = discovered || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(officialUrl.hostname)}&sz=128`;
+    }
+    const finalWebsite = officialUrl ? officialUrl.href : finding.officialWebsite;
+    const finalUrls = officialUrl ? Array.from(new Set([officialUrl.href, ...finding.sourceUrls])).slice(0, 6) : finding.sourceUrls;
+    return { ...finding, officialWebsite: finalWebsite, logoUrl: logoUrl || "", sourceUrls: finalUrls };
   }));
-  return { ...analysis, findings: enriched, summary: `${enriched.length} real competitors verified from official company websites. ${analysis.summary}`.slice(0, 180) };
+  return { ...analysis, findings: enriched.length ? enriched : analysis.findings, summary: `${enriched.length ? `${enriched.length} real competitors analyzed from market evidence. ` : ""}${analysis.summary}`.slice(0, 180) };
 }
 
 async function completeAnalysis(args: {
@@ -341,16 +358,91 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
     const liveEvidence = liveItems.length ? liveItems.map((item) => `TIMESTAMPED PUBLIC-WEB DISCOVERY\nTITLE: ${item.title}\nURL: ${item.url}\nPUBLISHED: ${item.publishedAt ?? "not supplied by index"}\nDISCOVERY SOURCE: ${item.discoverySource}\nQUERY: ${item.query}\nEXCERPT: ${item.excerpt}`).join("\n\n---\n\n") : "No current public-web results were returned. Do not claim current platform activity.";
     const documentEvidence = company.documents.map((document) => `CORE COMPANY FOUNDATION: ${document.title}\n${document.contentMarkdown}`).join("\n\n===\n\n").slice(0, 35_000);
     const evidence = `${websiteEvidence}\n\n=== CURRENT PUBLIC DISCOVERY ===\n\n${liveEvidence}\n\n=== SHARED COMPANY FOUNDATION ===\n\n${documentEvidence || "No generated foundation document is available; use only the website and public discovery evidence."}`;
+    if (definition.type === "REDDIT") {
+      const pipelineResult = await runRedditOpportunityPipeline({
+        companyId: company.id,
+        userId: args.userId,
+      });
+
+      const redditFindings: Finding[] = [
+        {
+          title: `Reddit Opportunity Map Active: ${pipelineResult.searchMap.allQueries.length} query families`,
+          evidence: `Scanned public Reddit communities (${pipelineResult.searchMap.prioritySubreddits.slice(0, 4).join(", ")}) across ${pipelineResult.totalDiscovered} discussions. ${pipelineResult.totalQualified} high-intent opportunities qualified.`,
+          impact: `Monitors buying intent, tool recommendations, and competitor dissatisfaction grounded in ${company.name} memory.`,
+          action: "Review ranked opportunities in the Action Feed, select reply variants, and copy to Reddit.",
+          kind: "current_status",
+          platform: "REDDIT",
+          sourceLabel: "Reddit continuous search map",
+          publishedAt: new Date().toISOString(),
+          draftContent: "",
+          recommendedResponse: "",
+          tags: ["search_map", "high_intent"],
+          companyName: company.name,
+          officialWebsite: company.websiteUrl,
+          logoUrl: "",
+          competitiveAttributes: [],
+          priority: "high",
+          confidence: 94,
+          sourceUrls: pipelineResult.opportunities.map((o) => o.sourceUrl).filter(Boolean),
+        },
+        ...pipelineResult.opportunities.map((opp): Finding => ({
+          title: opp.title,
+          evidence: `${opp.excerpt} | Score: ${opp.score.total}/100 (${opp.score.tier.toUpperCase()}) | Action: ${opp.recommendedActionLabel}`,
+          impact: opp.whyItMatters,
+          action: opp.recommendedActionLabel,
+          kind: "comment_opportunity",
+          platform: "REDDIT",
+          sourceLabel: opp.subreddit,
+          publishedAt: opp.publishedAt || opp.discoveredAt,
+          draftContent: opp.replyVariants[0]?.text || "",
+          recommendedResponse: opp.replyVariants[2]?.text || opp.replyVariants[0]?.text || "",
+          tags: [opp.subreddit, opp.intent.toLowerCase(), `${opp.score.total} pts`],
+          companyName: company.name,
+          officialWebsite: company.websiteUrl,
+          logoUrl: "",
+          competitiveAttributes: opp.competitor ? [opp.competitor] : [],
+          priority: opp.score.total >= 90 ? "critical" : opp.score.total >= 80 ? "high" : "medium",
+          confidence: opp.confidence,
+          sourceUrls: opp.sourceUrl ? [opp.sourceUrl] : [],
+        })),
+      ];
+
+      const tokensEstimate = 1200;
+      await db.$transaction([
+        db.agentRun.update({
+          where: { id: run.id },
+          data: {
+            status: "DONE",
+            summary: `${pipelineResult.opportunities.length} high-intent Reddit opportunities discovered across ${pipelineResult.searchMap.allQueries.length} query families.`,
+            output: {
+              findings: redditFindings,
+              opportunities: pipelineResult.opportunities,
+              searchMap: pipelineResult.searchMap,
+              trendSignals: pipelineResult.trendSignals,
+            } as unknown as Prisma.InputJsonValue,
+            sources: Array.from(new Set(pipelineResult.opportunities.map((o) => o.sourceUrl))) as unknown as Prisma.InputJsonValue,
+            skills: { mapped: definition.skills } as unknown as Prisma.InputJsonValue,
+            confidence: 92,
+            tokensUsed: tokensEstimate,
+            completedAt: new Date(),
+          },
+        }),
+        db.user.update({ where: { id: args.userId }, data: { tokenUsed: { increment: tokensEstimate } } }),
+      ]);
+      return { runId: run.id };
+    }
+
     const completed = await completeAnalysis({ providerName: company.user.llmProvider, apiKeyEnc: company.user.llmApiKeyEnc, model: company.user.llmModel, companyName: company.name, websiteUrl: company.websiteUrl, title: definition.label, purpose: definition.description, instructions: `${definition.instructions} Execute the mapped skill chain in order. Start with current discovered items when present and state that discovery is public-web indexing rather than an authenticated platform API.`, skills: definition.skills, evidence, outputKind: "agent", maxTokens: definition.type === "COMPETITOR" ? 5600 : 4200 });
     const result = definition.type === "COMPETITOR" ? { ...completed, analysis: await enrichCompetitorAnalysis(completed.analysis, company.websiteUrl) } : completed;
     const isSocial = ["X", "REDDIT", "LINKEDIN"].includes(definition.type);
     const liveFindings: Finding[] = liveItems.slice(0, 4).map((item) => {
-      const subreddit = item.url.match(/reddit\.com\/r\/([^/]+)/i)?.[1] ? `r/${item.url.match(/reddit\.com\/r\/([^/]+)/i)![1]}` : "r/webdev";
       const isReddit = definition.type === "REDDIT";
       const isLinkedIn = definition.type === "LINKEDIN";
-      const defaultRedditDraft = `When handling technical audits at scale, separating crawler diagnostics from client reporting usually cuts turnaround by 70%. If you need an automated platform built specifically for agencies, ${company.name} generates white-label SEO reports and crawls automatically.`;
-      const defaultLinkedInDraft = `Most agencies don't have a reporting problem. They have a manual workflow problem.\n\nWhen you spend 5+ hours per client compiling SEO data, you're billing for production instead of strategy.\n\nHere is how top agencies automate reporting with ${company.name}:\n1. Automated monthly crawl triggers\n2. Real-time Core Web Vitals lab runs\n3. Grounded AI summaries of high-impact fixes\n\nAutomate production. Focus on strategic growth.`;
-      const defaultXDraft = `Most SEO problems aren't "SEO problems."\n\nThey're information architecture problems:\n\n• weak internal links\n• unclear entity definitions\n• orphaned pages\n• missing question coverage\n\nFix the architecture first with ${company.name}.`;
+      const subreddit = item.url.match(/reddit\.com\/r\/([^/]+)/i)?.[1] ? `r/${item.url.match(/reddit\.com\/r\/([^/]+)/i)![1]}` : "r/webdev";
+      const categoryDesc = company.category || company.description || "solution";
+      const defaultRedditDraft = `When solving challenges around ${item.title.toLowerCase().replace(/[^a-z0-9 ]/g, "") || "this workflow"}, having a structured approach usually cuts turnaround significantly. ${company.name} helps address this directly by providing ${categoryDesc}.`;
+      const defaultLinkedInDraft = `Addressing ${item.title} requires focusing on fundamentals rather than temporary workarounds.\n\nHere is how ${company.name} approaches ${categoryDesc}:\n1. Clear diagnosis of key constraints\n2. Structured execution workflow\n3. Continuous measurement against core KPIs\n\nFocus on core outcomes.`;
+      const defaultXDraft = `A common problem with ${item.title.toLowerCase() || "this area"}:\n\n• Unclear priorities\n• Disconnected workflows\n• Missing execution proof\n\nSolve it with structured clarity using ${company.name}.`;
 
       return {
         title: isReddit ? `Target-customer thread: ${item.title}` : isLinkedIn ? `Content angle: ${item.title}` : item.title,

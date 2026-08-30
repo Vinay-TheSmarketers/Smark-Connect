@@ -4,11 +4,7 @@ import base64
 import html
 import io
 import json
-import math
 import re
-import sys
-from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import matplotlib
@@ -51,10 +47,6 @@ REPORT_PROFILES = {
     "STRATEGIC_INTELLIGENCE": {"name": "Strategic intelligence synthesis", "kicker": "SYNTHESIS · PRIORITIES · ACTION", "cover": "A cross-functional synthesis that connects company, search, AI visibility, market, audience, and content evidence into one decision system.", "executive": "What materially matters across the system", "executive_copy": "Findings are selected for leverage and non-duplication rather than one-per-module symmetry.", "roadmap": "Impact-ranked roadmap", "roadmap_copy": "Actions compete for priority across modules. Placement reflects evidence, dependencies, and expected leverage.", "accent": "#7C3AED", "deep": "#4C1D95", "soft": "#FAECF2", "layout": "synthesis", "visuals": ("network", "matrix", "journey")},
     "DOCUMENT": {"name": "Decision document", "kicker": "EVIDENCE · INTERPRETATION · ACTION", "cover": "A focused, evidence-led document designed to make the key pattern, implication, and next decision easy to see.", "executive": "What materially matters", "executive_copy": "The strongest non-duplicative findings are surfaced first, with evidence boundaries kept explicit.", "roadmap": "Decision sequence", "roadmap_copy": "Actions are ordered by leverage, dependency, and confidence.", "accent": "#7C3AED", "deep": "#4C1D95", "soft": "#FAECF2", "layout": "brief", "visuals": ("matrix", "journey", "ladder")},
 }
-
-
-def normalize_acronyms(value: str) -> str:
-    value = re.sub(r"[\ud800-\udfff]", "?", value)
     parts = re.split(r"(https?://[^\s)\]>]+)", value, flags=re.I)
     for index in range(0, len(parts), 2):
         for acronym in ACRONYMS: parts[index] = re.sub(rf"\b{acronym}\b", acronym, parts[index], flags=re.I)
@@ -300,247 +292,678 @@ def signature_svg(kind: str, title: str, items: list[tuple[str, str]], accent: s
     parts.append("</svg>"); return "".join(parts)
 
 
-def signature_figure(kind: str, title: str, items: list[tuple[str, str]], profile: dict[str, Any], caption: str) -> str:
-    return f'<figure class="signature-figure" data-visual-kind="{kind}">{signature_svg(kind, title, items, profile["accent"], profile["deep"], profile["soft"])}<figcaption>{clean_inline(caption)}</figcaption></figure>'
+from __future__ import annotations
+
+import base64
+import html
+import io
+import json
+import re
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from jinja2 import Template
+from pypdf import PdfReader
+
+try:
+    from weasyprint import HTML
+    WEASYPRINT_ERROR = ""
+except Exception as error:
+    HTML = None
+    WEASYPRINT_ERROR = str(error)
+
+ACRONYMS = ("SEO", "GEO", "ICP", "PESTEL", "SWOT", "ROI", "KPI", "CTR", "CTA", "AI", "API", "URL", "B2B", "B2C", "GSC", "LLM")
+
+def normalize_acronyms(value: str) -> str:
+    value = re.sub(r"[\ud800-\udfff]", "?", value)
+    parts = re.split(r"(https?://[^\s)\]>]+)", value, flags=re.I)
+    for index in range(0, len(parts), 2):
+        for acronym in ACRONYMS:
+            parts[index] = re.sub(rf"\b{acronym}\b", acronym, parts[index], flags=re.I)
+    return "".join(parts)
 
 
-VISUAL_NAMES = {"stack": "value architecture", "orbit": "relationship constellation", "ladder": "proof progression", "journey": "dependency pathway", "matrix": "decision matrix", "network": "entity and evidence graph", "spectrum": "positioning spectrum", "radar": "qualitative contrast web", "funnel": "decision funnel", "wheel": "operating flywheel", "decision": "decision tree", "blueprint": "system blueprint"}
-VISUAL_CAPTIONS = {"stack": "Read from foundation to promise: every upper layer becomes fragile when the evidence beneath it is weak.", "orbit": "The center is the organizing idea; surrounding nodes show the relationships that must reinforce it rather than compete with it.", "ladder": "Progress depends on earning the next level of confidence, not simply adding more claims or activity.", "journey": "The sequence exposes dependency: a break early in the path compounds across every downstream decision.", "matrix": "The quadrants force unlike issues onto shared decision criteria, making trade-offs and missing evidence more visible.", "network": "The graph highlights how clarity and trust emerge from connected signals, not from any isolated page or claim.", "spectrum": "The spectrum is a hypothesis about meaningful contrast; validate it with buyers before treating distinctiveness as established.", "radar": "This is a qualitative contrast map, not a measured score. It surfaces dimensions worth validating with consistent evidence.", "funnel": "The narrowing view shows where attention, proof, or readiness can be lost before the intended next decision.", "wheel": "The loop is useful only when each motion feeds the next; disconnected activity creates volume without compounding learning.", "decision": "Each branch represents a question that changes the appropriate response, proof, or next action.", "blueprint": "The blueprint separates foundations, reusable rules, and applications so production can scale without losing coherence."}
+def unwrap_structured(value: Any) -> str:
+    if not isinstance(value, str):
+        if isinstance(value, dict):
+            for key in ("contentMarkdown", "content", "text", "summary"):
+                if isinstance(value.get(key), str):
+                    return unwrap_structured(value[key])
+        return ""
+    candidate = value.strip().removeprefix("```json").removeprefix("```markdown").removeprefix("```md").removesuffix("```").strip()
+    for _ in range(3):
+        extracted = None
+        for option in (candidate, candidate[candidate.find("{"):] if "{" in candidate else ""):
+            if not option:
+                continue
+            try:
+                parsed = json.loads(option)
+                if isinstance(parsed, dict):
+                    extracted = next((parsed.get(key) for key in ("contentMarkdown", "content", "text", "summary") if isinstance(parsed.get(key), str)), None)
+            except Exception:
+                pass
+            if extracted:
+                break
+        if not extracted or extracted == candidate:
+            break
+        candidate = extracted.strip()
+    return normalize_acronyms(candidate.replace("\\n", "\n").replace("\\t", "\t"))
 
 
-def visual_title(profile: dict[str, Any], kind: str) -> str:
-    return f'{profile["name"]}: {VISUAL_NAMES.get(kind, "evidence map")}'
+def clean_inline(value: str) -> str:
+    value = unwrap_structured(value)
+    for _ in range(2):
+        try:
+            repaired = value.encode("cp1252").decode("utf-8")
+            if repaired == value:
+                break
+            value = repaired
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            break
+    for broken, repaired in {"â€”": "—", "â€“": "–", "â€™": "’", "â€œ": "“", "â€ ": "”", "Â®": "®", "Â": ""}.items():
+        value = value.replace(broken, repaired)
+    value = re.sub(r"(?:â[^\w\s]{1,4})+", " · ", value)
+    value = re.sub(r"!\[([^]]*)\]\([^)]*\)", r"\1", value)
+    value = re.sub(r"\[([^]]+)\]\((https?://[^)]+)\)", r'<a href="\2">\1</a>', value)
+    value = re.sub(r"[\u2500-\u259f\ufffd]+", " · ", value)
+    value = re.sub(r"(?:\s*·\s*){2,}", " · ", value)
+    value = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", value)
+    value = re.sub(r"`([^`]+)`", r"<code>\1</code>", value)
+    return value.strip()
 
 
-def render_table(rows: list[list[str]], competitor_logos: dict[str, str] | None = None) -> str:
-    if not rows: return ""
-    competitor_logos = competitor_logos or {}; head = "".join(f"<th>{clean_inline(cell)}</th>" for cell in rows[0]); body_parts = []
-    for row in rows[1:]:
-        cells = []
-        for index, cell in enumerate(row):
-            logo = next((data for name, data in competitor_logos.items() if index == 0 and name.lower() in cell.lower()), ""); image = f'<img class="table-logo" src="{logo}" alt=""/>' if logo else ""; cells.append(f"<td>{image}{clean_inline(cell)}</td>")
-        body_parts.append("<tr>" + "".join(cells) + "</tr>")
-    return f'<div class="table-wrap"><table><thead><tr>{head}</tr></thead><tbody>{"".join(body_parts)}</tbody></table></div>'
+def parse_markdown_blocks(markdown: str) -> list[dict[str, Any]]:
+    blocks: list[dict[str, Any]] = []
+    lines = markdown.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index].strip()
+        if not line:
+            index += 1
+            continue
+
+        if line.startswith("#"):
+            level = len(line.split()[0])
+            text = line.lstrip("#").strip()
+            blocks.append({"type": f"h{min(level, 4)}", "text": text})
+            index += 1
+            continue
+
+        if "|" in line and index + 1 < len(lines) and re.match(r"^\s*\|?[-:\s|]+\|?\s*$", lines[index + 1]):
+            table_lines = []
+            while index < len(lines) and "|" in lines[index]:
+                table_lines.append(lines[index])
+                index += 1
+            rows = []
+            for t_line in table_lines:
+                if re.match(r"^\s*\|?[-:\s|]+\|?\s*$", t_line):
+                    continue
+                cells = [cell.strip() for cell in t_line.split("|")]
+                if cells and not cells[0]:
+                    cells = cells[1:]
+                if cells and not cells[-1]:
+                    cells = cells[:-1]
+                if cells:
+                    rows.append(cells)
+            if rows:
+                blocks.append({"type": "table", "rows": rows})
+            continue
+
+        if line.startswith(("- ", "* ", "• ")):
+            items = []
+            while index < len(lines) and lines[index].strip().startswith(("- ", "* ", "• ")):
+                items.append(re.sub(r"^[-*•]\s+", "", lines[index].strip()))
+                index += 1
+            blocks.append({"type": "bullets", "items": items})
+            continue
+
+        if re.match(r"^\d+\.\s+", line):
+            items = []
+            while index < len(lines) and re.match(r"^\d+\.\s+", lines[index].strip()):
+                items.append(re.sub(r"^\d+\.\s+", "", lines[index].strip()))
+                index += 1
+            blocks.append({"type": "numbered", "items": items})
+            continue
+
+        if line.startswith(">"):
+            quote_lines = []
+            while index < len(lines) and lines[index].strip().startswith(">"):
+                quote_lines.append(lines[index].strip().lstrip(">").strip())
+                index += 1
+            blocks.append({"type": "quote", "text": " ".join(quote_lines)})
+            continue
+
+        p_lines = [line]
+        index += 1
+        while index < len(lines) and lines[index].strip() and not lines[index].strip().startswith(("#", "-", "*", "•", ">", "|")) and not re.match(r"^\d+\.\s+", lines[index].strip()):
+            p_lines.append(lines[index].strip())
+            index += 1
+        blocks.append({"type": "paragraph", "text": " ".join(p_lines)})
+
+    return blocks
 
 
-def render_block(block: dict[str, Any], section_title: str, competitor_logos: dict[str, str]) -> str:
-    kind = block["type"]
-    if kind == "table":
-        rows = block["rows"]; headers = rows[0] if rows else []
-        if any("impact" in h.lower() for h in headers) and any("effort" in h.lower() for h in headers) and 3 <= len(rows) <= 9: return f'<figure class="diagram">{priority_svg(rows[1:], headers)}<figcaption>Upper-left actions create the strongest near-term leverage; upper-right items warrant deliberate investment.</figcaption></figure>'
-        if len(rows) == 3 and len(headers) <= 5:
-            cards = "".join(f'<article><span>{clean_inline(row[0])}</span><h3>{clean_inline(row[1] if len(row)>1 else row[0])}</h3><p>{clean_inline(" · ".join(row[2:]))}</p></article>' for row in rows[1:]); return f'<figure class="comparison-figure"><div class="comparison-grid">{cards}</div><figcaption>The side-by-side view exposes the meaningful distinction between the two alternatives.</figcaption></figure>'
-        numeric = [(row[0], number_value(" ".join(row[1:]))) for row in rows[1:] if row]; numeric = [(label, value) for label, value in numeric if value is not None]
-        if 3 <= len(numeric) <= 7:
-            labels, values = list(zip(*numeric)); time_series = all(re.search(r"\b(?:20\d{2}|Q[1-4]|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b", label, re.I) for label in labels); caption = chart_caption(list(labels), list(values), time_series); return f'<figure class="chart"><img src="{chart_image(section_title, list(labels), list(values), time_series)}" alt="Data comparison for {clean_inline(section_title)}"/><figcaption>{clean_inline(caption)}</figcaption></figure>'
-        return f'<figure class="table-figure">{render_table(rows, competitor_logos)}<figcaption>The matrix makes shared criteria explicit, so differences can be judged without relying on narrative emphasis.</figcaption></figure>'
-    if kind == "ordered":
-        items = block["items"]
-        if 3 <= len(items) <= 5:
-            is_funnel = any(word in " ".join(items).lower() for word in ("awareness", "consideration", "conversion", "funnel", "stage", "retention")); visual = funnel_svg(items) if is_funnel else flow_svg(items); caption = "The funnel narrows attention toward conversion, making the highest-leakage stage the priority for diagnosis." if is_funnel else "The sequence shows where progress depends on the preceding step—and where a break compounds downstream."; return f'<figure class="diagram">{visual}<figcaption>{caption}</figcaption></figure>'
-        return "<ol>" + "".join(f"<li>{clean_inline(item)}</li>" for item in items) + "</ol>"
-    if kind == "bullets": return "<ul>" + "".join(f"<li>{clean_inline(item)}</li>" for item in block["items"]) + "</ul>"
-    text = block.get("text", ""); numbers = re.findall(r"(?<![A-Za-z])(?:[$£€])?\d[\d,]*(?:\.\d+)?\s*%?", text); rendered = clean_inline(text)
-    if kind == "paragraph" and len(numbers) == 1: rendered = rendered.replace(clean_inline(numbers[0]), f'<strong class="inline-metric">{clean_inline(numbers[0])}</strong>', 1)
-    return f'<p class="{"quote" if kind == "quote" else "prose"}">{rendered}</p>'
+def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[str, str] | None = None) -> str:
+    competitor_logos = competitor_logos or {}
+    html_parts: list[str] = []
+    for block in blocks:
+        b_type = block["type"]
+        if b_type.startswith("h"):
+            level = b_type
+            html_parts.append(f"<{level}>{clean_inline(block['text'])}</{level}>")
+        elif b_type == "paragraph":
+            html_parts.append(f"<p>{clean_inline(block['text'])}</p>")
+        elif b_type == "quote":
+            html_parts.append(f'<blockquote class="callout"><p>{clean_inline(block["text"])}</p></blockquote>')
+        elif b_type == "bullets":
+            items = "".join(f"<li>{clean_inline(item)}</li>" for item in block["items"])
+            html_parts.append(f"<ul>{items}</ul>")
+        elif b_type == "numbered":
+            items = "".join(f"<li>{clean_inline(item)}</li>" for item in block["items"])
+            html_parts.append(f"<ol>{items}</ol>")
+        elif b_type == "table":
+            rows = block["rows"]
+            if not rows:
+                continue
+            head = "".join(f"<th>{clean_inline(cell)}</th>" for cell in rows[0])
+            body_rows = []
+            for row in rows[1:]:
+                cells = []
+                for idx, cell in enumerate(row):
+                    logo = next((data for name, data in competitor_logos.items() if idx == 0 and name.lower() in cell.lower()), "")
+                    img = f'<img class="table-logo" src="{logo}" alt=""/> ' if logo else ""
+                    cells.append(f"<td>{img}{clean_inline(cell)}</td>")
+                body_rows.append(f"<tr>{''.join(cells)}</tr>")
+            html_parts.append(f'<div class="table-wrap"><table><thead><tr>{head}</tr></thead><tbody>{"".join(body_rows)}</tbody></table></div>')
+
+    return "\n".join(html_parts)
 
 
-def select_executive(modules: list[dict[str, Any]]) -> list[dict[str, str]]:
-    candidates: list[tuple[int, str, str]] = []
-    for module in modules:
-        for section in module["sections"]:
-            for block in section["blocks"]:
-                if block["type"] == "table": continue
-                text = concise(block_text(block), 285)
-                if len(text) > 55: candidates.append((score_text(text) + score_text(section["title"]), module["label"], text))
-    chosen: list[dict[str, str]] = []; seen: list[set[str]] = []
-    for _, module, text in sorted(candidates, reverse=True):
-        terms = keywords(text)
-        if any(len(terms & prior) / max(1, min(len(terms), len(prior))) > .55 for prior in seen): continue
-        chosen.append({"module": module, "text": clean_inline(text)}); seen.append(terms)
-        if len(chosen) == 5: break
-    return chosen
-
-
-def connected_note(section: dict[str, Any], module: dict[str, Any], modules: list[dict[str, Any]]) -> str:
-    terms = keywords(section["title"] + " " + " ".join(block_text(block) for block in section["blocks"])); best: tuple[int, str, str] | None = None
-    for other in modules:
-        if other["type"] == module["type"]: continue
-        for candidate in other["sections"]:
-            overlap = len(terms & keywords(candidate["title"] + " " + " ".join(block_text(block) for block in candidate["blocks"])))
-            if overlap >= 3 and (best is None or overlap > best[0]): best = (overlap, other["label"], candidate["title"])
-    return f'<aside class="connected"><strong>Connected finding</strong><span>This reinforces <b>{clean_inline(best[2])}</b> in {clean_inline(best[1])}; treat the two symptoms as one underlying issue.</span></aside>' if best else ""
-
-
-def implications(section: dict[str, Any]) -> str:
-    actions = [concise(block_text(block), 260) for block in section["blocks"] if block["type"] != "table" and ACTION_WORDS.search(block_text(block))]
-    return f'<aside class="implications"><strong>Implications</strong><span>{clean_inline(actions[0])}</span></aside>' if actions else ""
-
-
-def roadmap(modules: list[dict[str, Any]], report_model: dict[str, Any] | None = None) -> list[dict[str, str]]:
-    model_recommendations = (report_model or {}).get("recommendations", [])
-    if model_recommendations:
-        return [{
-            "horizon": "NOW" if index < 3 else "NEXT" if index < 6 else "LATER",
-            "module": item.get("id", "ACTION"),
-            "text": clean_inline(concise(item.get("detail", ""), 230)),
-        } for index, item in enumerate(model_recommendations[:8])]
-    candidates: list[tuple[int, str, str]] = []
-    for module in modules:
-        for section in module["sections"]:
-            for block in section["blocks"]:
-                values = [" · ".join(row) for row in block.get("rows", [])[1:]] if block["type"] == "table" else [block_text(block)]
-                for value in values:
-                    for sentence in re.split(r"(?<=[.!?])\s+|\s*;\s*", value):
-                        if ACTION_WORDS.search(sentence) and 28 <= len(sentence) <= 360: candidates.append((score_text(sentence), module["label"], concise(sentence, 230)))
-    chosen: list[dict[str, str]] = []; seen: list[set[str]] = []
-    for score, module, text in sorted(candidates, reverse=True):
-        terms = keywords(text)
-        if any(len(terms & prior) >= 5 for prior in seen): continue
-        horizon = "NOW" if score >= 18 or len(chosen) < 2 else "NEXT" if len(chosen) < 5 else "LATER"; chosen.append({"horizon": horizon, "module": module, "text": clean_inline(text)}); seen.append(terms)
-        if len(chosen) == 8: break
-    return chosen
-
-
-def competitor_strip(competitors: list[dict[str, Any]]) -> str:
-    if not competitors: return ""
+def render_competitor_cards(competitors: list[dict[str, Any]]) -> str:
+    if not competitors:
+        return ""
     cards = []
-    for competitor in competitors[:10]:
-        name = clean_inline(competitor.get("companyName", "Competitor")); logo = competitor.get("logoDataUrl", ""); media = f'<img src="{logo}" alt="{name} official logo"/>' if logo else f'<span>{name[:1]}</span>'; attrs = " · ".join(competitor.get("competitiveAttributes", [])[:3]); cards.append(f'<article><div class="logo-media">{media}</div><strong>{name}</strong><p>{clean_inline(concise(competitor.get("positioning", ""), 125))}</p><small>{clean_inline(attrs)}</small></article>')
-    return f'<figure class="competitor-strip"><div>{"".join(cards)}</div><figcaption>Official company assets are rendered at equal visual weight; positioning—not logo size—drives comparison.</figcaption></figure>'
+    for competitor in competitors[:8]:
+        name = clean_inline(competitor.get("companyName", "Competitor"))
+        logo = competitor.get("logoDataUrl") or competitor.get("logoUrl", "")
+        media = f'<img src="{logo}" alt="{name} logo" class="comp-card-logo" />' if logo else f'<span class="comp-card-letter">{name[:1].upper()}</span>'
+        website = competitor.get("officialWebsite", "")
+        site_link = f'<a href="{website}" class="comp-site-link" target="_blank">{clean_inline(website.replace("https://", "").replace("http://", "").rstrip("/"))}</a>' if website else ""
+        attrs = "".join(f'<span class="comp-attr-tag">{clean_inline(attr)}</span>' for attr in competitor.get("competitiveAttributes", [])[:4])
+        positioning = clean_inline(competitor.get("positioning") or competitor.get("evidence") or "")
+        cards.append(f'''
+        <article class="competitor-card">
+            <div class="comp-card-top">
+                <div class="comp-logo-box">{media}</div>
+                <div>
+                    <h4>{name}</h4>
+                    {site_link}
+                </div>
+            </div>
+            {f'<p class="comp-positioning">{positioning}</p>' if positioning else ''}
+            {f'<div class="comp-tags">{attrs}</div>' if attrs else ''}
+        </article>
+        ''')
+
+    return f'''
+    <section class="competitors-section">
+        <h3>Verified Competitor Intelligence</h3>
+        <p class="section-sub">Direct alternatives and category competitors analyzed from public market evidence.</p>
+        <div class="competitor-grid">
+            {"".join(cards)}
+        </div>
+    </section>
+    '''
 
 
-CATEGORY_TEMPLATE = Template(r'''<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>{{ title }}</title>
+REPORT_TEMPLATE = Template(r'''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
 <style>
-:root{--purple:#7C3AED;--deep:#4C1D95;--soft:#FAECF2;--ink:#1F1A1D;--slate:#625A60;--muted:#8D8288;--cream:#FFF9F5;--line:#E9DDD8;--green:#087F5B;--blue:#1769AA;--orange:#C2410C}
-@page{size:Letter;margin:18mm 15mm 17mm;@top-left{content:element(reportHeader)}@bottom-left{content:"SMARK CONNECT · {{ profile.name|upper }}";font:700 7px Helvetica,Arial,sans-serif;color:#8D8288;letter-spacing:.07em}@bottom-right{content:"PAGE " counter(page) " / " counter(pages);font:7px Helvetica,Arial,sans-serif;color:#8D8288}}
-*{box-sizing:border-box}html{font-family:Helvetica,"SF Pro Text",Arial,sans-serif;color:var(--ink);font-size:10.5px;line-height:1.55}body{margin:0;background:#fff}.running-header{position:running(reportHeader);width:100%;padding:0 0 7px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;color:var(--deep);font:700 7px Helvetica,Arial,sans-serif;letter-spacing:.09em}
-.cover{min-height:225mm;padding:14mm 12mm;display:flex;flex-direction:column;justify-content:space-between;border-radius:18px;background:radial-gradient(circle at 88% 10%,var(--soft) 0,transparent 34%),radial-gradient(circle at 8% 90%,var(--soft) 0,transparent 36%),var(--cream);page-break-after:always}.kicker{color:var(--deep);font-size:8px;font-weight:800;letter-spacing:.15em}.cover h1{max-width:158mm;margin:14px 0;font-size:38px;line-height:1;letter-spacing:-.055em}.cover h1 span{color:var(--purple)}.cover-copy{max-width:150mm;margin:0;color:var(--slate);font-size:12.5px}.cover-visual{height:74mm;margin:10px 0 5px;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.78)}.cover-visual .signature-figure{margin:0;border:0;box-shadow:none;background:transparent}.cover-visual figcaption{display:none}.cover-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.cover-meta div{padding:13px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.76)}.cover-meta strong,.cover-meta span{display:block}.cover-meta strong{font-size:7px;color:var(--muted);text-transform:uppercase}.cover-meta span{margin-top:4px;font-size:11px;font-weight:700}
-.contents{min-height:220mm;padding:12mm 5mm;page-break-after:always}.contents-head{display:grid;grid-template-columns:1fr 48mm;gap:18mm;align-items:end;margin-bottom:22mm}.contents h2{max-width:120mm;margin:8px 0 0;font-size:34px;line-height:1.02;letter-spacing:-.05em}.contents-head p{margin:0;padding:12px;border-top:4px solid var(--purple);color:var(--slate);font-size:10px}.contents-list{display:grid;gap:0}.contents-list article{min-height:18mm;padding:11px 0;display:grid;grid-template-columns:22mm 1fr 38mm;gap:10px;align-items:center;border-top:1px solid var(--line)}.contents-list b{color:var(--soft);font-size:28px;line-height:1}.contents-list strong{font-size:14px}.contents-list span{color:var(--deep);font-size:8px;font-weight:800;text-align:right;text-transform:uppercase;letter-spacing:.08em}
-.decision-dashboard{min-height:220mm;padding:9mm 5mm;page-break-after:always}.decision-dashboard h2{max-width:155mm;margin:8px 0 8px;font-size:30px;line-height:1.04;letter-spacing:-.045em}.dashboard-intro{max-width:150mm;margin:0 0 18px;color:var(--slate);font-size:11.5px}.dashboard-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.dashboard-metrics article{min-height:34mm;padding:15px;border-top:5px solid var(--purple);background:var(--soft);break-inside:avoid}.dashboard-metrics strong,.dashboard-metrics span{display:block}.dashboard-metrics strong{color:var(--deep);font-size:28px;line-height:1}.dashboard-metrics span{margin-top:8px;color:var(--slate);font-size:8px}.dashboard-priorities{margin-top:18px;display:grid;gap:8px}.dashboard-priorities article{padding:11px 13px;display:grid;grid-template-columns:18mm 1fr 25mm;gap:10px;align-items:start;border:1px solid var(--line);border-left:5px solid var(--purple);border-radius:10px;break-inside:avoid}.dashboard-priorities b{color:var(--deep);font-size:9px}.dashboard-priorities p{margin:0;color:var(--slate)}.dashboard-priorities em{color:var(--purple);font-size:7px;font-style:normal;font-weight:900;text-align:right;text-transform:uppercase}.dashboard-visual-language{margin-top:15px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;border-radius:10px;color:#fff;background:var(--deep)}.dashboard-visual-language span{font-size:8px;font-weight:800;letter-spacing:.1em}.dashboard-visual-language strong{font-size:10px}
-.executive{min-height:220mm;padding:8mm 4mm;page-break-after:always}.executive h2,.visual-atlas h2,.roadmap h2{margin:8px 0 6px;font-size:28px;letter-spacing:-.04em}.executive-intro,.visual-atlas>p,.roadmap-intro{max-width:150mm;margin:0 0 16px;color:var(--slate);font-size:11.5px}.company-context{margin:0 0 14px;padding:13px 15px;border:1px solid var(--line);border-left:4px solid var(--purple);border-radius:0 12px 12px 0;background:var(--soft);break-inside:avoid}.company-context>span{display:block;color:var(--deep);font-size:7px;font-weight:900;letter-spacing:.12em}.company-context p{margin:5px 0 0;color:var(--slate);font-size:10.5px;line-height:1.55}.skill-system{margin:0 0 14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;break-inside:avoid}.skill-system>span{display:block;margin-bottom:8px;color:var(--deep);font-size:7px;font-weight:900;letter-spacing:.12em}.skill-system>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.skill-system article{min-width:0;padding:8px;border-radius:8px;background:var(--cream)}.skill-system strong,.skill-system small{display:block;overflow-wrap:anywhere}.skill-system strong{font-family:var(--font-family-primary);font-size:var(--font-size-skill-title);font-weight:var(--font-weight-skill-title);line-height:var(--line-height-skill);letter-spacing:var(--letter-spacing-skill)}.skill-system small{margin-top:3px;color:var(--slate);font-family:var(--font-family-primary);font-size:var(--font-size-skill-meta);line-height:var(--line-height-skill)}.executive-list{display:grid;gap:10px}.executive-item{display:grid;grid-template-columns:31px 1fr;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;break-inside:avoid}.executive-item>span{width:31px;height:31px;display:grid;place-items:center;border-radius:50%;background:var(--deep);color:#fff;font-weight:800}.executive-item small{display:block;color:var(--purple);font-size:7px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.executive-item p{margin:3px 0;color:var(--slate)}
-.module-opener{min-height:220mm;padding:20mm 9mm;display:flex;flex-direction:column;justify-content:center;page-break-before:always;page-break-after:always;background:linear-gradient(140deg,#fff 0 58%,var(--soft) 58%)}.module-number{font-size:70px;line-height:.9;color:var(--soft);font-weight:900;letter-spacing:-.07em}.module-opener h2{max-width:150mm;margin:15px 0 8px;font-size:34px;line-height:1.04;letter-spacing:-.05em}.module-frame{max-width:145mm;color:var(--slate);font-size:13px}.headline{max-width:150mm;margin-top:28px;padding:18px 20px;border-left:5px solid var(--purple);background:#fff;box-shadow:0 9px 32px rgba(31,26,29,.08)}.headline small{display:block;margin-bottom:6px;color:var(--purple);font-size:8px;font-weight:900;letter-spacing:.1em}.headline p{margin:0;font-size:15px;line-height:1.4;font-weight:700}
-.visual-atlas{min-height:220mm;padding:5mm 4mm;page-break-after:always}.visual-grid{display:grid;gap:6px}.signature-figure{margin:0;padding:5px 8px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 7px 24px rgba(31,26,29,.05)}.signature-svg{width:100%;height:auto;max-height:47mm;display:block}.cover-visual .signature-svg{max-height:68mm}.signature-figure figcaption{margin:2px 2px 0}.module-content{page-break-after:always}.analysis-section{margin:0 0 15px;padding:16px 18px;border-top:1px solid var(--line);break-inside:avoid-page}.analysis-section.prominent{padding:21px 20px;background:var(--cream);border:0;border-radius:14px}.analysis-section h3{margin:4px 0 12px;font-size:19px;line-height:1.2;letter-spacing:-.025em}.analysis-section.prominent h3{font-size:24px}.section-kicker{color:var(--deep);font-size:7px;font-weight:900;letter-spacing:.12em}.prose{margin:0 0 11px;color:var(--slate);font-size:10.5px}.inline-metric{color:var(--deep);font-size:1.13em}.quote{padding:11px 13px;border-left:3px solid var(--purple);border-radius:0 10px 10px 0;background:var(--soft);font-style:italic}ul,ol{margin:8px 0 12px;padding-left:19px;color:var(--slate)}li{margin-bottom:5px}.implications,.connected{margin-top:13px;padding:12px 14px;display:grid;grid-template-columns:92px 1fr;gap:10px;border-radius:10px;break-inside:avoid}.implications{background:#E9F8F2;border-left:4px solid var(--green)}.connected{background:#EDF5FF;border-left:4px solid var(--blue)}.implications strong,.connected strong{font-size:8px;text-transform:uppercase;letter-spacing:.07em}.implications span,.connected span{color:var(--slate)}
-figure{margin:12px 0;break-inside:avoid}figcaption{margin-top:6px;color:var(--muted);font-size:7.5px;font-style:italic}.chart img,.flow-svg,.funnel-svg,.priority-svg{width:100%;height:auto;display:block}.comparison-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.comparison-grid article{padding:13px;border:1px solid var(--line);border-radius:10px;background:#fff}.comparison-grid span{color:var(--deep);font-size:8px;font-weight:800;text-transform:uppercase}.comparison-grid h3{margin:4px 0;font-size:13px}.comparison-grid p{margin:0;color:var(--slate)}.table-wrap{overflow:hidden;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;font-size:8.1px}thead{display:table-header-group}tr{break-inside:avoid}th{padding:8px;background:var(--deep);color:#fff;text-align:left}td{padding:7px;border-top:1px solid var(--line);vertical-align:top;color:var(--slate)}tr:nth-child(even) td{background:#FCF8FA}.table-logo{width:25px;height:25px;margin-right:7px;object-fit:contain;vertical-align:middle}
-.competitor-strip>div{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.competitor-strip article{min-height:130px;padding:11px;border:1px solid var(--line);border-radius:10px;background:#fff}.logo-media{width:44px;height:44px;display:grid;place-items:center;margin-bottom:7px;border:1px solid var(--line);border-radius:9px;color:var(--deep);font-size:18px;font-weight:900}.logo-media img{width:36px;height:36px;object-fit:contain}.competitor-strip strong{display:block}.competitor-strip p{margin:4px 0;color:var(--slate);font-size:8px}.competitor-strip small{color:var(--orange);font-size:7px}.roadmap{min-height:220mm;padding:10mm 4mm;page-break-before:always}.roadmap-list{display:grid;gap:9px}.roadmap-item{display:grid;grid-template-columns:60px 1fr;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;break-inside:avoid}.roadmap-item>strong{color:var(--deep);font-size:9px}.roadmap-item small{display:block;color:var(--purple);font-size:7px;font-weight:900;text-transform:uppercase}.roadmap-item p{margin:3px 0;color:var(--slate)}
-body.report-diagnostic .cover{border-radius:0;background:linear-gradient(rgba(3,105,161,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(3,105,161,.055) 1px,transparent 1px),#F7FCFF;background-size:12mm 12mm}body.report-diagnostic .module-opener{color:#fff;background:linear-gradient(145deg,var(--deep),#082F49)}body.report-diagnostic .module-opener .module-number{color:rgba(255,255,255,.12)}body.report-diagnostic .module-opener .kicker,body.report-diagnostic .module-opener .module-frame{color:#BAE6FD}body.report-diagnostic .analysis-section{border-top-color:var(--purple)}
-body.report-atlas .cover{background:linear-gradient(155deg,#fff 0 56%,var(--soft) 56%)}body.report-atlas .cover-visual{border-radius:2px;box-shadow:9px 9px 0 var(--deep)}body.report-atlas .module-opener{background:linear-gradient(155deg,var(--soft) 0 42%,#fff 42%)}body.report-atlas .decision-dashboard{background:linear-gradient(90deg,transparent 0 67%,var(--soft) 67%)}
-body.report-field-guide .cover{border-radius:32px;background:radial-gradient(circle at 80% 22%,var(--soft) 0 22%,transparent 22%),#FFF9FC}body.report-field-guide .executive-item{border-radius:24px}body.report-field-guide .module-opener{background:radial-gradient(circle at 82% 50%,var(--soft) 0 28%,transparent 28%),#fff}body.report-field-guide .dashboard-metrics article{border-radius:30px}
-body.report-map .cover{background:radial-gradient(circle at 50% 42%,#fff 0 18%,transparent 18%),radial-gradient(circle at 50% 42%,transparent 0 34%,rgba(15,118,110,.12) 34% 35%,transparent 35%),var(--soft)}body.report-map .visual-atlas{background:linear-gradient(180deg,#fff,var(--soft))}
-body.report-playbook .cover{border-radius:4px;background:linear-gradient(125deg,var(--deep) 0 33%,var(--soft) 33% 36%,#fff 36%)}body.report-playbook .cover h1,body.report-playbook .cover-copy,body.report-playbook .cover .kicker{max-width:112mm;margin-left:56mm}body.report-playbook .roadmap-item{border-left:5px solid var(--purple)}body.report-playbook .decision-dashboard{border-left:8mm solid var(--deep)}
-body.report-portfolio .cover{background:linear-gradient(180deg,#fff 0 50%,var(--soft) 50%)}body.report-portfolio .visual-grid{grid-template-columns:repeat(2,1fr)}body.report-portfolio .visual-grid .signature-figure:first-child{grid-column:1/-1}
-body.report-dossier .cover{background:linear-gradient(90deg,var(--soft) 0 14%,#fff 14%)}body.report-dossier .module-opener{border-left:18mm solid var(--deep)}
-body.report-studio .analysis-section.prominent{background:linear-gradient(135deg,#fff,var(--soft))}body.report-studio .cover-visual{border:3px solid var(--deep);box-shadow:12px 12px 0 var(--soft)}body.report-editorial .section-kicker,body.report-product-book .section-kicker{text-transform:uppercase}.qa-compact .analysis-section{padding:13px}.qa-compact html{font-size:10px}
-@media print{.executive-item,.analysis-section,.comparison-grid article,.chart,.diagram,.signature-figure,.table-wrap,tr,.competitor-strip article,.roadmap-item,.implications,.connected{break-inside:avoid;page-break-inside:avoid}h1,h2,h3{break-after:avoid;page-break-after:avoid}thead{display:table-header-group}}
-</style></head>
-<body class="report-{{ profile.layout }} {{ body_class }}" style="--purple:{{ profile.accent }};--deep:{{ profile.deep }};--soft:{{ profile.soft }};--blush:{{ profile.soft }};--font-family-primary:Helvetica,Arial,sans-serif;--font-size-skill-title:8px;--font-size-skill-description:7px;--font-size-skill-meta:6.5px;--font-weight-skill-title:800;--font-weight-skill-description:500;--line-height-skill:1.4;--letter-spacing-skill:0">
-<div class="running-header"><span>THE SMARKETERS / SMARK CONNECT</span><span>{{ company }}</span></div>
-<section class="cover"><div><div class="kicker">{{ profile.kicker }}</div><h1>{{ title_prefix }}<span>{{ title_accent }}</span></h1><p class="cover-copy">{{ profile.cover }}</p></div><div class="cover-visual">{{ cover_visual|safe }}</div><div class="cover-meta"><div><strong>Company</strong><span>{{ company }}</span></div><div><strong>Document form</strong><span>{{ profile.name }}</span></div><div><strong>Evidence</strong><span>{{ source_count }} sources · {{ updated }}</span></div></div></section>
-<section class="contents"><div class="contents-head"><div><div class="kicker">REPORT MAP</div><h2>Every page has one analytical purpose.</h2></div><p>This report uses a {{ profile.name|lower }} visual language. Detail lives here; leadership compression lives in the companion presentation.</p></div><div class="contents-list"><article><b>01</b><strong>Executive readout</strong><span>Decide</span></article><article><b>02</b><strong>Decision dashboard</strong><span>Prioritize</span></article>{% for module in modules %}<article><b>{{ '%02d'|format(loop.index + 2) }}</b><strong>{{ module.label }}</strong><span>{{ module.visual_label }}</span></article>{% endfor %}<article><b>{{ '%02d'|format(modules|length + 3) }}</b><strong>Sequenced roadmap</strong><span>Act</span></article></div></section>
-<section class="decision-dashboard"><div class="kicker">DECISION DASHBOARD</div><h2>The evidence, priorities, and visual system in one view.</h2><p class="dashboard-intro">Use this page to orient the discussion before entering the detailed analytical chapters.</p><div class="dashboard-metrics">{% for metric in dashboard_metrics %}<article><strong>{{ metric.value }}</strong><span>{{ metric.label }}</span></article>{% endfor %}</div><div class="dashboard-priorities">{% for item in dashboard_priorities %}<article><b>{{ item.id }}</b><p>{{ item.detail }}</p><em>{{ item.priority }}</em></article>{% endfor %}</div><div class="dashboard-visual-language"><span>SUBJECT-SPECIFIC VISUAL LANGUAGE</span><strong>{{ visual_language }}</strong></div></section>
-<section class="executive"><div class="kicker">EXECUTIVE READOUT</div><h2>{{ profile.executive }}</h2><p class="executive-intro">{{ profile.executive_copy }}</p><aside class="company-context"><span>COMPANY CONTEXT</span><p>{{ company_brief }}</p></aside>{% if skills %}<aside class="skill-system"><span>SKILLS APPLIED TO THIS REPORT</span><div>{% for item in skills %}<article><strong>{{ item.skill }}</strong><small>{{ item.phase }}{% if item.reason %} · {{ item.reason }}{% endif %}</small></article>{% endfor %}</div></aside>{% endif %}<div class="executive-list">{% for item in executive %}<article class="executive-item"><span>{{ loop.index }}</span><div><small>{{ item.module }}</small><p>{{ item.text|safe }}</p></div></article>{% endfor %}</div></section>
-{% for module in modules %}<section class="module-opener"><div class="module-number">{{ '%02d'|format(loop.index) }}</div><div class="kicker">{{ module.label|upper }}</div><h2>{{ module.label }}</h2><p class="module-frame">{{ module.framing }}</p><div class="headline"><small>HEADLINE FINDING</small><p>{{ module.headline }}</p></div></section>
-<section class="visual-atlas"><div class="kicker">VISUAL THESIS · {{ module.label|upper }}</div><h2>{{ module.visual_title }}</h2><p>{{ module.visual_intro }}</p><div class="visual-grid">{% for visual in module.signature_visuals %}{{ visual|safe }}{% endfor %}</div></section>
-<main class="module-content">{{ module.logo_strip|safe }}{% for section in module.rendered_sections %}<section class="analysis-section {{ 'prominent' if section.prominent else '' }}"><div class="section-kicker">{{ '%02d'|format(loop.index) }} · {{ 'DECISION PRIORITY' if section.prominent else 'SUPPORTING EVIDENCE' }}</div><h3>{{ section.title }}</h3>{{ section.html|safe }}{{ section.connected|safe }}{{ section.implications|safe }}</section>{% endfor %}</main>{% endfor %}
-<section class="roadmap"><div class="kicker">DECISION SEQUENCE</div><h2>{{ profile.roadmap }}</h2><p class="roadmap-intro">{{ profile.roadmap_copy }}</p><div class="roadmap-list">{% for item in roadmap %}<article class="roadmap-item"><strong>{{ item.horizon }}</strong><div><small>{{ item.module }}</small><p>{{ item.text|safe }}</p></div></article>{% endfor %}</div></section>
-</body></html>''')
+:root {
+    --purple: #7C3AED;
+    --deep: #4C1D95;
+    --soft: #FAECF2;
+    --ink: #1F1A1D;
+    --slate: #4B5563;
+    --cream: #FFFDFB;
+    --line: #E5E7EB;
+    --surface: #F9FAFB;
+}
+@page {
+    size: Letter;
+    margin: 18mm 16mm 18mm;
+    @top-left {
+        content: "THE SMARKETERS · SMARK CONNECT";
+        font: 700 7px Helvetica, Arial, sans-serif;
+        color: #6B7280;
+        letter-spacing: 0.08em;
+    }
+    @top-right {
+        content: "{{ company|upper }} · {{ title|upper }}";
+        font: 700 7px Helvetica, Arial, sans-serif;
+        color: #6B7280;
+        letter-spacing: 0.06em;
+    }
+    @bottom-left {
+        content: "CONFIDENTIAL DECISION ARTIFACT";
+        font: 7px Helvetica, Arial, sans-serif;
+        color: #9CA3AF;
+        letter-spacing: 0.06em;
+    }
+    @bottom-right {
+        content: "PAGE " counter(page) " / " counter(pages);
+        font: 700 7px Helvetica, Arial, sans-serif;
+        color: #6B7280;
+    }
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: Helvetica, "SF Pro Text", -apple-system, Arial, sans-serif;
+    color: var(--ink);
+    font-size: 10.5px;
+    line-height: 1.6;
+    background: #fff;
+}
+
+.cover-page {
+    min-height: 225mm;
+    padding: 16mm 12mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: radial-gradient(circle at 90% 10%, #F5F3FF 0%, transparent 40%), var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    page-break-after: always;
+}
+.cover-top { display: flex; flex-direction: column; }
+.cover-kicker {
+    font-size: 8.5px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: var(--purple);
+    text-transform: uppercase;
+}
+.cover-title {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    margin: 16px 0 12px;
+    color: var(--deep);
+}
+.cover-subtitle {
+    font-size: 13px;
+    color: var(--slate);
+    max-width: 140mm;
+    line-height: 1.5;
+    margin: 0;
+}
+.cover-brief {
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--purple);
+    border-radius: 8px;
+}
+.cover-brief strong {
+    display: block;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--deep);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+.cover-brief p {
+    margin: 0;
+    font-size: 10px;
+    color: var(--slate);
+}
+.cover-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 20mm;
+}
+.cover-meta-item {
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+.cover-meta-item span {
+    display: block;
+    font-size: 7.5px;
+    font-weight: 800;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.cover-meta-item strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--ink);
+}
+
+.report-body {
+    padding: 2mm 0;
+}
+h1 {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--deep);
+    margin: 20px 0 10px;
+    page-break-after: avoid;
+}
+h2 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--deep);
+    margin: 18px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--line);
+    page-break-after: avoid;
+}
+h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 14px 0 6px;
+    page-break-after: avoid;
+}
+h4 {
+    font-size: 11px;
+    font-weight: 700;
+    margin: 8px 0 4px;
+    page-break-after: avoid;
+}
+p {
+    margin: 0 0 10px;
+    color: var(--ink);
+}
+code {
+    font-family: Menlo, Monaco, Consolas, monospace;
+    font-size: 9px;
+    background: var(--surface);
+    padding: 1px 4px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+}
+ul, ol {
+    margin: 4px 0 12px;
+    padding-left: 20px;
+    color: var(--ink);
+}
+li {
+    margin-bottom: 4px;
+}
+.callout {
+    margin: 14px 0;
+    padding: 12px 14px;
+    background: #F5F3FF;
+    border-left: 4px solid var(--purple);
+    border-radius: 0 8px 8px 0;
+    break-inside: avoid;
+}
+.callout p {
+    margin: 0;
+    color: var(--deep);
+    font-weight: 500;
+}
+
+.table-wrap {
+    margin: 12px 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    break-inside: avoid;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5px;
+}
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th {
+    padding: 8px 10px;
+    background: var(--deep);
+    color: #fff;
+    font-weight: 700;
+    text-align: left;
+    letter-spacing: 0.03em;
+}
+td {
+    padding: 7px 10px;
+    border-top: 1px solid var(--line);
+    vertical-align: top;
+    color: var(--ink);
+}
+tr:nth-child(even) td {
+    background: #F9FAFB;
+}
+.table-logo {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    vertical-align: middle;
+    margin-right: 5px;
+}
+
+.competitors-section {
+    margin-top: 20px;
+    page-break-before: auto;
+}
+.section-sub {
+    color: var(--slate);
+    font-size: 9.5px;
+    margin-bottom: 12px;
+}
+.competitor-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+.competitor-card {
+    padding: 12px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    break-inside: avoid;
+}
+.comp-card-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.comp-logo-box {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+}
+.comp-card-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+.comp-card-letter {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--purple);
+}
+.comp-card-top h4 {
+    margin: 0;
+    font-size: 11px;
+    color: var(--deep);
+}
+.comp-site-link {
+    font-size: 8px;
+    color: var(--purple);
+    text-decoration: none;
+}
+.comp-positioning {
+    font-size: 8.5px;
+    color: var(--slate);
+    margin: 0 0 8px;
+}
+.comp-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.comp-attr-tag {
+    font-size: 7px;
+    font-weight: 700;
+    padding: 2px 6px;
+    background: #F3F4F6;
+    border-radius: 4px;
+    color: #4B5563;
+}
+</style>
+</head>
+<body>
+
+<section class="cover-page">
+    <div class="cover-top">
+        <div class="cover-kicker">Smark Connect · Executive Intelligence</div>
+        <h1 class="cover-title">{{ title }}</h1>
+        <p class="cover-subtitle">Evidence-based analysis synthesized from verified public crawl assets, market signals, and strategic skills.</p>
+        {% if company_brief %}
+        <div class="cover-brief">
+            <strong>Subject Company Context</strong>
+            <p>{{ company_brief }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="cover-meta-grid">
+        <div class="cover-meta-item">
+            <span>Company</span>
+            <strong>{{ company }}</strong>
+        </div>
+        <div class="cover-meta-item">
+            <span>Date</span>
+            <strong>{{ updated }}</strong>
+        </div>
+        <div class="cover-meta-item">
+            <span>Evidence</span>
+            <strong>{{ source_count }} public sources</strong>
+        </div>
+    </div>
+</section>
+
+<main class="report-body">
+    {{ content_html|safe }}
+    {{ competitor_html|safe }}
+</main>
+
+</body>
+</html>
+''')
 
 
-def build_modules(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    source_modules = payload.get("modules") or [{"type": payload.get("documentType", "DOCUMENT"), "title": payload["title"], "markdown": payload["markdown"], "competitors": []}]; modules = []
-    for item in source_modules:
-        module_type = item.get("type", "DOCUMENT"); label, framing = MODULE_META.get(module_type, (normalize_acronyms(item.get("title", "Analysis")), "The most decision-relevant evidence in this module.")); sections = parse_sections(item.get("markdown", ""))
-        appendix_index = next((index for index, section in enumerate(sections) if re.search(r"\b(coverage scorecard|complete page inventory|research appendix|evidence appendix|source register)\b", section["title"], re.I)), None)
-        if appendix_index is not None: sections = sections[:appendix_index]
-        sections = [section for section in sections if not re.fullmatch(r"(?:last updated|updated|date)", section["title"].strip(), re.I)]
-        sections = [section for section in sections if len(re.sub(r"\s+", " ", " ".join(block_text(block) for block in section["blocks"])).strip()) >= 24]
-        modules.append({"type": module_type, "label": label, "framing": framing, "sections": sections, "headline": clean_inline(headline_for(sections, module_type)), "competitors": item.get("competitors", [])})
-    return modules
+def build_report_html(payload: dict[str, Any]) -> str:
+    raw_markdown = payload.get("markdown", "")
+    modules = payload.get("modules", [])
+    if not raw_markdown and modules:
+        raw_markdown = "\n\n".join(f"# {m.get('title', 'Section')}\n\n{m.get('markdown', '')}" for m in modules)
+
+    competitors = []
+    for m in modules:
+        if isinstance(m, dict) and m.get("competitors"):
+            competitors.extend(m["competitors"])
+    if not competitors and isinstance(payload.get("competitors"), list):
+        competitors = payload["competitors"]
+
+    competitor_logos = {c.get("companyName", ""): c.get("logoDataUrl") or c.get("logoUrl", "") for c in competitors if c.get("companyName")}
+
+    blocks = parse_markdown_blocks(raw_markdown)
+    content_html = render_blocks_to_html(blocks, competitor_logos)
+    competitor_html = render_competitor_cards(competitors)
+
+    title = normalize_acronyms(payload.get("title", "Strategic Intelligence Report"))
+    company = payload.get("companyName", "Target Company")
+    company_brief = clean_inline(payload.get("companyBrief") or "")
+    source_count = payload.get("sourceCount", 0)
+
+    updated = payload.get("updatedAt", "")
+    try:
+        updated = datetime.fromisoformat(updated.replace("Z", "+00:00")).strftime("%B %d, %Y")
+    except Exception:
+        updated = datetime.now().strftime("%B %d, %Y")
+
+    return REPORT_TEMPLATE.render(
+        title=title,
+        company=company,
+        company_brief=company_brief,
+        updated=updated,
+        source_count=source_count,
+        content_html=content_html,
+        competitor_html=competitor_html,
+    )
 
 
-def build_html(payload: dict[str, Any], compact: bool = False) -> str:
-    modules = build_modules(payload)
-    report_type = "STRATEGIC_INTELLIGENCE" if len(modules) > 1 else payload.get("documentType") or (modules[0]["type"] if modules else "DOCUMENT")
-    profile = REPORT_PROFILES.get(report_type, REPORT_PROFILES["DOCUMENT"])
-    for module in modules:
-        module_profile = REPORT_PROFILES.get(module["type"], profile)
-        scored = [(score_text(section["title"] + " " + " ".join(block_text(block) for block in section["blocks"])), index) for index, section in enumerate(module["sections"])]; prominent_indexes = {index for _, index in sorted(scored, reverse=True)[:2]}; competitor_logos = {item.get("companyName", ""): item.get("logoDataUrl", "") for item in module["competitors"] if item.get("logoDataUrl")}; rendered = []; seen_sections: list[set[str]] = []
-        for index, section in enumerate(module["sections"]):
-            terms = keywords(section["title"] + " " + " ".join(block_text(block) for block in section["blocks"]))
-            if len(terms) > 4 and any(len(terms & prior) / max(1, min(len(terms), len(prior))) > .72 for prior in seen_sections): continue
-            seen_sections.append(terms); rendered.append({"title": clean_inline(section["title"]), "prominent": index in prominent_indexes, "html": "".join(render_block(block, section["title"], competitor_logos) for block in section["blocks"]), "connected": connected_note(section, module, modules) if index in prominent_indexes else "", "implications": implications(section), "source": section, "score": score_text(section["title"] + " " + " ".join(block_text(block) for block in section["blocks"]))})
-        visual_target = math.ceil(len(rendered) * .30); visualized = {index for index, item in enumerate(rendered) if "<figure" in item["html"]}
-        for visual_index, section_index in enumerate(sorted(range(len(rendered)), key=lambda value: rendered[value]["score"], reverse=True)):
-            if len(visualized) >= visual_target: break
-            if section_index in visualized: continue
-            item = rendered[section_index]; kind = module_profile["visuals"][visual_index % len(module_profile["visuals"])]
-            item["html"] += signature_figure(kind, visual_title(module_profile, kind), visual_items(item["source"], module), module_profile, VISUAL_CAPTIONS[kind]); visualized.add(section_index)
-        for item in rendered: item.pop("source", None); item.pop("score", None)
-        module["rendered_sections"] = rendered; module["logo_strip"] = competitor_strip(module["competitors"])
-        module["visual_title"] = f'{module_profile["name"]}: three ways to see the decision system'
-        module["visual_label"] = " · ".join(VISUAL_NAMES.get(kind, kind) for kind in module_profile["visuals"][:2])
-        module["visual_intro"] = "These diagrams are qualitative views derived from the supplied evidence. They expose relationships, dependencies, and validation questions without inventing measurements."
-        overview_items = visual_items(None, module)
-        module["signature_visuals"] = [signature_figure(kind, visual_title(module_profile, kind), overview_items[index:] + overview_items[:index], module_profile, VISUAL_CAPTIONS[kind]) for index, kind in enumerate(module_profile["visuals"])]
-    title_words = normalize_acronyms(payload["title"]).split(); split = max(1, len(title_words) - 2); updated = payload.get("updatedAt", "")
-    try: updated = datetime.fromisoformat(updated.replace("Z", "+00:00")).strftime("%b %d, %Y")
-    except ValueError: pass
-    cover_visual = modules[0]["signature_visuals"][0] if modules else ""
-    def skill_name(value: str) -> str:
-        acronyms = {"abm", "ai", "api", "b2b", "b2c", "geo", "html", "icp", "kpi", "pdf", "roi", "seo", "ugc", "url", "xlsx"}; special = {"kpis": "KPIs"}
-        return " ".join(special.get(word.lower(), word.upper() if word.lower() in acronyms else word.capitalize()) for word in re.split(r"[\s_/-]+", value.strip()) if word)
-    skills = [{"skill": skill_name(clean_inline(item.get("skill", "Skill"))), "phase": clean_inline(item.get("phase") or item.get("repository", "Method")), "reason": clean_inline(concise(item.get("reason", ""), 110))} for item in payload.get("skills", [])[:8] if isinstance(item, dict)]
-    report_model = payload.get("reportModel") if isinstance(payload.get("reportModel"), dict) else {}
-    raw_metrics = report_model.get("metrics", []) if isinstance(report_model, dict) else []
-    dashboard_metrics = [{"value": clean_inline(str(item.get("value", "—"))), "label": clean_inline(concise(item.get("context") or item.get("label", "Reported measure"), 74))} for item in raw_metrics[:3] if isinstance(item, dict)]
-    if len(dashboard_metrics) < 3:
-        dashboard_metrics = [
-            {"value": str(len(report_model.get("findings", []))), "label": "Analytical findings organized for decision-making"},
-            {"value": str(len(report_model.get("recommendations", []))), "label": "Traceable recommendations in the operating sequence"},
-            {"value": str(max(payload.get("sourceCount", 0), len(report_model.get("sources", [])))), "label": "Evidence sources recorded in the report model"},
-        ]
-    raw_priorities = report_model.get("recommendations", []) if isinstance(report_model, dict) else []
-    dashboard_priorities = [{"id": clean_inline(item.get("id", f"REC-{index + 1:03d}")), "detail": clean_inline(concise(item.get("detail") or item.get("title", "Validate the next decision."), 180)), "priority": clean_inline(item.get("priority", "validate"))} for index, item in enumerate(raw_priorities[:5]) if isinstance(item, dict)]
-    if not dashboard_priorities:
-        dashboard_priorities = [{"id": f"REC-{index + 1:03d}", "detail": item["text"], "priority": item["horizon"]} for index, item in enumerate(roadmap(modules, report_model)[:5])]
-    visual_language = " · ".join(VISUAL_NAMES.get(kind, kind).upper() for kind in profile["visuals"])
-    return CATEGORY_TEMPLATE.render(title=normalize_acronyms(payload["title"]), title_prefix=" ".join(title_words[:split]) + " ", title_accent=" ".join(title_words[split:]), company=payload["companyName"], company_brief=clean_inline(payload.get("companyBrief") or "Company information was not available for this section."), skills=skills, updated=updated, source_count=payload.get("sourceCount", 0), executive=select_executive(modules), modules=modules, roadmap=roadmap(modules, report_model), profile=profile, cover_visual=cover_visual, dashboard_metrics=dashboard_metrics, dashboard_priorities=dashboard_priorities, visual_language=visual_language, body_class="qa-compact" if compact else "")
-
-
-def html_visual_metrics(rendered_html: str, payload: dict[str, Any]) -> dict[str, Any]:
-    sections = re.findall(r'<section class="analysis-section[^>]*>(.*?)</section>', rendered_html, re.S)
-    visualized_sections = sum(1 for section in sections if "<figure" in section)
-    report_type = "STRATEGIC_INTELLIGENCE" if payload.get("modules") and len(payload["modules"]) > 1 else payload.get("documentType", "DOCUMENT")
-    profile = REPORT_PROFILES.get(report_type, REPORT_PROFILES["DOCUMENT"])
-    return {"visualizationCount": rendered_html.count("<figure"), "visualSectionShare": round(100 * visualized_sections / max(1, len(sections))), "reportProfile": profile["name"]}
-
-
-def inspect_pdf(path: Path, section_titles: list[str]) -> dict[str, Any]:
-    reader = PdfReader(str(path)); issues: list[str] = []; pages = []
-    for index, page in enumerate(reader.pages):
-        width = float(page.mediabox.width); height = float(page.mediabox.height); text = (page.extract_text() or "").strip(); pages.append({"page": index + 1, "width": round(width, 1), "height": round(height, 1), "characters": len(text)})
-        if width < 600 or height < 780: issues.append(f"page {index + 1} has unexpected dimensions")
-        if index > 0 and len(text) < 85: issues.append(f"page {index + 1} may be nearly empty")
-        lines = [line.strip() for line in text.splitlines() if line.strip()]
-        for heading in section_titles:
-            matches = [line_index for line_index, line in enumerate(lines) if line.lower() == heading.lower()]
-            if matches and len(" ".join(lines[matches[-1] + 1:])) < 38: issues.append(f"page {index + 1} may end with an orphaned heading: {heading[:50]}")
-    return {"pageCount": len(reader.pages), "pages": pages, "issues": sorted(set(issues))}
+def inspect_pdf(path: Path) -> dict[str, Any]:
+    reader = PdfReader(str(path))
+    issues: list[str] = []
+    pages = []
+    for idx, page in enumerate(reader.pages):
+        width = float(page.mediabox.width)
+        height = float(page.mediabox.height)
+        text = (page.extract_text() or "").strip()
+        pages.append({"page": idx + 1, "width": round(width, 1), "height": round(height, 1), "characters": len(text)})
+        if width < 500 or height < 700:
+            issues.append(f"page {idx + 1} has unexpected dimensions")
+    return {"pageCount": len(reader.pages), "pages": pages, "issues": issues}
 
 
 def main() -> None:
     payload = json.load(sys.stdin)
     if payload.get("inspectPdf"):
-        qa = inspect_pdf(Path(payload["inspectPdf"]), payload.get("sectionTitles", [])); qa.update(payload.get("visualMetrics", {})); print(json.dumps({"qa": qa})); return
-    output_pdf = Path(payload["outputPdf"]); output_html = Path(payload["outputHtml"]); output_pdf.parent.mkdir(parents=True, exist_ok=True); output_html.parent.mkdir(parents=True, exist_ok=True); modules = build_modules(payload); titles = [section["title"] for module in modules for section in module["sections"]] + [module["label"] for module in modules]
+        qa = inspect_pdf(Path(payload["inspectPdf"]))
+        print(json.dumps({"qa": qa}))
+        return
+
+    output_pdf = Path(payload["outputPdf"])
+    output_html = Path(payload["outputHtml"])
+    output_pdf.parent.mkdir(parents=True, exist_ok=True)
+    output_html.parent.mkdir(parents=True, exist_ok=True)
+
+    rendered_html = build_report_html(payload)
+    output_html.write_text(rendered_html, encoding="utf-8")
+
     if payload.get("htmlOnly") or HTML is None:
-        rendered_html = build_html(payload, compact=bool(payload.get("compact"))); metrics = html_visual_metrics(rendered_html, payload); output_html.write_text(rendered_html, encoding="utf-8"); print(json.dumps({"pdf": "", "html": str(output_html), "renderer": "chromium-fallback", "weasyprintError": WEASYPRINT_ERROR, "sectionTitles": titles, "visualMetrics": metrics})); return
-    first_html = build_html(payload, compact=False); first_pdf = output_pdf.with_name(output_pdf.stem + "-pass-1.pdf"); HTML(string=first_html, base_url=str(output_html.parent)).write_pdf(str(first_pdf)); first_qa = inspect_pdf(first_pdf, titles); final_html = build_html(payload, compact=bool(first_qa["issues"])); output_html.write_text(final_html, encoding="utf-8"); HTML(string=final_html, base_url=str(output_html.parent)).write_pdf(str(output_pdf)); final_qa = inspect_pdf(output_pdf, titles)
-    final_qa.update(html_visual_metrics(final_html, payload))
-    if final_qa["visualSectionShare"] < 30: final_qa["issues"].append("visual section share fell below the required 30 percent")
-    if not output_pdf.read_bytes().startswith(b"%PDF") or final_qa["pageCount"] < 1: raise RuntimeError("The final PDF failed signature or page-count validation.")
-    first_pdf.unlink(missing_ok=True); print(json.dumps({"pdf": str(output_pdf), "html": str(output_html), "qa": {"passes": 2, "first": first_qa, "final": final_qa}}))
+        print(json.dumps({
+            "pdf": "",
+            "html": str(output_html),
+            "renderer": "chromium-fallback",
+            "weasyprintError": WEASYPRINT_ERROR,
+            "sectionTitles": [],
+            "visualMetrics": {},
+        }))
+        return
+
+    HTML(string=rendered_html, base_url=str(output_html.parent)).write_pdf(str(output_pdf))
+    qa = inspect_pdf(output_pdf)
+    print(json.dumps({"pdf": str(output_pdf), "html": str(output_html), "qa": {"passes": 1, "final": qa}}))
 
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()

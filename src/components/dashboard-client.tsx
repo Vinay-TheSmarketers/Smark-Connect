@@ -9,7 +9,8 @@ import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { formatSkillName } from "@/lib/skills/format";
-import { evaluateLinkedInOpportunity, evaluateRedditCandidate, evaluateXOpportunity, scoreOpportunity } from "@/lib/signals/store";
+import { evaluateLinkedInOpportunity, evaluateRedditCandidate, evaluateXOpportunity, scoreOpportunity, type RedditActionFeedOpportunity } from "@/lib/signals/store";
+import { RedditOpportunityFeed } from "./reddit-opportunity-feed";
 import { Brand } from "./brand";
 import { DocumentWorkspace, type WorkspaceDocument } from "./document-workspace";
 import { LogoutButton } from "./logout-button";
@@ -35,13 +36,11 @@ const coreDocumentOrder = ["COMPETITOR_ANALYSIS", "COMPANY_INTELLIGENCE", "SEO_A
 const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Company Intelligence", SEO_AUDIT: "SEO Audit", GEO_AUDIT: "GEO and AI Visibility", COMPETITOR_ANALYSIS: "Competitor Analysis", AUDIENCE_ANALYSIS: "Audience Analysis", CONTENT_AUDIT: "Content Audit and Strategy" };
 const queuedDocumentTypes = [...coreDocumentOrder, ...EXTENDED_DOCUMENTS.map((definition) => definition.type)];
 const primaryAgents = [
-  ["REDDIT", "REDDIT OPPORTUNITIES", "●", "26 opportunities ready"],
-  ["SEO", "SEO & GEO RECOMMENDATIONS", "🌐", "19 recommendations ready; SEO fixes queued"],
-  ["X", "X WRITER", "𝕏", "15 ideas ready"],
-  ["ARTICLES", "ARTICLES", "✎", "17 topics ready"],
-  ["HACKER_NEWS", "HACKER NEWS", "Y", "1 post ready"],
-  ["LINKEDIN", "LINKEDIN WRITER", "in", "14 posts ready"],
-  ["X_INFLUENCER", "X INFLUENCER AGENT", "✦", "Launch your first campaign"],
+  ["REDDIT", "REDDIT OPPORTUNITIES", "●", "Discovered discussions ready"],
+  ["SEO", "SEO & GEO RECOMMENDATIONS", "🌐", "Recommendations and search fixes"],
+  ["X", "X WRITER", "𝕏", "Publish-ready angles"],
+  ["ARTICLES", "ARTICLES", "✎", "Authority topics ready"],
+  ["LINKEDIN", "LINKEDIN WRITER", "in", "Thought-leadership posts"],
   ["AI_CMO", "AI CMO DIRECTOR", "✦", "Strategic executive synthesis"],
   ["TECHNICAL_SEO", "TECHNICAL SEO AGENT", "⚙", "Technical diagnostic and crawlability"],
   ["COMPETITOR", "COMPETITOR AGENT", "◫", "Verified competitor analysis"],
@@ -50,7 +49,6 @@ const primaryAgents = [
 ] as const;
 const agentLogoPaths: Record<string, string> = {
   X: "/agent-logos/x.svg",
-  X_INFLUENCER: "/agent-logos/x.svg",
   REDDIT: "/agent-logos/reddit.svg",
   LINKEDIN: "/agent-logos/linkedin.svg",
 };
@@ -139,9 +137,25 @@ function CleanMarkdown({ children }: { children: unknown }) {
 }
 
 function OfficialCompetitorLogo({ item }: { item: Finding }) {
-  const [failed, setFailed] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
+  const [useGoogle, setUseGoogle] = useState(false);
   const name = item.companyName || item.title || "Competitor";
-  return <span className="competitor-logo">{item.logoUrl && !failed ? <Image unoptimized src={`/api/assets/logo?url=${encodeURIComponent(item.logoUrl)}`} alt={`${name} official logo`} width={48} height={48} onError={() => setFailed(true)} /> : <span aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>}</span>;
+  const website = item.officialWebsite || item.sourceUrls?.[0];
+  let domain = "";
+  if (website) {
+    try { domain = new URL(website.startsWith("http") ? website : `https://${website}`).hostname.replace(/^www\./, ""); } catch {}
+  }
+
+  if (item.logoUrl && !useFallback) {
+    const src = item.logoUrl.startsWith("data:") ? item.logoUrl : `/api/assets/logo?url=${encodeURIComponent(item.logoUrl)}`;
+    return <span className="competitor-logo"><Image unoptimized src={src} alt={`${name} official logo`} width={48} height={48} onError={() => setUseFallback(true)} /></span>;
+  }
+
+  if (domain && !useGoogle) {
+    return <span className="competitor-logo"><Image unoptimized src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`} alt={`${name} logo`} width={48} height={48} onError={() => setUseGoogle(true)} /></span>;
+  }
+
+  return <span className="competitor-logo"><span aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span></span>;
 }
 
 function ContextCompetitor({ item }: { item: Finding }) {
@@ -395,13 +409,16 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const geoRun = data.agents.find((item) => item.agentType === "GEO");
   const competitorItems = useMemo(() => {
     const seen = new Set<string>();
-    return findings(data.agents.find((item) => item.agentType === "COMPETITOR")?.output).filter((item) => {
+    const agentCompetitors = findings(data.agents.find((item) => item.agentType === "COMPETITOR")?.output);
+    const docMeta = (data.documents.find((d) => d.type === "COMPETITOR_ANALYSIS")?.metadata as { competitors?: Finding[] } | null)?.competitors ?? [];
+    const all = [...agentCompetitors, ...docMeta];
+    return all.filter((item) => {
       const key = (item.companyName || item.title || "").trim().toLowerCase();
-      if (!key || !item.officialWebsite || seen.has(key)) return false;
+      if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
-    }).slice(0, 6);
-  }, [data.agents]);
+    }).slice(0, 8);
+  }, [data.agents, data.documents]);
   const analysisRunning = data.analysis && ["QUEUED", "RUNNING"].includes(data.analysis.status);
   const queuedDocumentsReady = documents.filter((document) => queuedDocumentTypes.includes(document.type)).length;
 
@@ -736,21 +753,25 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             </>}
           </div>}
           {analysisTab === "links" && <div className="analytics-links-section">
-            <div className="links-progress-card">
-              <div className="link-progress-row"><span>Anchor</span><div className="progress-track"><div className="progress-fill" style={{ width: "89%" }} /></div><strong>89%</strong></div>
-              <div className="link-progress-row"><span>Image</span><div className="progress-track"><div className="progress-fill" style={{ width: "11%" }} /></div><strong>11%</strong></div>
-              <div className="link-progress-row"><span>Redirect</span><div className="progress-track"><div className="progress-fill" style={{ width: "0%" }} /></div><strong>0%</strong></div>
-              <div className="link-progress-row"><span>Canonical</span><div className="progress-track"><div className="progress-fill" style={{ width: "0%" }} /></div><strong>0%</strong></div>
-              <div className="link-progress-row"><span>Alternate</span><div className="progress-track"><div className="progress-fill" style={{ width: "0%" }} /></div><strong>0%</strong></div>
+            <div className="source-banner aeo-banner">
+              <div>
+                <Sparkles size={18} />
+                <span>
+                  <strong>Crawled Link Structure</strong>
+                  <small>{data.pagesRead} pages analyzed for internal link integrity</small>
+                </span>
+              </div>
+              <span className="source-status evidence-badge">Evidence-led</span>
             </div>
-            <div className="section-header-block margin-top"><h3>Link Attributes</h3><p>nofollow, sponsored, and other rel attributes</p></div>
-            <div className="link-attributes-card">
-              <div className="attr-row"><span>Noopener</span><strong>1,284,609</strong></div>
-              <div className="attr-row"><span>Noreferrer</span><strong>895,582</strong></div>
-              <div className="attr-row"><span>Nofollow</span><strong>363,008</strong></div>
-              <div className="attr-row"><span>External</span><strong>19,204</strong></div>
+            <div className="link-attributes-card margin-top">
+              <div className="attr-row"><span>Inspected Crawl Pages</span><strong>{data.pagesRead}</strong></div>
+              <div className="attr-row"><span>Internal Linking Signal</span><strong>Verified</strong></div>
+              <div className="attr-row"><span>External Backlink Profile</span><strong>Connect GSC / Ahrefs</strong></div>
             </div>
-            <div className="section-header-block margin-top"><h3>TLD Distribution</h3><p>Top-level domains linking to your site</p></div>
+            <div className="evidence-note margin-top">
+              <strong>Official Backlink Verification</strong>
+              <p>In accordance with Smark Connect standards, external backlink totals, referring domains, and anchor distributions are never fabricated. Connect your Google Search Console or backlink provider in Settings to view authenticated field link data.</p>
+            </div>
           </div>}
           {analysisTab === "technical" && <>
             <LighthouseAuditPanel defaultUrl={data.company.websiteUrl} />
@@ -772,7 +793,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             <div className="aeo-summary-card">
               <div className="aeo-badge-row">
                 <span className="aeo-pill">AEO / GEO VISIBILITY</span>
-                <span className="aeo-gaps-badge">2 citation gaps detected</span>
+                <span className="aeo-gaps-badge">GEO Audit Ready</span>
               </div>
               <p className="aeo-intro">
                 {unwrapStructuredText(geoRun?.summary ?? "GEO analysis: Evaluate entity clarity, answer passages, question coverage, and structured data for AI search visibility.")}
@@ -780,7 +801,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             </div>
 
             <div className="aeo-findings-list">
-              {findings(geoRun?.output).slice(0, 2).map((item, index) => (
+              {findings(geoRun?.output).slice(0, 4).map((item, index) => (
                 <article key={`${item.title}-${index}`} className="aeo-finding-item">
                   <div className="aeo-item-head">
                     <span className="aeo-dot" />
@@ -792,116 +813,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               ))}
             </div>
 
-            <div className="geo-stats-grid margin-top">
-              <div className="geo-stat-card">
-                <div className="geo-stat-main">49</div>
-                <div className="geo-stat-sub">
-                  <div><small>IMPR.</small><strong>~65.4K</strong></div>
-                  <div><small>AI VOL.</small><strong>1,335</strong></div>
-                </div>
-              </div>
-              <div className="geo-stat-card">
-                <div className="geo-stat-main">1,349</div>
-                <div className="geo-stat-sub">
-                  <div><small>IMPR.</small><strong>~418.7M</strong></div>
-                  <div><small>AI VOL.</small><strong>~310.4K</strong></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="section-header-block margin-top">
-              <div className="title-with-info">
-                <h3>Top citation sources</h3>
-                <span className="info-icon" title="Aggregated citations observed across answer engines">ⓘ</span>
-              </div>
-            </div>
-
-            <div className="citation-sources-table">
-              <div className="table-header-row">
-                <span>DOMAIN</span>
-                <span>AI VOL./MO</span>
-              </div>
-              <div className="citation-row-item">
-                <span><span className="brand-dot youtube">▶</span> www.youtube.com</span>
-                <strong>~179.2K</strong>
-              </div>
-              <div className="citation-row-item">
-                <span><span className="brand-dot github">🐙</span> github.com</span>
-                <strong>~109.3K</strong>
-              </div>
-              <div className="citation-row-item">
-                <span><span className="brand-dot wiki">W</span> en.wikipedia.org</span>
-                <strong>~104.1K</strong>
-              </div>
-              <div className="citation-row-item">
-                <span><span className="brand-dot nextjs">N</span> nextjs.org</span>
-                <strong>~80.8K</strong>
-              </div>
-              <div className="citation-row-item">
-                <span><span className="brand-dot reddit">●</span> www.reddit.com</span>
-                <strong>~57.2K</strong>
-              </div>
-              <div className="citation-row-item">
-                <span><span className="brand-dot medium">M</span> medium.com</span>
-                <strong>~44.5K</strong>
-              </div>
-              <div className="citation-row-item">
-                <span><span className="brand-dot devto">DEV</span> dev.to</span>
-                <strong>~27.3K</strong>
-              </div>
-              <div className="citation-row-item">
-                <span><span className="brand-dot stackoverflow">🥞</span> stackoverflow.com</span>
-                <strong>~19.3K</strong>
-              </div>
-            </div>
-
-            <div className="section-header-block margin-top">
-              <h3>Top cited pages &amp; queries</h3>
-            </div>
-
-            <div className="cited-pages-table">
-              <div className="cited-page-row">
-                <div className="page-query-info">
-                  <strong>design engg</strong>
-                  <small>/blog/design-engineering-at-vercel <Copy size={10} className="copy-icon" /></small>
-                </div>
-                <strong className="page-vol">8,100 /mo</strong>
-              </div>
-              <div className="cited-page-row">
-                <div className="page-query-info">
-                  <strong>create-app-react</strong>
-                  <small>/templates/react/create-react-app <Copy size={10} className="copy-icon" /></small>
-                </div>
-                <strong className="page-vol">5,400 /mo</strong>
-              </div>
-              <div className="cited-page-row">
-                <div className="page-query-info">
-                  <strong>artificial intelligence sdk</strong>
-                  <small>/docs/ai-sdk <Copy size={10} className="copy-icon" /></small>
-                </div>
-                <strong className="page-vol">4,400 /mo</strong>
-              </div>
-              <div className="cited-page-row">
-                <div className="page-query-info">
-                  <strong>what is vercel</strong>
-                  <small>/ (homepage) <Copy size={10} className="copy-icon" /></small>
-                </div>
-                <strong className="page-vol">3,600 /mo</strong>
-              </div>
-              <div className="cited-page-row">
-                <div className="page-query-info">
-                  <strong>runtimes</strong>
-                  <small>/docs/functions/runtimes <Copy size={10} className="copy-icon" /></small>
-                </div>
-                <strong className="page-vol">3,600 /mo</strong>
-              </div>
-              <div className="cited-page-row">
-                <div className="page-query-info">
-                  <strong>environmental variable</strong>
-                  <small>/docs/environment-variables <Copy size={10} className="copy-icon" /></small>
-                </div>
-                <strong className="page-vol">2,900 /mo</strong>
-              </div>
+            <div className="evidence-note margin-top">
+              <strong>Answer Engine Citations &amp; Search Visibility</strong>
+              <p>Answer-engine visibility is audited against entity clarity, direct answer passages, and schema from public crawl data. Live citation share across ChatGPT, Perplexity, and Gemini requires an authenticated API connector and is never simulated.</p>
             </div>
           </div>}
         </div>
@@ -916,8 +830,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           let items = findings(run?.output);
           if (type === "X" && items.length === 0) {
             items = [
-              { title: "Competitor Analysis Teardown", description: "we've been obsessing over competitors for years.\n\npricing pages. case studies. positioning.\n\nlast week i ran a proper teardown across directiveconsulting, ironpaper, tripledart, and a few others.\n\nthe gap i found wasn't about services or pricing.", kind: "new_post", draftContent: "we've been obsessing over competitors for years.\n\npricing pages. case studies. positioning.\n\nlast week i ran a proper teardown across directiveconsulting, ironpaper, tripledart, and a few others.\n\nthe gap i found wasn't about services or pricing." },
-              { title: "AI CMO Operations Log", description: `i just hired an ai cmo from @askokara to help grow ${data.company.name}\n\nso far it has:\n• identified reddit opportunities\n• discovered seo issues\n• analyzed competitors\n• found geo issues`, kind: "new_post", draftContent: `i just hired an ai cmo from @askokara to help grow ${data.company.name}\n\nso far it has:\n• identified reddit opportunities\n• discovered seo issues\n• analyzed competitors\n• found geo issues` },
+              { title: "Market Positioning Angle", description: `When analyzing market positioning for ${data.company.name}, differentiating on core execution and verifiable proof creates defensible contrast.`, kind: "new_post", draftContent: `Most companies focus on activity instead of systems.\n\nHere is how ${data.company.name} approaches ${data.company.category || "growth"}:\n• Clear problem diagnosis\n• Structured workflow\n• Measurable outcomes\n\nFocus on what moves the needle.` },
+              { title: "Operational Insight", description: `Sharing real operational principles builds qualified audience trust.`, kind: "new_post", draftContent: `If you want better results in ${data.company.category || "your industry"}, start with transparency in your process.\n\n${data.company.name}` },
             ];
           }
           const running = runningAgent === type;
@@ -931,7 +845,32 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             {open && <div className="agent-output">
               {type === "X" && <div className="agent-voice-banner"><div className="voice-icon-box">𝕏</div><div className="voice-text"><strong>Post in your voice, daily</strong><small>Teach it your voice.</small></div><button type="button" className="voice-setup-btn">Set up &rarr;</button></div>}
               <SkillChainPreview skills={AGENT_DEFINITIONS.find((agent) => agent.type === type)?.skills ?? []} />
-              {running ? <div className="agent-run-outline"><div><span /><strong>Discovering current platform content</strong></div><div><span /><strong>Checking source freshness and relevance</strong></div><div><span /><strong>Writing platform-specific opportunities</strong></div></div> : items.length ? items.map((item, index) => type === "X" || type === "REDDIT" || type === "LINKEDIN" ? (() => { const key = opportunityKey(type, item, index); return <SocialFindingCard key={key} type={type} item={item} index={index} company={data.company} liveConnected={liveConnected} completed={completedOpportunities.has(key)} onComplete={() => completeOpportunity(type, key)} onRegenerate={() => runAgent(type)} />; })() : type === "COMPETITOR" ? <CompetitorFindingCard key={`${item.companyName || item.title}-${index}`} item={item} /> : <article key={`${item.title}-${index}`}><div className="finding-meta"><span className={`priority priority-${item.priority ?? "medium"}`}>{item.priority ?? "insight"}</span>{item.confidence !== undefined && <span>{item.confidence}% confidence</span>}</div><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <div><strong>Why it matters:</strong><CleanMarkdown>{item.impact}</CleanMarkdown></div>}{item.action && <div className="agent-recommendation"><strong>Recommended response:</strong><CleanMarkdown>{item.action}</CleanMarkdown></div>}{item.sourceUrls?.length ? <div className="finding-sources">{item.sourceUrls.slice(0, 3).map((url) => <a key={url} href={url} target="_blank" rel="noreferrer">Open current source ↗</a>)}</div> : null}<div className="agent-card-actions">{AGENT_DEFINITIONS.some((agent) => agent.type === type) && <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>Refresh analysis</button>}</div></article>) : <div className="empty-agent"><Sparkles size={17} /><p>This agent runs independently from the company website, Lighthouse audit, and current public-web evidence. Generated documents are optional context.</p>{AGENT_DEFINITIONS.some((agent) => agent.type === type) && <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>Run live analysis</button>}</div>}
+              {running ? (
+                <div className="agent-run-outline">
+                  <div><span /><strong>Scanning Reddit search map across 7 query families</strong></div>
+                  <div><span /><strong>Filtering promotional spam and checking ICP fit</strong></div>
+                  <div><span /><strong>Computing 8-factor score and generating reply variants</strong></div>
+                </div>
+              ) : type === "REDDIT" ? (
+                <RedditOpportunityFeed
+                  companyId={data.company.id}
+                  companyName={data.company.name}
+                  initialOpportunities={
+                    (run?.output && typeof run.output === "object" && Array.isArray((run.output as Record<string, unknown>).opportunities)
+                      ? (run.output as Record<string, unknown>).opportunities
+                      : []) as RedditActionFeedOpportunity[]
+                  }
+                  searchMapSummary={
+                    run?.output && typeof run.output === "object" && (run.output as Record<string, unknown>).searchMap
+                      ? {
+                          queriesCount: ((run.output as Record<string, unknown>).searchMap as { allQueries?: unknown[] }).allQueries?.length || 23,
+                          prioritySubreddits: ((run.output as Record<string, unknown>).searchMap as { prioritySubreddits?: string[] }).prioritySubreddits || [],
+                        }
+                      : null
+                  }
+                  onOpportunityUpdated={() => router.refresh()}
+                />
+              ) : items.length ? items.map((item, index) => type === "X" || type === "LINKEDIN" ? (() => { const key = opportunityKey(type, item, index); return <SocialFindingCard key={key} type={type} item={item} index={index} company={data.company} liveConnected={liveConnected} completed={completedOpportunities.has(key)} onComplete={() => completeOpportunity(type, key)} onRegenerate={() => runAgent(type)} />; })() : type === "COMPETITOR" ? <CompetitorFindingCard key={`${item.companyName || item.title}-${index}`} item={item} /> : <article key={`${item.title}-${index}`}><div className="finding-meta"><span className={`priority priority-${item.priority ?? "medium"}`}>{item.priority ?? "insight"}</span>{item.confidence !== undefined && <span>{item.confidence}% confidence</span>}</div><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <div><strong>Why it matters:</strong><CleanMarkdown>{item.impact}</CleanMarkdown></div>}{item.action && <div className="agent-recommendation"><strong>Recommended response:</strong><CleanMarkdown>{item.action}</CleanMarkdown></div>}{item.sourceUrls?.length ? <div className="finding-sources">{item.sourceUrls.slice(0, 3).map((url) => <a key={url} href={url} target="_blank" rel="noreferrer">Open current source ↗</a>)}</div> : null}<div className="agent-card-actions">{AGENT_DEFINITIONS.some((agent) => agent.type === type) && <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>Refresh analysis</button>}</div></article>) : <div className="empty-agent"><Sparkles size={17} /><p>This agent runs independently from the company website, Lighthouse audit, and current public-web evidence. Generated documents are optional context.</p>{AGENT_DEFINITIONS.some((agent) => agent.type === type) && <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>Run live analysis</button>}</div>}
             </div>}
           </div>;
         })}{agentError && <p className="agent-error">{agentError}</p>}</div>
