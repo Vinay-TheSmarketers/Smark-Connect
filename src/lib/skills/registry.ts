@@ -132,13 +132,33 @@ export const CORE_DOCUMENTS: CoreDocumentDefinition[] = [
 ];
 
 export const EXTENDED_DOCUMENTS: CoreDocumentDefinition[] = [
-  { type: "MARKETING_STRATEGY", title: "Integrated Marketing Strategy", agentType: "CAMPAIGN_PLANNER", purpose: "A complete evidence-led marketing strategy connecting positioning, priorities, channels, campaigns, measurement, and operating rhythm.", skills: marketingStrategySkills, instructions: "Produce an integrated growth playbook rather than a generic analysis: an executive thesis, explicit audience and positioning choices, a strategy-on-a-page flywheel, channel-role pathway, campaign prioritization matrix, 30/60/90-day plan, KPIs, decision gates, dependencies, risks, confidence, and source register." },
+  { type: "MARKETING_STRATEGY", title: "Strategic Intelligence Report", agentType: "CAMPAIGN_PLANNER", purpose: "An executive strategic intelligence report connecting positioning, competitors, priorities, channels, campaigns, measurement, and operating rhythm.", skills: marketingStrategySkills, instructions: "Produce the same decision-led strategic intelligence experience as the executive PDF report rather than a generic analysis: an executive thesis, explicit audience and positioning choices, competitive whitespace, a strategy-on-a-page flywheel, channel-role pathway, campaign prioritization matrix, 30/60/90-day plan, KPIs, decision gates, dependencies, risks, confidence, and source register." },
   { type: "DESIGN_GUIDE", title: "Brand and Visual Design Guide", agentType: "CREATIVE_VISUAL", purpose: "A production-ready brand expression and campaign design system grounded in observed brand evidence.", skills: designGuideSkills, instructions: "Produce a brand expression system rather than a generic analysis. Cover aesthetic principles, color and typography roles, spacing, composition, imagery, iconography, data visualization, social templates, accessibility, examples, asset checklist, and production QA. Include a visual spectrum, token/component blueprint, and foundation-to-application stack. Label observed evidence versus proposed extensions." },
   { type: "CONTENT_STRATEGY", title: "Full-Funnel Content Strategy", agentType: "CONTENT_AUDIT", purpose: "A detailed editorial, search, distribution, repurposing, calendar, and measurement system.", skills: contentStrategySkills, instructions: "Produce a full-funnel editorial system rather than a generic analysis. Connect every asset to an audience, decision, proof requirement, native format, distribution flow, owner, KPI, and refresh trigger. Include pillar orbits, a distribution/repurposing flywheel, a buyer-decision journey, and a prioritized 90-day backlog." },
   { type: "PRODUCT_INFO", title: "Offer and Product Intelligence", agentType: "AI_CMO", purpose: "A detailed offer architecture, value proposition, proof, objections, use cases, packaging hypotheses, and sales-enablement foundation.", skills: productInfoSkills, instructions: "Produce an offer and product intelligence book rather than a generic analysis. Cover offer hierarchy, jobs, use cases, differentiators, proof, objections, buying questions, packaging and pricing evidence, sales narratives, gaps, validation plan, and source register. Include an offer/value stack, proof ladder, and objection/next-step decision tree. Never invent commercial metrics." },
 ];
 
 export const ALL_DOCUMENTS = [...CORE_DOCUMENTS, ...EXTENDED_DOCUMENTS];
+
+export const AUDIT_PRIORITY_DOCUMENT_TYPES: DocumentType[] = ["COMPETITOR_ANALYSIS", "COMPANY_INTELLIGENCE"];
+
+const AUDIT_DOCUMENT_ORDER: DocumentType[] = [
+  ...AUDIT_PRIORITY_DOCUMENT_TYPES,
+  "MARKETING_STRATEGY",
+  "SEO_AUDIT",
+  "GEO_AUDIT",
+  "AUDIENCE_ANALYSIS",
+  "CONTENT_AUDIT",
+  "DESIGN_GUIDE",
+  "CONTENT_STRATEGY",
+  "PRODUCT_INFO",
+];
+
+export const AUDIT_DOCUMENT_QUEUE: CoreDocumentDefinition[] = AUDIT_DOCUMENT_ORDER.map((type) => {
+  const definition = ALL_DOCUMENTS.find((document) => document.type === type);
+  if (!definition) throw new Error(`Missing audit document definition for ${type}.`);
+  return definition;
+});
 
 export function getDocumentDefinition(type: DocumentType): CoreDocumentDefinition | undefined {
   return ALL_DOCUMENTS.find((document) => document.type === type);

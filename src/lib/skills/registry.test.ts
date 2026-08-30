@@ -1,7 +1,7 @@
 import { AgentType, DocumentType } from "@prisma/client";
 import { describe, expect, it, vi } from "vitest";
 import { buildResearchQueries } from "../research/live-discovery";
-import { AGENT_DEFINITIONS, ALL_DOCUMENTS, INTERNAL_OPERATIONS } from "./registry";
+import { AGENT_DEFINITIONS, ALL_DOCUMENTS, AUDIT_DOCUMENT_QUEUE, AUDIT_PRIORITY_DOCUMENT_TYPES, INTERNAL_OPERATIONS } from "./registry";
 
 vi.mock("server-only", () => ({}));
 
@@ -25,6 +25,24 @@ describe("skill operation registry", () => {
     const competitor = ALL_DOCUMENTS.find((item) => item.type === "COMPETITOR_ANALYSIS")!;
     expect(seo.skills[0]).toMatchObject({ repository: "claude-seo", skill: "seo-audit", phase: "foundation" });
     expect(competitor.skills.at(-1)).toMatchObject({ repository: "social-media-skills", skill: "analytics-and-reporting", phase: "reporting" });
+  });
+
+  it("queues every report sequentially with competitor and company intelligence first", () => {
+    expect(AUDIT_PRIORITY_DOCUMENT_TYPES).toEqual(["COMPETITOR_ANALYSIS", "COMPANY_INTELLIGENCE"]);
+    expect(AUDIT_DOCUMENT_QUEUE.map((document) => document.type)).toEqual([
+      "COMPETITOR_ANALYSIS",
+      "COMPANY_INTELLIGENCE",
+      "MARKETING_STRATEGY",
+      "SEO_AUDIT",
+      "GEO_AUDIT",
+      "AUDIENCE_ANALYSIS",
+      "CONTENT_AUDIT",
+      "DESIGN_GUIDE",
+      "CONTENT_STRATEGY",
+      "PRODUCT_INFO",
+    ]);
+    expect(new Set(AUDIT_DOCUMENT_QUEUE.map((document) => document.type))).toEqual(new Set(ALL_DOCUMENTS.map((document) => document.type)));
+    expect(AUDIT_DOCUMENT_QUEUE[2]).toMatchObject({ type: "MARKETING_STRATEGY", title: "Strategic Intelligence Report" });
   });
 });
 

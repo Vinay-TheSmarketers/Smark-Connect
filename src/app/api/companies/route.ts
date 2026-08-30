@@ -8,6 +8,8 @@ import { discoverCompanyLogo } from "@/lib/company-logo";
 
 const schema = z.object({ companyName: z.string().trim().min(2).max(120), websiteUrl: z.string().trim().min(4).max(2048) });
 
+export const maxDuration = 1800;
+
 export async function POST(request: Request) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Sign in to add a company." }, { status: 401 });

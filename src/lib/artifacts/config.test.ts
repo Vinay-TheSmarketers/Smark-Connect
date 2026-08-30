@@ -15,6 +15,8 @@ describe("artifact routing", () => {
     const manifest = resolveArtifactManifest({ reportType: "MARKETING_STRATEGY", markdown });
     expect(manifest.decisions.xlsx.enabled).toBe(true);
     expect(manifest.decisions.xlsx.reason).toContain("reusable");
+    expect(manifest.theme).toBe("executive-strategy");
+    expect(manifest.requiredVisuals).toEqual(["executive-dashboard", "cross-functional-priority-map", "integrated-roadmap"]);
   });
 
   it("does not create a workbook for a design guide", () => {
@@ -23,4 +25,3 @@ describe("artifact routing", () => {
     expect(manifest.decisions.xlsx.enabled).toBe(false);
   });
 });
-

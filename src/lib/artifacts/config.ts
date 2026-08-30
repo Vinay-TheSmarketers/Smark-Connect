@@ -67,9 +67,9 @@ export const ARTIFACT_PROFILES: Record<string, ArtifactProfile> = {
   },
   MARKETING_STRATEGY: {
     ...DEFAULT_PROFILE,
-    theme: "growth-strategy",
-    targetSlides: 20,
-    requiredVisuals: ["strategy-on-a-page", "channel-map", "priority-matrix", "90-day-roadmap"],
+    theme: "executive-strategy",
+    targetSlides: 22,
+    requiredVisuals: ["executive-dashboard", "cross-functional-priority-map", "integrated-roadmap"],
     requiredSheets: ["01_Summary", "02_Campaigns", "03_Channels", "04_Experiments", "05_Roadmap", "06_KPIs", "07_Owners", "08_Source_Register"],
   },
   PRODUCT_INFO: {

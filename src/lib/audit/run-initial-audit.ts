@@ -1,26 +1,8 @@
 import { db } from "@/lib/db";
 import { crawlWebsite } from "@/lib/crawl/crawler";
 import { buildEvidencePack, deriveResearchTopics, runAgentAnalysis, runCmoSynthesis, runCoreDocument, saveCoreAnalysis } from "@/lib/skills/runner";
-import { CORE_DOCUMENTS, INITIAL_AGENT_TYPES } from "@/lib/skills/registry";
+import { AUDIT_DOCUMENT_QUEUE, AUDIT_PRIORITY_DOCUMENT_TYPES, INITIAL_AGENT_TYPES } from "@/lib/skills/registry";
 import { runPageSpeed } from "./pagespeed";
-
-const CHANNEL_AGENT_TIMEOUT_MS = 90_000;
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      },
-    );
-  });
-}
 
 async function setProgress(jobId: string, companyId: string, progress: number, step: string) {
   await db.$transaction([
@@ -94,46 +76,76 @@ export async function runInitialAudit(jobId: string): Promise<void> {
 
     const evidence = buildEvidencePack({ companyName: company.name, websiteUrl: company.websiteUrl, pages, pageSpeed });
     const researchTopics = deriveResearchTopics(pages, company.name);
-    await setProgress(jobId, company.id, 42, "Running six skill-backed analyses concurrently");
-    let documentsCompleted = 0;
-    const coreResults = await Promise.allSettled(CORE_DOCUMENTS.map(async (definition) => {
-      const result = await runCoreDocument({ definition, company, user: company.user, evidence, researchTopics });
-      await saveCoreAnalysis({ companyId: company.id, userId: company.userId, definition, analysis: result.analysis, tokensUsed: result.tokensUsed, execution: result.execution });
-      if (definition.type === "COMPANY_INTELLIGENCE") {
-        await db.company.update({ where: { id: company.id }, data: { category: result.analysis.companyCategory || company.category, description: result.analysis.companyDescription || company.description } });
-      }
-      documentsCompleted += 1;
-      await setProgress(jobId, company.id, 42 + documentsCompleted * 5, `Generated ${documentsCompleted} of ${CORE_DOCUMENTS.length} core documents`);
-      return result;
-    }));
-    const coreFailures = coreResults.filter((result) => result.status === "rejected");
-    if (coreFailures.length === CORE_DOCUMENTS.length) throw new Error(coreFailures[0]?.reason instanceof Error ? coreFailures[0].reason.message : "All document analyses failed.");
+    const completedDocumentTypes = new Set(
+      reuseEvidence
+        ? (await db.document.findMany({ where: { companyId: company.id, type: { in: AUDIT_DOCUMENT_QUEUE.map((definition) => definition.type) } }, select: { type: true } })).map((document) => document.type)
+        : [],
+    );
+    const documentFailures: Array<{ title: string; error: unknown }> = [];
+    let documentsProcessed = completedDocumentTypes.size;
 
-    await setProgress(jobId, company.id, 76, "Running core channel agents from the shared company foundation");
-    let agentsCompleted = 0;
-    const channelResults = await Promise.allSettled(INITIAL_AGENT_TYPES.map(async (agentType) => {
+    if (AUDIT_PRIORITY_DOCUMENT_TYPES.every((type) => completedDocumentTypes.has(type))) {
+      await db.company.update({ where: { id: company.id }, data: { status: "ACTIVE" } });
+    }
+
+    await setProgress(jobId, company.id, 34, "Starting the priority report queue with competitor maps and company intelligence");
+    for (const [index, definition] of AUDIT_DOCUMENT_QUEUE.entries()) {
+      if (completedDocumentTypes.has(definition.type)) continue;
+      const startProgress = 34 + Math.round((index / AUDIT_DOCUMENT_QUEUE.length) * 48);
+      await setProgress(jobId, company.id, startProgress, `Generating ${index + 1} of ${AUDIT_DOCUMENT_QUEUE.length}: ${definition.title}`);
       try {
-        return await withTimeout(
-          runAgentAnalysis({ companyId: company.id, userId: company.userId, agentType }),
-          CHANNEL_AGENT_TIMEOUT_MS,
-          `${agentType} agent timed out after ${Math.round(CHANNEL_AGENT_TIMEOUT_MS / 1000)} seconds.`,
-        );
+        let documentEvidence = evidence;
+        if (definition.type === "MARKETING_STRATEGY") {
+          const priorityDocuments = await db.document.findMany({
+            where: { companyId: company.id, type: { in: AUDIT_PRIORITY_DOCUMENT_TYPES } },
+            select: { title: true, contentMarkdown: true },
+            orderBy: { createdAt: "asc" },
+          });
+          const strategicFoundation = priorityDocuments.map((document) => `PRIORITY INTELLIGENCE: ${document.title}\n\n${document.contentMarkdown}`).join("\n\n===\n\n").slice(0, 36_000);
+          documentEvidence = `${evidence}\n\n=== PRIORITY INTELLIGENCE FOUNDATION ===\n\n${strategicFoundation}`;
+        }
+        const result = await runCoreDocument({ definition, company, user: company.user, evidence: documentEvidence, researchTopics });
+        await saveCoreAnalysis({ companyId: company.id, userId: company.userId, definition, analysis: result.analysis, tokensUsed: result.tokensUsed, execution: result.execution });
+        if (definition.type === "COMPANY_INTELLIGENCE") {
+          await db.company.update({ where: { id: company.id }, data: { category: result.analysis.companyCategory || company.category, description: result.analysis.companyDescription || company.description } });
+        }
+        completedDocumentTypes.add(definition.type);
+        if (AUDIT_PRIORITY_DOCUMENT_TYPES.every((type) => completedDocumentTypes.has(type))) {
+          await db.company.update({ where: { id: company.id }, data: { status: "ACTIVE" } });
+        }
+      } catch (error) {
+        documentFailures.push({ title: definition.title, error });
       } finally {
-        agentsCompleted += 1;
-        await setProgress(jobId, company.id, 76 + agentsCompleted * 3, `Processed ${agentsCompleted} of ${INITIAL_AGENT_TYPES.length} channel agents`);
+        documentsProcessed += 1;
+        const endProgress = 34 + Math.round((documentsProcessed / AUDIT_DOCUMENT_QUEUE.length) * 48);
+        await setProgress(jobId, company.id, endProgress, `${completedDocumentTypes.size} of ${AUDIT_DOCUMENT_QUEUE.length} reports ready; continuing in the background`);
       }
-    }));
-    const channelFailures = channelResults.filter((result) => result.status === "rejected").length;
+    }
+    if (documentFailures.length === AUDIT_DOCUMENT_QUEUE.length) {
+      const firstError = documentFailures[0]?.error;
+      throw new Error(firstError instanceof Error ? firstError.message : "All document analyses failed.");
+    }
 
-    await setProgress(jobId, company.id, 91, "Synthesizing the AI CMO executive analysis");
+    await setProgress(jobId, company.id, 84, "Reports queued successfully; running channel agents one by one");
+    let channelFailures = 0;
+    for (const [index, agentType] of INITIAL_AGENT_TYPES.entries()) {
+      await setProgress(jobId, company.id, 84 + index * 2, `Running ${index + 1} of ${INITIAL_AGENT_TYPES.length} channel agents: ${agentType}`);
+      try {
+        await runAgentAnalysis({ companyId: company.id, userId: company.userId, agentType });
+      } catch {
+        channelFailures += 1;
+      }
+    }
+
+    await setProgress(jobId, company.id, 96, "Synthesizing the AI CMO executive analysis");
     let cmoFailures = 0;
     await runCmoSynthesis({ companyId: company.id, userId: company.userId }).catch(() => { cmoFailures = 1; });
 
-    const failures = externalFailures + coreFailures.length + channelFailures + cmoFailures;
+    const failures = externalFailures + documentFailures.length + channelFailures + cmoFailures;
     const finalStatus = failures ? "PARTIAL" : "DONE";
-    const successfulDocuments = CORE_DOCUMENTS.length - coreFailures.length;
+    const successfulDocuments = AUDIT_DOCUMENT_QUEUE.length - documentFailures.length;
     const successfulAgents = INITIAL_AGENT_TYPES.length - channelFailures;
-    const finalStep = failures ? `${successfulDocuments} of ${CORE_DOCUMENTS.length} skill-generated documents and ${successfulAgents} of ${INITIAL_AGENT_TYPES.length} channel agents completed; failed chains produced no fallback output` : "Six skill-generated documents and core agents are ready";
+    const finalStep = failures ? `${successfulDocuments} of ${AUDIT_DOCUMENT_QUEUE.length} skill-generated reports and ${successfulAgents} of ${INITIAL_AGENT_TYPES.length} channel agents completed; failed chains produced no fallback output` : "All ten skill-generated reports and core agents are ready";
     await db.$transaction([
       db.auditJob.update({ where: { id: jobId }, data: { status: finalStatus, progress: 100, step: finalStep, completedAt: new Date() } }),
       db.company.update({ where: { id: company.id }, data: { status: "ACTIVE", crawlStatus: finalStatus, crawlProgress: 100, crawlStep: finalStep, lastAuditedAt: new Date() } }),

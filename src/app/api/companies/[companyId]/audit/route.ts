@@ -3,6 +3,8 @@ import { requireApiUser } from "@/lib/auth-helpers";
 import { runInitialAudit } from "@/lib/audit/run-initial-audit";
 import { db } from "@/lib/db";
 
+export const maxDuration = 1800;
+
 export async function POST(_request: Request, context: { params: Promise<{ companyId: string }> }) {
   const user = await requireApiUser();
   if (!user) return Response.json({ error: "Sign in to run company research." }, { status: 401 });

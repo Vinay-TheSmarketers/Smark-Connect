@@ -3,14 +3,15 @@ import { AuditProgress } from "@/components/audit-progress";
 import { OnboardingLayout } from "@/components/onboarding-layout";
 import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
-import { CORE_DOCUMENTS } from "@/lib/skills/registry";
+import { AUDIT_DOCUMENT_QUEUE, AUDIT_PRIORITY_DOCUMENT_TYPES } from "@/lib/skills/registry";
 
 export default async function AuditPage({ params }: PageProps<"/onboarding/audit/[jobId]">) {
   const user = await requireUser();
   const { jobId } = await params;
-  const job = await db.auditJob.findFirst({ where: { id: jobId, company: { userId: user.id } }, include: { company: { include: { documents: { where: { type: { in: CORE_DOCUMENTS.map((document) => document.type) } }, select: { type: true, title: true } }, _count: { select: { crawlPages: true, agentRuns: true } } } } } });
+  const job = await db.auditJob.findFirst({ where: { id: jobId, company: { userId: user.id } }, include: { company: { include: { documents: { where: { type: { in: AUDIT_DOCUMENT_QUEUE.map((document) => document.type) } }, select: { type: true, title: true } }, _count: { select: { crawlPages: true, agentRuns: true } } } } } });
   if (!job) notFound();
-  if (["DONE", "PARTIAL"].includes(job.status)) redirect(`/dashboard/${job.companyId}`);
+  const priorityReportsReady = AUDIT_PRIORITY_DOCUMENT_TYPES.every((type) => job.company.documents.some((document) => document.type === type));
+  if (["DONE", "PARTIAL"].includes(job.status) || (job.status === "RUNNING" && priorityReportsReady)) redirect(`/dashboard/${job.companyId}`);
   const credentialFailure = /api[ -]?key|provider|authentication|unauthorized/i.test(job.error ?? "");
   const providerWasReconnected = Boolean(user.llmVerifiedAt && job.completedAt && user.llmVerifiedAt > job.completedAt);
   const requiresProvider = user.demoMode || !user.llmVerifiedAt || !user.llmProvider || !user.llmApiKeyEnc || !user.llmModel || (credentialFailure && !providerWasReconnected);
