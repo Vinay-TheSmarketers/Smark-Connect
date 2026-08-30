@@ -134,6 +134,14 @@ export async function analyzeCompetitorLandscape(
         { name: "Zerodha", website: "https://zerodha.com", positioning: "Pioneer discount brokerage platform dominating retail trading and investor education.", attributes: ["Zero-brokerage model", "In-house tech stack", "Massive community brand"] },
         { name: "Groww", website: "https://groww.in", positioning: "Mobile-first investment and financial super-app capturing millennial and Gen-Z retail wealth.", attributes: ["Intuitive mobile UX", "Rapid user onboarding", "Mutual funds & stock expansion"] },
       ],
+      finops: [
+        { name: "CloudZero", website: "https://cloudzero.com", positioning: "Cloud cost intelligence platform delivering unit economics and automated cost allocation for engineering teams.", attributes: ["Unit cost metrics", "Engineering-led FinOps", "Automated anomaly alerts"] },
+        { name: "Kubecost", website: "https://kubecost.com", positioning: "Real-time Kubernetes cost monitoring and container-level chargeback visibility.", attributes: ["Native Kubernetes metrics", "Open-source core", "Multi-cluster allocation"] },
+        { name: "Cast AI", website: "https://cast.ai", positioning: "All-in-one Kubernetes automation platform for automated cloud cost reduction and rightsizing.", attributes: ["Autonomous autoscaling", "Real-time spot automation", "Zero-downtime rebalancing"] },
+        { name: "ProsperOps", website: "https://prosperops.com", positioning: "Autonomous cloud rate optimization and commitment management for AWS discount instruments.", attributes: ["Automated Savings Plans", "Effective Savings Rate optimization", "Financial engineering focus"] },
+        { name: "Spot by NetApp", website: "https://spot.io", positioning: "Continuous infrastructure optimization using machine learning to maximize cloud compute efficiency.", attributes: ["Enterprise scale", "Broad cloud support", "Workload elasticity"] },
+        { name: "Vantage", website: "https://vantage.sh", positioning: "Modern developer-centric cloud cost transparency, reporting, and financial tracking.", attributes: ["Multi-cloud unified view", "Virtual tagging", "Fast self-serve setup"] },
+      ],
       marketing: [
         { name: "HubSpot", website: "https://hubspot.com", positioning: "All-in-one inbound marketing, sales CRM, and customer service platform.", attributes: ["Comprehensive inbound tooling", "Extensive app marketplace", "High tier upgrade costs"] },
         { name: "Klaviyo", website: "https://klaviyo.com", positioning: "Intelligent marketing automation and customer data platform for e-commerce and retail.", attributes: ["Deep e-commerce data sync", "Predictive analytics", "High-volume pricing"] },
@@ -149,6 +157,7 @@ export async function analyzeCompetitorLandscape(
       ],
     };
 
+    const isFinops = cat.includes("finops") || cat.includes("cloud cost") || cat.includes("cost optim") || cat.includes("aws cost") || profile.companyName.toLowerCase().includes("finops");
     const isInsurance = cat.includes("insurance") || cat.includes("insur") || cat.includes("life") || cat.includes("policy") || profile.companyName.toLowerCase().includes("lic");
     const isFintech = cat.includes("fintech") || cat.includes("finance") || cat.includes("pay") || cat.includes("bank") || cat.includes("wealth") || cat.includes("invest");
     const isSeo = cat.includes("seo") || cat.includes("search") || cat.includes("rank");
@@ -156,7 +165,7 @@ export async function analyzeCompetitorLandscape(
     const isDev = cat.includes("dev") || cat.includes("software") || cat.includes("api") || cat.includes("code") || cat.includes("infra");
     const isMarketing = cat.includes("market") || cat.includes("growth") || cat.includes("agency") || cat.includes("lead");
 
-    const categoryKey = isInsurance ? "insurance" : isFintech ? "fintech" : isSeo ? "seo" : isEcom ? "ecommerce" : isDev ? "developer" : isMarketing ? "marketing" : "general";
+    const categoryKey = isFinops ? "finops" : isInsurance ? "insurance" : isFintech ? "fintech" : isSeo ? "seo" : isEcom ? "ecommerce" : isDev ? "developer" : isMarketing ? "marketing" : "general";
     const selectedPeers = industryPeers[categoryKey] || industryPeers.general;
 
     candidatePool.push(...selectedPeers);
