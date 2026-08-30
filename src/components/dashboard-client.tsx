@@ -1054,6 +1054,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               companyName={data.company.name}
               websiteUrl={data.company.websiteUrl}
               category={data.company.category}
+              description={data.company.description}
               crawlPages={data.crawlPages.map((page) => ({ url: page.url, title: page.title, description: page.description, content: page.content || "" }))}
               geoSummary={geoRun?.summary}
             />

@@ -4430,20 +4430,128 @@ html[data-theme="dark"] .context-signal-chip .signal-badge {
   font-family: monospace;
 }
 
-.passage-copy-btn {
-  background: none;
-  border: none;
-  padding: 2px;
-  color: #64748b;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
+.passage-head-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.passage-type-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.passage-type-badge.type-definition {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.passage-type-badge.type-procedure {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.passage-type-badge.type-comparison {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.passage-type-badge.type-faq {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+.passage-score-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.passage-snippet {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #94a3b8;
+  margin: 4px 0 6px 0;
+  font-style: italic;
+}
+
+.citation-status-pill {
+  font-size: 9px;
+  padding: 1px 5px;
   border-radius: 3px;
+  background: #1e293b;
+  color: #94a3b8;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+.passage-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  padding: 3px 8px;
+  color: #cbd5e1;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 10px;
+  transition: all 0.15s ease;
 }
 
 .passage-copy-btn:hover {
-  color: #94a3b8;
-  background: #1e293b;
+  color: #ffffff;
+  background: #334155;
+  border-color: #64748b;
+}
+
+.geo-actions-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.geo-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.geo-action-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.action-num-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .passage-vol {
