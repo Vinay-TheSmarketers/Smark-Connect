@@ -382,6 +382,176 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
   return <>{compactCard}{detail}</>;
 }
 
+function LinkedInFindingsCard({ items, onRegenerate, running }: { items: Finding[]; onRegenerate: () => void; running: boolean }) {
+  const displayList = items.filter((item) => item.kind !== "new_post").slice(0, 5);
+  const listToRender = displayList.length ? displayList : items.slice(0, 5);
+
+  return (
+    <article className="linkedin-findings-unified-card">
+      <div className="findings-card-head">
+        <div className="head-title-wrap">
+          <PlatformMark provider="linkedin" />
+          <div>
+            <strong>STRATEGY &amp; OPPORTUNITY FINDINGS</strong>
+            <small>{listToRender.length} signals detected across company memory &amp; live research</small>
+          </div>
+        </div>
+        <button type="button" className="refresh-findings-btn" disabled={running} onClick={onRegenerate}>
+          <RefreshCw size={11} className={running ? "spin" : ""} /> Refresh
+        </button>
+      </div>
+
+      <div className="findings-rows-container">
+        {listToRender.map((item, idx) => (
+          <div key={`${item.title}-${idx}`} className="linkedin-finding-row">
+            <div className="finding-row-top">
+              <span className="finding-index-pill">0{idx + 1}</span>
+              <h4 className="finding-row-title">{item.title}</h4>
+              {item.priority && (
+                <span className={`finding-priority-badge priority-${item.priority}`}>
+                  {item.priority.toUpperCase()}
+                </span>
+              )}
+            </div>
+            <p className="finding-row-evidence">
+              {item.evidence || item.description || "Signal observed across technical and market monitoring."}
+            </p>
+            {item.impact && (
+              <div className="finding-row-impact">
+                <strong>Why it matters:</strong> <span>{unwrapStructuredText(item.impact)}</span>
+              </div>
+            )}
+            {item.action && (
+              <div className="finding-row-action">
+                <strong>Angle / Action:</strong> <span>{unwrapStructuredText(item.action)}</span>
+              </div>
+            )}
+            {item.sourceUrls?.length ? (
+              <div className="finding-row-source">
+                <a href={item.sourceUrls[0]} target="_blank" rel="noreferrer">
+                  <ExternalLink size={10} /> {item.sourceLabel || "Discovered source"}
+                </a>
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function LinkedInAgentFeed({
+  items,
+  company,
+  liveConnected,
+  completedOpportunities,
+  completeOpportunity,
+  runAgent,
+  running,
+}: {
+  items: Finding[];
+  company: DashboardData["company"];
+  liveConnected: boolean;
+  completedOpportunities: Set<string>;
+  completeOpportunity: (type: string, key: string) => Promise<void>;
+  runAgent: (type: string) => Promise<void>;
+  running: boolean;
+}) {
+  const postDraftItem = items.find((item) => item.kind === "new_post") || items[0];
+  const postKey = opportunityKey("LINKEDIN", postDraftItem || {}, 0);
+
+  return (
+    <div className="linkedin-agent-feed-layout">
+      {postDraftItem && (
+        <SocialFindingCard
+          key={postKey}
+          type="LINKEDIN"
+          item={postDraftItem}
+          index={0}
+          company={company}
+          liveConnected={liveConnected}
+          completed={completedOpportunities.has(postKey)}
+          onComplete={() => completeOpportunity("LINKEDIN", postKey)}
+          onRegenerate={() => runAgent("LINKEDIN")}
+        />
+      )}
+      <LinkedInFindingsCard
+        items={items}
+        onRegenerate={() => runAgent("LINKEDIN")}
+        running={running}
+      />
+    </div>
+  );
+}
+
+function GenericAgentFindingCard({
+  item,
+  index,
+  type,
+  onRefresh,
+  refreshing,
+}: {
+  item: Finding;
+  index: number;
+  type: string;
+  onRefresh: () => void;
+  refreshing: boolean;
+}) {
+  return (
+    <article className="generic-agent-finding-card">
+      <div className="finding-card-top-bar">
+        <div className="finding-badge-group">
+          <span className={`finding-priority-pill priority-${item.priority ?? "medium"}`}>
+            {item.priority ? item.priority.toUpperCase() : "INSIGHT"}
+          </span>
+          {item.confidence !== undefined && (
+            <span className="finding-confidence-pill">{item.confidence}% confidence</span>
+          )}
+        </div>
+        {item.publishedAt && <time className="finding-timestamp">{item.publishedAt}</time>}
+      </div>
+
+      <h3 className="finding-card-headline">{item.title}</h3>
+
+      <div className="finding-card-body-text">
+        <CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>
+      </div>
+
+      {item.impact && (
+        <div className="finding-card-callout impact-callout">
+          <strong>Why it matters:</strong>
+          <span>{unwrapStructuredText(item.impact)}</span>
+        </div>
+      )}
+
+      {item.action && (
+        <div className="finding-card-callout action-callout">
+          <strong>Recommended response / Next action:</strong>
+          <span>{unwrapStructuredText(item.action)}</span>
+        </div>
+      )}
+
+      <div className="finding-card-footer">
+        {item.sourceUrls?.length ? (
+          <div className="finding-sources-wrap">
+            {item.sourceUrls.slice(0, 2).map((url) => (
+              <a key={url} href={url} target="_blank" rel="noreferrer" className="finding-source-link">
+                <ExternalLink size={10} /> {url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 28)}…
+              </a>
+            ))}
+          </div>
+        ) : <span />}
+
+        {AGENT_DEFINITIONS.some((agent) => agent.type === type) && index === 0 && (
+          <button type="button" className="finding-card-refresh-btn" disabled={refreshing} onClick={onRefresh}>
+            <RefreshCw size={11} className={refreshing ? "spin" : ""} /> Refresh
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
 export function DashboardClient({ data }: { data: DashboardData }) {
   const router = useRouter();
   const workspaceRef = useRef<HTMLElement>(null);
@@ -870,7 +1040,61 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   }
                   onOpportunityUpdated={() => router.refresh()}
                 />
-              ) : items.length ? items.map((item, index) => type === "X" || type === "LINKEDIN" ? (() => { const key = opportunityKey(type, item, index); return <SocialFindingCard key={key} type={type} item={item} index={index} company={data.company} liveConnected={liveConnected} completed={completedOpportunities.has(key)} onComplete={() => completeOpportunity(type, key)} onRegenerate={() => runAgent(type)} />; })() : type === "COMPETITOR" ? <CompetitorFindingCard key={`${item.companyName || item.title}-${index}`} item={item} /> : <article key={`${item.title}-${index}`}><div className="finding-meta"><span className={`priority priority-${item.priority ?? "medium"}`}>{item.priority ?? "insight"}</span>{item.confidence !== undefined && <span>{item.confidence}% confidence</span>}</div><h3>{item.title}</h3><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.impact && <div><strong>Why it matters:</strong><CleanMarkdown>{item.impact}</CleanMarkdown></div>}{item.action && <div className="agent-recommendation"><strong>Recommended response:</strong><CleanMarkdown>{item.action}</CleanMarkdown></div>}{item.sourceUrls?.length ? <div className="finding-sources">{item.sourceUrls.slice(0, 3).map((url) => <a key={url} href={url} target="_blank" rel="noreferrer">Open current source ↗</a>)}</div> : null}<div className="agent-card-actions">{AGENT_DEFINITIONS.some((agent) => agent.type === type) && <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>Refresh analysis</button>}</div></article>) : <div className="empty-agent"><Sparkles size={17} /><p>This agent runs independently from the company website, Lighthouse audit, and current public-web evidence. Generated documents are optional context.</p>{AGENT_DEFINITIONS.some((agent) => agent.type === type) && <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>Run live analysis</button>}</div>}
+              ) : items.length ? (
+                type === "LINKEDIN" ? (
+                  <LinkedInAgentFeed
+                    items={items}
+                    company={data.company}
+                    liveConnected={liveConnected}
+                    completedOpportunities={completedOpportunities}
+                    completeOpportunity={completeOpportunity}
+                    runAgent={runAgent}
+                    running={Boolean(runningAgent === "LINKEDIN")}
+                  />
+                ) : type === "X" ? (
+                  items.map((item, index) => {
+                    const key = opportunityKey(type, item, index);
+                    return (
+                      <SocialFindingCard
+                        key={key}
+                        type={type}
+                        item={item}
+                        index={index}
+                        company={data.company}
+                        liveConnected={liveConnected}
+                        completed={completedOpportunities.has(key)}
+                        onComplete={() => completeOpportunity(type, key)}
+                        onRegenerate={() => runAgent(type)}
+                      />
+                    );
+                  })
+                ) : type === "COMPETITOR" ? (
+                  items.map((item, index) => (
+                    <CompetitorFindingCard key={`${item.companyName || item.title}-${index}`} item={item} />
+                  ))
+                ) : (
+                  items.map((item, index) => (
+                    <GenericAgentFindingCard
+                      key={`${item.title}-${index}`}
+                      item={item}
+                      index={index}
+                      type={type}
+                      onRefresh={() => runAgent(type)}
+                      refreshing={Boolean(runningAgent === type)}
+                    />
+                  ))
+                )
+              ) : (
+                <div className="empty-agent">
+                  <Sparkles size={17} />
+                  <p>This agent runs independently from the company website, Lighthouse audit, and current public-web evidence. Generated documents are optional context.</p>
+                  {AGENT_DEFINITIONS.some((agent) => agent.type === type) && (
+                    <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>
+                      Run live analysis
+                    </button>
+                  )}
+                </div>
+              )}
             </div>}
           </div>;
         })}{agentError && <p className="agent-error">{agentError}</p>}</div>

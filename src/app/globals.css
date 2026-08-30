@@ -2537,3 +2537,355 @@ html[data-theme="dark"] .settings-save-button {
   color: #f5f1ed !important;
 }
 
+/* LinkedIn Unified Findings Card (11px Typography) */
+.linkedin-findings-unified-card {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #eadfd9;
+  background: #fffdfb;
+}
+
+.findings-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f2e9e4;
+  margin-bottom: 10px;
+}
+
+.head-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.head-title-wrap strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: #231f20;
+}
+
+.head-title-wrap small {
+  display: block;
+  font-size: 10px;
+  color: #8e8885;
+}
+
+.refresh-findings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #ded5d0;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  color: #514c50;
+  cursor: pointer;
+}
+
+.findings-rows-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.linkedin-finding-row {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #f4eee9;
+  background: #fdfbf9;
+}
+
+.finding-row-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.finding-index-pill {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #0a66c2;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.finding-row-title {
+  margin: 0;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #231f20;
+  flex: 1;
+}
+
+.finding-priority-badge {
+  padding: 2px 6px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.finding-row-evidence {
+  margin: 4px 0 6px !important;
+  font-size: 11px !important;
+  line-height: 1.55 !important;
+  color: #514c50 !important;
+}
+
+.finding-row-impact,
+.finding-row-action {
+  margin-top: 4px;
+  font-size: 11px !important;
+  line-height: 1.5 !important;
+  color: #514c50 !important;
+}
+
+.finding-row-impact strong,
+.finding-row-action strong {
+  color: #231f20;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.finding-row-source {
+  margin-top: 6px;
+}
+
+.finding-row-source a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #0a66c2;
+  text-decoration: none;
+}
+
+/* Generic Agent Finding Card Styling */
+.generic-agent-finding-card {
+  margin-bottom: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #eadfd9;
+  background: #fffdfb;
+}
+
+.finding-card-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.finding-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.finding-priority-pill {
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.finding-priority-pill.priority-critical {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.finding-priority-pill.priority-high {
+  color: #9a3412;
+  background: #ffedd5;
+}
+
+.finding-priority-pill.priority-medium {
+  color: #854d0e;
+  background: #fef9c3;
+}
+
+.finding-priority-pill.priority-low,
+.finding-priority-pill.priority-insight {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.finding-confidence-pill {
+  font-size: 10px;
+  color: #8e8885;
+  font-weight: 500;
+}
+
+.finding-timestamp {
+  font-size: 10px;
+  color: #8e8885;
+}
+
+.finding-card-headline {
+  margin: 0 0 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  letter-spacing: -.012em !important;
+  color: #231f20 !important;
+}
+
+.finding-card-body-text {
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  color: #514c50 !important;
+  margin-bottom: 10px;
+}
+
+.finding-card-callout {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px !important;
+  line-height: 1.5 !important;
+}
+
+.finding-card-callout.impact-callout {
+  background: #fdfaf7;
+  border-left: 3px solid #f59e0b;
+  color: #4b443b;
+}
+
+.finding-card-callout.impact-callout strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #92400e;
+  margin-bottom: 2px;
+}
+
+.finding-card-callout.action-callout {
+  background: #f6faf8;
+  border-left: 3px solid #10b981;
+  color: #2d4a3e;
+}
+
+.finding-card-callout.action-callout strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #065f46;
+  margin-bottom: 2px;
+}
+
+.finding-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f2e9e4;
+}
+
+.finding-sources-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.finding-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.finding-card-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #ded5d0;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  color: #231f20;
+  cursor: pointer;
+}
+
+/* Dark Mode Overrides */
+html[data-theme="dark"] .linkedin-findings-unified-card,
+html[data-theme="dark"] .generic-agent-finding-card {
+  border-color: #2b2626 !important;
+  background: #161313 !important;
+  color: #f0ece8 !important;
+}
+
+html[data-theme="dark"] .findings-card-head,
+html[data-theme="dark"] .finding-card-footer {
+  border-color: #242020 !important;
+}
+
+html[data-theme="dark"] .head-title-wrap strong,
+html[data-theme="dark"] .finding-row-title,
+html[data-theme="dark"] .finding-card-headline {
+  color: #f5f1ed !important;
+}
+
+html[data-theme="dark"] .linkedin-finding-row {
+  border-color: #252121 !important;
+  background: #1d1919 !important;
+}
+
+html[data-theme="dark"] .finding-row-evidence,
+html[data-theme="dark"] .finding-card-body-text {
+  color: #d8d2ce !important;
+}
+
+html[data-theme="dark"] .finding-row-impact,
+html[data-theme="dark"] .finding-row-action {
+  color: #cbc5c0 !important;
+}
+
+html[data-theme="dark"] .finding-row-impact strong,
+html[data-theme="dark"] .finding-row-action strong {
+  color: #f0ece8 !important;
+}
+
+html[data-theme="dark"] .refresh-findings-btn,
+html[data-theme="dark"] .finding-card-refresh-btn {
+  border-color: #383131 !important;
+  background: #221d1d !important;
+  color: #e5e0dc !important;
+}
+
+html[data-theme="dark"] .finding-card-callout.impact-callout {
+  background: #241d14 !important;
+  border-left-color: #f59e0b !important;
+  color: #fed7aa !important;
+}
+
+html[data-theme="dark"] .finding-card-callout.impact-callout strong {
+  color: #fde68a !important;
+}
+
+html[data-theme="dark"] .finding-card-callout.action-callout {
+  background: #13241b !important;
+  border-left-color: #10b981 !important;
+  color: #a7f3d0 !important;
+}
+
+html[data-theme="dark"] .finding-card-callout.action-callout strong {
+  color: #6ee7b7 !important;
+}
+
