@@ -18,22 +18,59 @@ export async function POST(request: Request) {
   if (user.tokenBudget > 0 && user.tokenUsed >= user.tokenBudget) {
     return Response.json({ error: "Your token budget has been reached. Update your token limit in Settings to continue." }, { status: 403 });
   }
-  const company = await db.company.findFirst({ where: { id: parsed.data.companyId, userId: user.id }, include: { documents: true, agentRuns: { where: { status: "DONE" }, orderBy: { createdAt: "desc" }, take: 8 }, chatAttachments: { where: { remembered: true }, take: 6 } } });
+  const company = await db.company.findFirst({
+    where: { id: parsed.data.companyId, userId: user.id },
+    include: {
+      documents: true,
+      crawlPages: { orderBy: { fetchedAt: "desc" }, take: 12 },
+      agentRuns: { where: { status: "DONE" }, orderBy: { createdAt: "desc" }, take: 10 },
+      chatAttachments: { where: { remembered: true }, take: 6 },
+    },
+  });
   if (!company) return Response.json({ error: "Company not found." }, { status: 404 });
   let session = parsed.data.sessionId ? await db.chatSession.findFirst({ where: { id: parsed.data.sessionId, companyId: company.id }, include: { messages: { orderBy: { createdAt: "asc" }, take: 12 } } }) : null;
   if (!session) session = await db.chatSession.create({ data: { companyId: company.id, title: parsed.data.message.slice(0, 80) }, include: { messages: true } });
   await db.chatMessage.create({ data: { sessionId: session.id, role: "user", content: parsed.data.message } });
+
+  const recentPages = (company.crawlPages ?? [])
+    .map((page) => `PAGE [${page.url}] — ${page.title || "Page"}\n${page.description ? `Summary: ${page.description}\n` : ""}${page.content ? `Content: ${page.content.slice(0, 400)}` : ""}`)
+    .join("\n\n");
+
   const context = [
-    `Company: ${company.name}\nWebsite: ${company.websiteUrl}\nDescription: ${company.description ?? ""}`,
+    `Company: ${company.name}\nWebsite: ${company.websiteUrl}\nDescription: ${company.description ?? ""}\nCategory: ${company.category ?? "Technology / Growth"}`,
+    recentPages ? `LATEST CRAWLED PAGES, NEWS & BLOG UPDATES:\n${recentPages}` : "",
     ...company.documents.map((document) => `DOCUMENT — ${document.title}\n${document.contentMarkdown}`),
-    ...company.agentRuns.map((run) => `AGENT — ${run.agentType}\n${JSON.stringify(run.output)}`),
+    ...company.agentRuns.map((run) => `AGENT SIGNALS & OPPORTUNITIES — ${run.agentType}\n${JSON.stringify(run.output)}`),
     ...company.chatAttachments.map((attachment) => `REMEMBERED ATTACHMENT — ${attachment.title}\n${attachment.content}`),
-  ].join("\n\n---\n\n").slice(0, 70_000);
+  ].filter(Boolean).join("\n\n---\n\n").slice(0, 70_000);
+
   const history = session.messages.slice(-10).map((message) => ({ role: message.role === "assistant" ? "assistant" as const : "user" as const, content: message.content }));
   try {
     const operation = getInternalOperation("ai-cmo-chat");
     const embeddedSkills = await loadSkillPack(operation.skills, 48_000);
-    const content = await getProvider(user.llmProvider).complete({ apiKey: decryptSecret(user.llmApiKeyEnc), model: user.llmModel, system: `You are the AI CMO inside Smark Connect. Execute the numbered local skill chain in order; do not substitute an improvised marketing framework. Give direct guidance grounded in the supplied company context, distinguish evidence from recommendations, and never invent company facts.\n\nREQUIRED SKILL CHAIN\n${embeddedSkills}\n\nOPERATION RULES\n${operation.instructions}\n\nCOMPANY CONTEXT\n${context}`, messages: [...history, { role: "user", content: parsed.data.message }], maxTokens: 1200, temperature: 0.35 });
+    const systemPrompt = `You are the AI CMO Director inside Smark Connect.
+
+STRICT TWO-PHASE RESPONSE FRAMEWORK:
+For any question asked by the user, you MUST deliver your answer following this structured 2-phase sequence:
+
+### 1. Skill-Governed Strategic Framework & Methodology
+- First, answer the question through the exact strategic frameworks, methodologies, and decision rules established in your installed repository skills (Product Marketing Context, Behavioral Psychology, CRO, SEO/GEO principles, Paid Ads, and Campaign Sequencing).
+- Deliver sharp, battle-tested principles and explain the underlying strategic mechanics clearly.
+
+### 2. Grounded Company Application & Latest News/Signals
+- Second, ground and apply the skill framework directly to ${company.name}'s current reality: incorporating the latest company news, recent product updates, crawled website pages, live competitor movements, and target-customer signals from memory.
+- Provide concrete, contextualized next steps and decisions based on verified company facts.
+
+REQUIRED SKILL CHAIN:
+${embeddedSkills}
+
+OPERATION RULES:
+${operation.instructions}
+
+COMPANY CONTEXT & LATEST SIGNALS:
+${context}`;
+
+    const content = await getProvider(user.llmProvider).complete({ apiKey: decryptSecret(user.llmApiKeyEnc), model: user.llmModel, system: systemPrompt, messages: [...history, { role: "user", content: parsed.data.message }], maxTokens: 1400, temperature: 0.35 });
     await db.chatMessage.create({ data: { sessionId: session.id, role: "assistant", content } });
     const estimatedTokens = Math.max(250, Math.ceil((context.length + content.length + parsed.data.message.length) / 4));
     await db.user.update({ where: { id: user.id }, data: { tokenUsed: { increment: estimatedTokens } } });
