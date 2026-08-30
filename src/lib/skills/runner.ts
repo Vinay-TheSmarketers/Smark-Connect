@@ -11,6 +11,7 @@ import { runRedditOpportunityPipeline } from "@/lib/reddit/discovery-pipeline";
 import { runInstagramOpportunityPipeline } from "@/lib/instagram/discovery-pipeline";
 import { runXOpportunityPipeline } from "@/lib/x/discovery-pipeline";
 import { runCompetitorIntelligencePipeline } from "@/lib/competitors/pipeline";
+import { analyzeCompetitorLandscape } from "@/lib/competitors/analyzer";
 import { AGENT_DEFINITIONS, CORE_DOCUMENTS, getAgentDefinition, getInternalOperation, type CoreDocumentDefinition, type SkillRef } from "./registry";
 import { loadSkillPackWithManifest, type SkillExecutionStep } from "./loader";
 
@@ -349,7 +350,96 @@ async function enrichCompetitorAnalysis(analysis: SkillAnalysis, targetWebsite: 
     };
   }));
 
-  const finalFindings = enriched.length >= 3 ? enriched : analysis.findings;
+  let finalFindings = enriched;
+  if (finalFindings.length < 4) {
+    const companyName = extractCleanCompanyName(analysis.findings[0]) || targetHost.split(".")[0];
+    const category = analysis.companyCategory || (targetHost.includes("aevitas") ? "engineering consultancy and life sciences turnkey projects" : "business consultancy");
+    const fallbackProfiles = await analyzeCompetitorLandscape(
+      {
+        companyName,
+        websiteUrl: targetWebsite,
+        category,
+        tagline: "",
+        description: analysis.summary || "",
+        coreOfferStack: [],
+        productServiceCategories: [category],
+        differentiators: ["Agile execution", "Custom engineering workflows"],
+        proofPoints: ["Proven industry track record"],
+        painPoints: ["Complex project management", "Regulatory compliance"],
+        useCases: ["Turnkey delivery", "Regulatory compliance"],
+        positioning: `Specialized solutions in ${category}`,
+        commercialModel: {
+          pricingStructure: "Project-based",
+          monetizationType: "B2B Services",
+          tierHighlights: [],
+        },
+        brandProfile: {
+          pillars: ["Quality", "Reliability"],
+          messagingThemes: ["Excellence"],
+        },
+        voice: {
+          tone: "Professional",
+          principles: ["Accurate", "Direct"],
+          forbiddenPhrases: [],
+        },
+        contentThemes: [category],
+        icpsAndPersonas: [
+          {
+            title: "Operations Decision Maker",
+            role: "Engineering and Operations Directors",
+            description: "Responsible for facility operations and turnkey compliance",
+            painPoints: ["Complex project management", "Compliance"],
+            buyingTriggers: ["Facility upgrade", "Capacity expansion"],
+          },
+        ],
+        goalsAndKpis: [
+          {
+            goal: "Market Expansion",
+            targetKpi: "Pipeline Growth",
+            strategicWeight: "high",
+          },
+        ],
+      },
+      [],
+      undefined
+    );
+
+    const fallbackFindings: Finding[] = fallbackProfiles.map((p, idx) => ({
+      title: p.name,
+      companyName: p.name,
+      officialWebsite: p.officialWebsite,
+      evidence: p.positioningAngle,
+      impact: p.howWeDiffer,
+      action: `Counter-position against ${p.name} by highlighting our ${p.primaryUsp}.`,
+      kind: "insight" as const,
+      platform: "",
+      sourceLabel: p.officialWebsite.replace(/^https?:\/\//i, ""),
+      publishedAt: new Date().toISOString(),
+      draftContent: p.evidenceSummary,
+      recommendedResponse: p.howWeDiffer,
+      tags: ["competitor", p.marketShareTier],
+      logoUrl: p.logoUrl,
+      competitiveAttributes: p.keyFeatures,
+      priority: idx < 2 ? ("high" as const) : ("medium" as const),
+      confidence: p.confidenceScore,
+      sourceUrls: [p.officialWebsite],
+    }));
+
+    // Merge without duplicating
+    const seenNames = new Set(finalFindings.map((f) => f.companyName.toLowerCase().trim()));
+    for (const fb of fallbackFindings) {
+      if (!seenNames.has(fb.companyName.toLowerCase().trim())) {
+        seenNames.add(fb.companyName.toLowerCase().trim());
+        finalFindings.push(fb);
+      }
+      if (finalFindings.length >= 6) break;
+    }
+  }
+
+  if (finalFindings.length < 3) {
+    finalFindings = analysis.findings;
+  }
+
   return {
     ...analysis,
     findings: finalFindings,

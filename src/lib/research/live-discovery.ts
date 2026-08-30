@@ -101,6 +101,49 @@ async function searchBingRss(query: string): Promise<LiveDiscoveryItem[]> {
   }
 }
 
+async function searchDuckDuckGo(query: string): Promise<LiveDiscoveryItem[]> {
+  const url = new URL("https://html.duckduckgo.com/html/");
+  url.searchParams.set("q", query);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      cache: "no-store",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    });
+    if (!response.ok) return [];
+    const html = await response.text();
+    const $ = load(html);
+    const results: LiveDiscoveryItem[] = [];
+    $(".result").each((_, el) => {
+      const title = $(el).find(".result__title").text().trim();
+      let rawUrl = $(el).find(".result__url").text().trim() || $(el).find(".result__snippet").attr("href") || "";
+      const excerpt = $(el).find(".result__snippet").text().trim();
+      if (!rawUrl.startsWith("http") && rawUrl.includes(".")) {
+        rawUrl = `https://${rawUrl.replace(/^www\./, "")}`;
+      }
+      if (title && rawUrl.startsWith("http")) {
+        results.push({
+          title,
+          url: rawUrl,
+          excerpt: excerpt.slice(0, 520),
+          publishedAt: null,
+          discoverySource: "DuckDuckGo web index",
+          query,
+        });
+      }
+    });
+    return results.slice(0, 6);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function searchRedditRss(query: string): Promise<LiveDiscoveryItem[]> {
   const url = new URL("https://www.reddit.com/search.rss");
   url.searchParams.set("q", query.replace(/site:reddit\.com\s*/gi, "").replace(/[()]/g, " "));
@@ -146,16 +189,28 @@ export async function discoverLiveResearch(args: {
 }): Promise<LiveDiscoveryItem[]> {
   const domain = new URL(args.websiteUrl).hostname.replace(/^www\./, "");
   const queries = buildResearchQueries(args.agentType, args.companyName, domain, args.topics);
-  const settled = await Promise.allSettled(queries.map((query) => args.agentType === "REDDIT" ? searchRedditRss(query) : searchBingRss(query)));
+  const settled = await Promise.allSettled(
+    queries.map(async (query) => {
+      if (args.agentType === "REDDIT") return searchRedditRss(query);
+      const bing = await searchBingRss(query);
+      if (bing.length > 0) return bing;
+      return searchDuckDuckGo(query);
+    })
+  );
   const profileItems = await discoverOfficialProfiles(args.websiteUrl, args.agentType);
   const items = [...profileItems, ...settled.flatMap((result) => result.status === "fulfilled" ? result.value : [])];
   const requiredDomains: Partial<Record<AgentType, string[]>> = { X: ["x.com", "twitter.com"], REDDIT: ["reddit.com"], LINKEDIN: ["linkedin.com"], INSTAGRAM: ["instagram.com"], YOUTUBE: ["youtube.com", "youtu.be"] };
   const allowed = requiredDomains[args.agentType];
   const relevanceTerms = Array.from(new Set([...args.companyName, ...args.topics].flatMap((value) => value.toLowerCase().match(/[a-z][a-z-]{3,}/g) ?? []))).filter((term) => !["company", "the", "with", "services", "solutions"].includes(term));
+  
   return items.filter((item) => {
     if (!allowed) return true;
     try { const hostname = new URL(item.url).hostname.replace(/^www\./, ""); return allowed.some((domainName) => hostname === domainName || hostname.endsWith(`.${domainName}`)); } catch { return false; }
-  }).filter((item) => item.discoverySource === "Company-owned website social link" || !relevanceTerms.length || relevanceTerms.some((term) => `${item.title} ${item.excerpt}`.toLowerCase().includes(term))).filter((item, index, values) => values.findIndex((candidate) => candidate.url === item.url) === index).slice(0, 8);
+  }).filter((item) => {
+    // For competitor discovery, competitor items will not contain the client's own company name, so do not filter them out
+    if (args.agentType === "COMPETITOR") return true;
+    return item.discoverySource === "Company-owned website social link" || !relevanceTerms.length || relevanceTerms.some((term) => `${item.title} ${item.excerpt}`.toLowerCase().includes(term));
+  }).filter((item, index, values) => values.findIndex((candidate) => candidate.url === item.url) === index).slice(0, 10);
 }
 
 export function liveResearchAction(agentType: AgentType): string {

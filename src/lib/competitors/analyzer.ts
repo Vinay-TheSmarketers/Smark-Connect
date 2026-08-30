@@ -187,6 +187,19 @@ export async function analyzeCompetitorLandscape(
         { name: "ActiveCampaign", website: "https://activecampaign.com", positioning: "Customer experience automation combining email marketing and CRM workflows.", attributes: ["Visual automation builder", "Predictive sending", "Mid-market focus"] },
         { name: "Mailchimp", website: "https://mailchimp.com", positioning: "Popular email marketing and basic automation suite for small businesses and creators.", attributes: ["Beginner-friendly UI", "Broad template library", "Feature gating on lower tiers"] },
       ],
+      engineering: [
+        { name: "Jacobs", website: "https://jacobs.com", positioning: "Global technical and engineering consulting firm delivering full lifecycle project solutions for advanced facilities.", attributes: ["Global engineering scale", "Deep pharmaceutical domain", "Full EPCM capabilities"] },
+        { name: "Fluor Corporation", website: "https://fluor.com", positioning: "Leading global engineering, procurement, and construction (EPC) company building complex industrial infrastructure.", attributes: ["Megaproject execution", "Global supply chain", "High project value threshold"] },
+        { name: "PM Group", website: "https://pmgroup-global.com", positioning: "International project delivery specialist for biopharma, cleanrooms, and high-tech manufacturing facilities.", attributes: ["Pharma & cleanroom focus", "Validation & compliance", "Direct European & global delivery"] },
+        { name: "CRB Group", website: "https://crbusa.com", positioning: "Sustainable engineering, architecture, and construction solutions for biotechnology and life sciences.", attributes: ["ONEsolution EPCM delivery", "Cleanroom architecture", "High engineering quality"] },
+        { name: "IPS (Integrated Project Services)", website: "https://ipsdb.com", positioning: "Specialized engineering and design consultancy for pharmaceutical, biotechnology, and regulated industries.", attributes: ["Biopharma specialization", "Regulatory compliance expertise", "Strategic facility master planning"] },
+        { name: "L&T Technology Services", website: "https://ltts.com", positioning: "Global engineering services provider delivering industrial plant engineering and digital manufacturing solutions.", attributes: ["Plant engineering", "Cost-effective delivery", "Digital twin & automation"] },
+      ],
+      environmental: [
+        { name: "Waste Management (WM)", website: "https://wm.com", positioning: "Leading North American provider of comprehensive environmental, recycling, and waste disposal services.", attributes: ["Massive logistics network", "Advanced recycling infrastructure", "Enterprise sustainability reporting"] },
+        { name: "Clean Harbors", website: "https://cleanharbors.com", positioning: "Specialized environmental and industrial services company handling hazardous waste management and emergency response.", attributes: ["Hazardous waste leadership", "Emergency response readiness", "Industrial cleaning services"] },
+        { name: "Veolia", website: "https://veolia.com", positioning: "Global ecological transformation leader delivering water, waste, and energy management solutions.", attributes: ["Circular economy focus", "Global municipal & industrial footprint", "Comprehensive sustainability"] },
+      ],
       general: [
         { name: "HubSpot", website: "https://hubspot.com", positioning: "Integrated customer platform for scaling marketing, sales, and operations.", attributes: ["Unified CRM ecosystem", "Inbound authority", "Modular expansion"] },
         { name: "Salesforce", website: "https://salesforce.com", positioning: "Global enterprise cloud platform dominating enterprise CRM and automated workflows.", attributes: ["Enterprise market share", "Deep customization", "High total cost of ownership"] },
@@ -196,6 +209,8 @@ export async function analyzeCompetitorLandscape(
       ],
     };
 
+    const isEngineering = cat.includes("engineer") || cat.includes("epc") || cat.includes("pharma") || cat.includes("agro") || cat.includes("construct") || cat.includes("cleanroom") || cat.includes("consult") || profile.companyName.toLowerCase().includes("aevitas");
+    const isEnvironmental = cat.includes("environ") || cat.includes("waste") || cat.includes("recycl") || cat.includes("hazardous");
     const isFinops = cat.includes("finops") || cat.includes("cloud cost") || cat.includes("cost optim") || cat.includes("aws cost") || profile.companyName.toLowerCase().includes("finops");
     const isInsurance = cat.includes("insurance") || cat.includes("insur") || cat.includes("life") || cat.includes("policy") || profile.companyName.toLowerCase().includes("lic");
     const isFintech = cat.includes("fintech") || cat.includes("finance") || cat.includes("pay") || cat.includes("bank") || cat.includes("wealth") || cat.includes("invest");
@@ -204,13 +219,17 @@ export async function analyzeCompetitorLandscape(
     const isSecurity = cat.includes("secur") || cat.includes("cyber") || cat.includes("auth") || cat.includes("protect") || cat.includes("vulnerab");
     const isHr = cat.includes("hr") || cat.includes("payroll") || cat.includes("people") || cat.includes("recruit") || cat.includes("talent");
     const isEdtech = cat.includes("edtech") || cat.includes("learn") || cat.includes("course") || cat.includes("educat") || cat.includes("training");
-    const isHealth = cat.includes("health") || cat.includes("medic") || cat.includes("doctor") || cat.includes("patient") || cat.includes("clinic") || cat.includes("pharma");
+    const isHealth = cat.includes("health") || cat.includes("medic") || cat.includes("doctor") || cat.includes("patient") || cat.includes("clinic");
     const isSeo = cat.includes("seo") || cat.includes("search") || cat.includes("rank");
     const isEcom = cat.includes("ecom") || cat.includes("shopify") || cat.includes("store") || cat.includes("retail");
     const isDev = cat.includes("dev") || cat.includes("software") || cat.includes("api") || cat.includes("code") || cat.includes("infra");
     const isMarketing = cat.includes("market") || cat.includes("growth") || cat.includes("agency");
 
-    const categoryKey = isFinops
+    const categoryKey = isEngineering
+      ? "engineering"
+      : isEnvironmental
+      ? "environmental"
+      : isFinops
       ? "finops"
       : isInsurance
       ? "insurance"
