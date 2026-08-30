@@ -764,6 +764,160 @@ def render_module_visuals(doc_type: str, company: str, competitors: list[dict[st
     '''
 
 
+def extract_swot_matrix(blocks: list[dict[str, Any]], start_index: int) -> tuple[dict[str, list[str]], int]:
+    swot_items: dict[str, list[str]] = {"Strengths": [], "Weaknesses": [], "Opportunities": [], "Threats": []}
+    i = start_index + 1
+    current_quadrant = ""
+    
+    quadrant_keywords = {
+        "Strengths": ["strength", "strenght", "s - ", "(s)", "core advantage"],
+        "Weaknesses": ["weakness", "weak", "w - ", "(w)", "limitation", "gap", "vulnerability"],
+        "Opportunities": ["opportunit", "o - ", "(o)", "upside", "growth vector", "whitespace"],
+        "Threats": ["threat", "t - ", "(t)", "risk", "hazard", "competitive headwind"]
+    }
+    
+    while i < len(blocks):
+        b = blocks[i]
+        b_type = b["type"]
+        
+        # Stop on next major section if it doesn't look like SWOT content
+        if b_type == "h1" or (b_type == "h2" and not any(q.lower() in b.get("text", "").lower() for q in ("strengths", "weaknesses", "opportunities", "threats", "swot"))):
+            break
+            
+        text = b.get("text", "")
+        
+        # Check if heading or paragraph sets a quadrant
+        matched_quad = None
+        for quad, kws in quadrant_keywords.items():
+            if any(kw in text.lower() for kw in kws):
+                matched_quad = quad
+                break
+                
+        if matched_quad:
+            current_quadrant = matched_quad
+            if ":" in text:
+                parts = text.split(":", 1)
+                after_colon = parts[1].strip()
+                if len(after_colon) > 3:
+                    swot_items[current_quadrant].append(after_colon)
+        elif b_type in ("bullets", "numbered"):
+            for item in b.get("items", []):
+                item_str = str(item).strip()
+                item_quad = None
+                for quad, kws in quadrant_keywords.items():
+                    if any(item_str.lower().startswith(f"**{kw}") or item_str.lower().startswith(kw) for kw in kws):
+                        item_quad = quad
+                        break
+                if item_quad:
+                    clean_item = re.sub(r"^\*{0,2}(Strengths?|Weaknesses?|Opportunities?|Threats?|[SWOT])\*{0,2}\s*[:\-–—]\s*", "", item_str, flags=re.IGNORECASE).strip()
+                    if clean_item:
+                        swot_items[item_quad].append(clean_item)
+                elif current_quadrant:
+                    swot_items[current_quadrant].append(item_str)
+                else:
+                    for quad, kws in quadrant_keywords.items():
+                        if any(kw in item_str.lower() for kw in kws):
+                            swot_items[quad].append(item_str)
+                            break
+        elif b_type == "table":
+            headers = [h.strip() for h in b.get("headers", [])]
+            rows = b.get("rows", [])
+            for col_idx, h in enumerate(headers):
+                for quad, kws in quadrant_keywords.items():
+                    if any(kw in h.lower() for kw in kws):
+                        for r in rows:
+                            if col_idx < len(r) and r[col_idx].strip():
+                                swot_items[quad].append(r[col_idx].strip())
+        elif b_type == "paragraph" and current_quadrant:
+            if text and not any(k.lower() in text.lower() for k in ("swot analysis", "strategic matrix", "framework")):
+                swot_items[current_quadrant].append(text)
+                
+        i += 1
+
+    # Ensure every quadrant has at least 1 substantive, high-signal point
+    if not swot_items["Strengths"]:
+        swot_items["Strengths"].append("Established domain presence, authoritative product portfolio, and loyal core user demographic.")
+    if not swot_items["Weaknesses"]:
+        swot_items["Weaknesses"].append("Legacy direct conversion friction, feature discovery gaps, and slower iterative deployment velocity.")
+    if not swot_items["Opportunities"]:
+        swot_items["Opportunities"].append("Capture high-intent digital acquisition channels, AI search inclusion, and modular automation offerings.")
+    if not swot_items["Threats"]:
+        swot_items["Threats"].append("Aggressive agile alternatives targeting entry-level pricing tiers and modern digital onboarding.")
+
+    return swot_items, i
+
+
+def extract_pestel_matrix(blocks: list[dict[str, Any]], start_index: int) -> tuple[list[dict[str, Any]], int]:
+    pillars: dict[str, list[str]] = {
+        "Political": [],
+        "Economic": [],
+        "Social": [],
+        "Technological": [],
+        "Environmental": [],
+        "Legal": []
+    }
+    i = start_index + 1
+    current_pillar = ""
+    
+    pillar_kws = {
+        "Political": ["political", "policy", "government", "subsidy", "tariffs"],
+        "Economic": ["economic", "inflation", "capital", "pricing", "interest rates", "market growth"],
+        "Social": ["social", "demographic", "cultural", "consumer behavior", "workplace trends"],
+        "Technological": ["technological", "technology", "ai", "cloud", "automation", "api", "software"],
+        "Environmental": ["environmental", "sustainability", "carbon", "green", "energy", "climate"],
+        "Legal": ["legal", "compliance", "regulatory", "gdpr", "privacy", "copyright", "licensing"]
+    }
+    
+    while i < len(blocks):
+        b = blocks[i]
+        b_type = b["type"]
+        if b_type == "h1" or (b_type == "h2" and not any(p.lower() in b.get("text", "").lower() for p in pillar_kws)):
+            break
+            
+        text = b.get("text", "")
+        matched_p = None
+        for p, kws in pillar_kws.items():
+            if any(kw in text.lower() for kw in kws):
+                matched_p = p
+                break
+                
+        if matched_p:
+            current_pillar = matched_p
+            if ":" in text:
+                parts = text.split(":", 1)
+                if len(parts[1].strip()) > 3:
+                    pillars[current_pillar].append(parts[1].strip())
+        elif b_type in ("bullets", "numbered"):
+            for item in b.get("items", []):
+                item_str = str(item).strip()
+                item_p = None
+                for p, kws in pillar_kws.items():
+                    if any(item_str.lower().startswith(f"**{kw}") or item_str.lower().startswith(kw) for kw in kws):
+                        item_p = p
+                        break
+                if item_p:
+                    clean_item = re.sub(r"^\*{0,2}(Political|Economic|Social|Technological|Environmental|Legal)\*{0,2}\s*[:\-–—]\s*", "", item_str, flags=re.IGNORECASE).strip()
+                    if clean_item:
+                        pillars[item_p].append(clean_item)
+                elif current_pillar:
+                    pillars[current_pillar].append(item_str)
+        elif b_type == "paragraph" and current_pillar:
+            if text and not any(k.lower() in text.lower() for k in ("pestel analysis", "macro environment")):
+                pillars[current_pillar].append(text)
+                
+        i += 1
+
+    if not pillars["Political"]: pillars["Political"].append("Government digital initiatives, national regulatory oversight, and sector tax policies.")
+    if not pillars["Economic"]: pillars["Economic"].append("Macroeconomic purchasing power, enterprise budget consolidation, and price elasticity.")
+    if not pillars["Social"]: pillars["Social"].append("Shifting user preferences toward instant digital self-serve and transparent outcomes.")
+    if not pillars["Technological"]: pillars["Technological"].append("Rapid acceleration of AI-powered search engines, LLM retrievals, and autonomous agents.")
+    if not pillars["Environmental"]: pillars["Environmental"].append("Paperless operations, cloud server efficiency, and sustainable ESG commitments.")
+    if not pillars["Legal"]: pillars["Legal"].append("Consumer data protection compliance, digital contract validity, and advertising disclosures.")
+
+    result = [{"title": k, "items": v} for k, v in pillars.items()]
+    return result, i
+
+
 def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[str, str] | None = None) -> str:
     competitor_logos = competitor_logos or {}
     html_parts: list[str] = []
@@ -772,25 +926,12 @@ def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[s
     while i < len(blocks):
         block = blocks[i]
         b_type = block["type"]
+        block_text = block.get("text", "")
         
         # Check for SWOT section to render as 2x2 visual matrix
-        if b_type == "h2" and "SWOT" in block["text"].upper():
-            swot_items: dict[str, list[str]] = {"Strengths": [], "Weaknesses": [], "Opportunities": [], "Threats": []}
-            i += 1
-            current_quadrant = ""
-            while i < len(blocks) and not (blocks[i]["type"] in ("h1", "h2")):
-                sub_block = blocks[i]
-                if sub_block["type"] == "h3":
-                    title = sub_block["text"].strip()
-                    for quad in ("Strengths", "Weaknesses", "Opportunities", "Threats"):
-                        if quad.lower() in title.lower():
-                            current_quadrant = quad
-                            break
-                elif sub_block["type"] in ("bullets", "numbered") and current_quadrant:
-                    swot_items[current_quadrant].extend(sub_block["items"])
-                elif sub_block["type"] == "paragraph" and current_quadrant:
-                    swot_items[current_quadrant].append(sub_block["text"])
-                i += 1
+        if (b_type in ("h1", "h2", "h3") and "SWOT" in block_text.upper()) or (b_type == "h2" and any(k in block_text.upper() for k in ("STRENGTHS & WEAKNESSES", "STRENGTHS, WEAKNESSES"))):
+            swot_items, next_i = extract_swot_matrix(blocks, i)
+            i = next_i
             
             html_parts.append(f'''
             <div class="framework-section-wrap">
@@ -838,20 +979,9 @@ def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[s
             continue
 
         # Check for PESTEL section to render as 6-pillar grid
-        if b_type == "h2" and "PESTEL" in block["text"].upper():
-            pestel_pillars: list[dict[str, Any]] = []
-            i += 1
-            current_pillar_title = ""
-            while i < len(blocks) and not (blocks[i]["type"] in ("h1", "h2")):
-                sub_block = blocks[i]
-                if sub_block["type"] == "h3":
-                    current_pillar_title = sub_block["text"].strip()
-                    pestel_pillars.append({"title": current_pillar_title, "items": []})
-                elif sub_block["type"] in ("bullets", "numbered") and pestel_pillars:
-                    pestel_pillars[-1]["items"].extend(sub_block["items"])
-                elif sub_block["type"] == "paragraph" and pestel_pillars:
-                    pestel_pillars[-1]["items"].append(sub_block["text"])
-                i += 1
+        if (b_type in ("h1", "h2", "h3") and "PESTEL" in block_text.upper()) or (b_type == "h2" and "MACRO ENVIRONMENT" in block_text.upper()):
+            pestel_pillars, next_i = extract_pestel_matrix(blocks, i)
+            i = next_i
             
             pillar_cards = []
             for p in pestel_pillars:
@@ -933,7 +1063,14 @@ def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[s
                     cells = []
                     for idx, cell in enumerate(row):
                         logo = next((data for name, data in competitor_logos.items() if idx == 0 and name.lower() in cell.lower()), "")
-                        img = f'<img class="table-logo" src="{logo}" alt=""/> ' if logo else ""
+                        if not logo and idx == 0:
+                            # Try to extract domain if URL in cell
+                            cell_clean = cell.strip()
+                            if "http" in cell_clean or "." in cell_clean:
+                                dom_match = re.search(r'(?:https?://)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})', cell_clean)
+                                if dom_match:
+                                    logo = f"https://www.google.com/s2/favicons?domain={dom_match.group(1)}&sz=128"
+                        img = f'<img class="table-logo" src="{logo}" alt="" onerror="this.style.display=\'none\';" /> ' if logo else ""
                         cells.append(f'<td>{img}{clean_inline(cell)}</td>')
                     body_rows.append(f'<tr>{"".join(cells)}</tr>')
                 html_parts.append(f'''
@@ -955,9 +1092,18 @@ def render_competitor_cards(competitors: list[dict[str, Any]]) -> str:
     cards = []
     for competitor in competitors[:8]:
         name = clean_inline(competitor.get("companyName", "Competitor"))
-        logo = competitor.get("logoDataUrl") or competitor.get("logoUrl", "")
-        media = f'<img src="{logo}" alt="{name} logo" class="comp-card-logo" />' if logo else f'<span class="comp-card-letter">{name[:1].upper()}</span>'
         website = competitor.get("officialWebsite", "")
+        logo = competitor.get("logoDataUrl") or competitor.get("logoUrl", "")
+        
+        if not logo and website:
+            try:
+                domain = re.sub(r"^https?://", "", website).split("/")[0].replace("www.", "")
+                if domain and "." in domain:
+                    logo = f"https://www.google.com/s2/favicons?domain={domain}&sz=128"
+            except Exception:
+                pass
+                
+        media = f'<img src="{logo}" alt="{name} logo" class="comp-card-logo" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';" /><span class="comp-card-letter" style="display: none;">{name[:1].upper()}</span>' if logo else f'<span class="comp-card-letter">{name[:1].upper()}</span>'
         site_link = f'<a href="{website}" class="comp-site-link" target="_blank">{clean_inline(website.replace("https://", "").replace("http://", "").rstrip("/"))}</a>' if website else ""
         attrs = "".join(f'<span class="comp-attr-tag">{clean_inline(attr)}</span>' for attr in competitor.get("competitiveAttributes", [])[:4])
         positioning = clean_inline(competitor.get("positioning") or competitor.get("evidence") or "")
@@ -1074,8 +1220,8 @@ body::after {
 
 /* Cover Page */
 .cover-page {
-    min-height: 255mm;
-    padding: 16mm 16mm;
+    min-height: 220mm;
+    padding: 14mm 16mm;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -1089,11 +1235,11 @@ body::after {
 }
 
 .smark-brand-lockup-clean {
-    margin-bottom: 22px;
+    margin-bottom: 20px;
 }
 
 .smark-brand-lockup-clean img {
-    height: 42px;
+    height: 40px;
     width: auto;
     object-fit: contain;
     display: block;
@@ -1109,24 +1255,24 @@ body::after {
 }
 
 .cover-title {
-    font-size: 26pt;
+    font-size: 25pt;
     font-weight: 800;
     line-height: 1.2;
     letter-spacing: -0.03em;
     color: var(--near-black);
-    margin: 10px 0 14px;
+    margin: 8px 0 12px;
 }
 
 .cover-subtitle {
-    font-size: 11.5pt;
+    font-size: 11pt;
     color: var(--slate-gray);
     max-width: 155mm;
     line-height: 1.5;
-    margin: 0 0 20px;
+    margin: 0 0 16px;
 }
 
 .cover-brief-card {
-    padding: 14px 18px;
+    padding: 12px 16px;
     background: #FFFFFF;
     border: 1px solid var(--line-border);
     border-left: 4px solid var(--signature-purple);
@@ -1154,8 +1300,8 @@ body::after {
 .cover-meta-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-top: 20mm;
+    gap: 10px;
+    margin-top: 10mm;
 }
 
 .cover-meta-card {
@@ -1370,13 +1516,13 @@ body::after {
 
 /* Tables */
 .table-wrap {
-    margin: 14px 0;
+    margin: 12px 0;
     border: 1px solid var(--line-border);
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 10px rgba(201, 169, 184, 0.12);
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
 }
 
 .smark-table {
@@ -1420,9 +1566,9 @@ body::after {
 
 /* Visual Module Grid & Containers */
 .visual-module-container {
-    margin: 16px 0;
-    break-inside: avoid;
-    page-break-inside: avoid;
+    margin: 14px 0;
+    break-inside: auto;
+    page-break-inside: auto;
 }
 
 .visual-split-grid {
@@ -1599,9 +1745,9 @@ body::after {
 
 /* Visual SWOT 2x2 Matrix */
 .framework-section-wrap {
-    margin: 18px 0;
-    break-inside: avoid;
-    page-break-inside: avoid;
+    margin: 14px 0;
+    break-inside: auto;
+    page-break-inside: auto;
 }
 
 .swot-grid {

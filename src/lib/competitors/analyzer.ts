@@ -120,17 +120,44 @@ export async function analyzeCompetitorLandscape(
         { name: "Render", website: "https://render.com", positioning: "Unified cloud platform to build and run all your apps and websites.", attributes: ["Auto-deploy Git", "Managed databases", "Simple infrastructure"] },
         { name: "Railway", website: "https://railway.app", positioning: "Infrastructure platform for fast prototyping and instant deployments.", attributes: ["Canvas infrastructure", "Instant DBs", "Usage-based pricing"] },
       ],
+      insurance: [
+        { name: "HDFC Life", website: "https://hdfclife.com", positioning: "Leading private life insurance provider with aggressive bancassurance and digital term distribution.", attributes: ["Strong bancassurance distribution", "Fast digital onboarding", "Aggressive term pricing"] },
+        { name: "SBI Life", website: "https://sbilife.co.in", positioning: "Massive retail reach backed by State Bank of India network with comprehensive protection and savings plans.", attributes: ["Unmatched branch distribution", "High solvency ratio", "Competitive term plans"] },
+        { name: "ICICI Prudential", website: "https://iciciprudentiallife.com", positioning: "Pioneer in unit-linked and modern digital-first protection products with frictionless claims.", attributes: ["Digital-first experience", "Strong ULIP & protection mix", "Fast claim settlement"] },
+        { name: "Max Life", website: "https://maxlifeinsurance.com", positioning: "Pure protection leader known for high claim paid ratio and proprietary agency quality.", attributes: ["High claim settlement ratio", "Quality advisory channel", "Modern rider ecosystem"] },
+        { name: "Policybazaar", website: "https://policybazaar.com", positioning: "Dominant direct-to-consumer insurance aggregator driving comparison search intent and digital acquisition.", attributes: ["Massive consumer search intent", "Direct price comparison", "Aggressive performance marketing"] },
+        { name: "Tata AIA Life", website: "https://tataaia.com", positioning: "Fast-growing life insurer known for protection-oriented product innovation and high persistency.", attributes: ["High persistency ratio", "Innovative health riders", "Strong brand trust"] },
+      ],
+      fintech: [
+        { name: "Razorpay", website: "https://razorpay.com", positioning: "Full-stack financial services and payment gateway platform for modern businesses.", attributes: ["Developer-first APIs", "Broad payment modes", "Automated payroll & banking"] },
+        { name: "Stripe", website: "https://stripe.com", positioning: "Global financial infrastructure platform for internet businesses and software platforms.", attributes: ["Global coverage", "Developer ecosystem", "Higher international transaction fees"] },
+        { name: "Zerodha", website: "https://zerodha.com", positioning: "Pioneer discount brokerage platform dominating retail trading and investor education.", attributes: ["Zero-brokerage model", "In-house tech stack", "Massive community brand"] },
+        { name: "Groww", website: "https://groww.in", positioning: "Mobile-first investment and financial super-app capturing millennial and Gen-Z retail wealth.", attributes: ["Intuitive mobile UX", "Rapid user onboarding", "Mutual funds & stock expansion"] },
+      ],
+      marketing: [
+        { name: "HubSpot", website: "https://hubspot.com", positioning: "All-in-one inbound marketing, sales CRM, and customer service platform.", attributes: ["Comprehensive inbound tooling", "Extensive app marketplace", "High tier upgrade costs"] },
+        { name: "Klaviyo", website: "https://klaviyo.com", positioning: "Intelligent marketing automation and customer data platform for e-commerce and retail.", attributes: ["Deep e-commerce data sync", "Predictive analytics", "High-volume pricing"] },
+        { name: "ActiveCampaign", website: "https://activecampaign.com", positioning: "Customer experience automation combining email marketing and CRM workflows.", attributes: ["Visual automation builder", "Predictive sending", "Mid-market focus"] },
+        { name: "Mailchimp", website: "https://mailchimp.com", positioning: "Popular email marketing and basic automation suite for small businesses and creators.", attributes: ["Beginner-friendly UI", "Broad template library", "Feature gating on lower tiers"] },
+      ],
       general: [
-        { name: "Market Incumbent A", website: "https://marketleadera.com", positioning: `Legacy enterprise platform dominating traditional ${profile.category.toLowerCase()} workflows.`, attributes: ["Enterprise market share", "Complex custom configuration", "High annual contract values"] },
-        { name: "Alternative Platform B", website: "https://platformb.io", positioning: `Cloud-native modern challenger in ${profile.category.toLowerCase()}.`, attributes: ["Modern UI", "Standard feature set", "Moderate pricing"] },
-        { name: "Specialized Suite C", website: "https://suitec.co", positioning: `Niche-focused solution catering to specialized practitioners in ${profile.category.toLowerCase()}.`, attributes: ["Specialized tooling", "Deep domain focus", "Narrow integrations"] },
-        { name: "Fast-Growth Challenger D", website: "https://challengerd.app", positioning: `Self-serve SaaS tool emphasizing rapid deployment and competitive entry pricing.`, attributes: ["Self-serve onboarding", "Lightweight capabilities", "Lower support overhead"] },
-        { name: "All-in-One Provider E", website: "https://providere.com", positioning: `Broad platform bundling multiple adjacent capabilities across ${profile.category.toLowerCase()}.`, attributes: ["Broad coverage", "Feature breadth over depth", "Complex navigation"] },
+        { name: "HubSpot", website: "https://hubspot.com", positioning: "Integrated customer platform for scaling marketing, sales, and operations.", attributes: ["Unified CRM ecosystem", "Inbound authority", "Modular expansion"] },
+        { name: "Salesforce", website: "https://salesforce.com", positioning: "Global enterprise cloud platform dominating enterprise CRM and automated workflows.", attributes: ["Enterprise market share", "Deep customization", "High total cost of ownership"] },
+        { name: "Zoho", website: "https://zoho.com", positioning: "Comprehensive operating system for business with 50+ integrated SaaS applications.", attributes: ["Cost-effective pricing", "Broad application suite", "Functional UI"] },
+        { name: "Monday.com", website: "https://monday.com", positioning: "Work operating system enabling teams to build custom workflow apps and manage projects.", attributes: ["Visual work management", "No-code automations", "Modern collaborative UI"] },
+        { name: "ClickUp", website: "https://clickup.com", positioning: "All-in-one productivity and work management platform replacing disparate tools.", attributes: ["Dense feature set", "Flexible hierarchy", "Frequent feature iteration"] },
       ],
     };
 
-    const selectedPeers =
-      industryPeers[cat.includes("seo") || cat.includes("search") ? "seo" : cat.includes("ecom") || cat.includes("shopify") || cat.includes("store") ? "ecommerce" : cat.includes("dev") || cat.includes("software") || cat.includes("api") || cat.includes("code") ? "developer" : "general"];
+    const isInsurance = cat.includes("insurance") || cat.includes("insur") || cat.includes("life") || cat.includes("policy") || profile.companyName.toLowerCase().includes("lic");
+    const isFintech = cat.includes("fintech") || cat.includes("finance") || cat.includes("pay") || cat.includes("bank") || cat.includes("wealth") || cat.includes("invest");
+    const isSeo = cat.includes("seo") || cat.includes("search") || cat.includes("rank");
+    const isEcom = cat.includes("ecom") || cat.includes("shopify") || cat.includes("store") || cat.includes("retail");
+    const isDev = cat.includes("dev") || cat.includes("software") || cat.includes("api") || cat.includes("code") || cat.includes("infra");
+    const isMarketing = cat.includes("market") || cat.includes("growth") || cat.includes("agency") || cat.includes("lead");
+
+    const categoryKey = isInsurance ? "insurance" : isFintech ? "fintech" : isSeo ? "seo" : isEcom ? "ecommerce" : isDev ? "developer" : isMarketing ? "marketing" : "general";
+    const selectedPeers = industryPeers[categoryKey] || industryPeers.general;
 
     candidatePool.push(...selectedPeers);
   }

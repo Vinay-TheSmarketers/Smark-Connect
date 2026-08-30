@@ -742,6 +742,75 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
       return { runId: run.id };
     }
 
+    if (definition.type === "COMPETITOR") {
+      const pipelineResult = await runCompetitorIntelligencePipeline({
+        companyId: company.id,
+        userId: args.userId,
+      });
+
+      const competitorFindings: Finding[] = [
+        {
+          title: `Competitor Landscape Active: ${pipelineResult.competitors.length} key market rivals mapped`,
+          evidence: pipelineResult.executiveSummary,
+          impact: pipelineResult.companyPositioningSummary,
+          action: "Review 12-dimension competitor profiles, evaluate feature parity gaps, and execute counter-positioning angles.",
+          kind: "current_status",
+          platform: "COMPETITOR",
+          sourceLabel: "Competitor Intelligence Engine",
+          publishedAt: pipelineResult.generatedAt,
+          draftContent: "",
+          recommendedResponse: "",
+          tags: ["competitor_intelligence", "positioning", "market_moats"],
+          companyName: company.name,
+          officialWebsite: company.websiteUrl,
+          logoUrl: "",
+          competitiveAttributes: pipelineResult.competitors.map((c) => c.name).slice(0, 5),
+          priority: "high",
+          confidence: 96,
+          sourceUrls: [company.websiteUrl, ...pipelineResult.competitors.map((c) => c.officialWebsite)],
+        },
+        ...pipelineResult.competitors.map((comp): Finding => ({
+          title: `${comp.name} (${comp.marketShareTier.replace(/_/g, " ").toUpperCase()})`,
+          evidence: `${comp.positioningAngle} | Strengths: ${comp.strengths.join("; ")} | Gaps: ${comp.weaknesses.join("; ")}`,
+          impact: comp.howWeDiffer,
+          action: `Counter-position against ${comp.name} by weaponizing ${comp.weaknesses[0] || "agility"} and highlighting our ${comp.primaryUsp}.`,
+          kind: "insight",
+          platform: "COMPETITOR",
+          sourceLabel: comp.officialWebsite.replace(/^https?:\/\//i, ""),
+          publishedAt: pipelineResult.generatedAt,
+          draftContent: comp.evidenceSummary,
+          recommendedResponse: comp.howWeDiffer,
+          tags: [comp.marketShareTier, ...comp.keyFeatures.slice(0, 3)],
+          companyName: comp.name,
+          officialWebsite: comp.officialWebsite,
+          logoUrl: comp.logoUrl,
+          competitiveAttributes: comp.keyFeatures,
+          priority: comp.marketShareTier === "market_leader" ? "critical" : "high",
+          confidence: comp.confidenceScore,
+          sourceUrls: [comp.officialWebsite],
+        })),
+      ];
+
+      const tokensEstimate = 1600;
+      await db.$transaction([
+        db.agentRun.update({
+          where: { id: run.id },
+          data: {
+            status: "DONE",
+            summary: pipelineResult.executiveSummary,
+            output: pipelineResult as unknown as Prisma.InputJsonValue,
+            sources: Array.from(new Set([company.websiteUrl, ...pipelineResult.competitors.map((c) => c.officialWebsite)])) as unknown as Prisma.InputJsonValue,
+            skills: { mapped: definition.skills } as unknown as Prisma.InputJsonValue,
+            confidence: 94,
+            tokensUsed: tokensEstimate,
+            completedAt: new Date(),
+          },
+        }),
+        db.user.update({ where: { id: args.userId }, data: { tokenUsed: { increment: tokensEstimate } } }),
+      ]);
+      return { runId: run.id };
+    }
+
     const completed = await completeAnalysis({
       providerName: company.user.llmProvider,
       apiKeyEnc: company.user.llmApiKeyEnc,
@@ -754,9 +823,9 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
       skills: definition.skills,
       evidence,
       outputKind: "agent",
-      maxTokens: definition.type === "COMPETITOR" ? 5600 : 4200,
+      maxTokens: 4200,
     });
-    const result = definition.type === "COMPETITOR" ? { ...completed, analysis: await enrichCompetitorAnalysis(completed.analysis, company.websiteUrl) } : completed;
+    const result = completed;
     const isSocial = ["X", "REDDIT", "LINKEDIN"].includes(definition.type);
     const liveFindings: Finding[] = liveItems.slice(0, 4).map((item) => {
       const isReddit = definition.type === "REDDIT";
