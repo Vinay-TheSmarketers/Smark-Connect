@@ -223,14 +223,13 @@ export async function analyzeCompetitorLandscape(
       ],
     };
 
-    const isReliance = profile.companyName.toLowerCase().includes("reliance") || profile.companyName.toLowerCase().includes("jio") || profile.websiteUrl.toLowerCase().includes("ril.com") || profile.websiteUrl.toLowerCase().includes("jio.com");
-    const isTelecom = cat.includes("telecom") || cat.includes("5g") || cat.includes("broadband") || cat.includes("mobile operator") || cat.includes("network") || profile.companyName.toLowerCase().includes("jio");
-    const isConglomerate = isReliance || cat.includes("conglomerate") || cat.includes("petro") || cat.includes("energy") || cat.includes("retail group") || cat.includes("diversified");
-    const isEngineering = cat.includes("engineer") || cat.includes("epc") || cat.includes("pharma") || cat.includes("agro") || cat.includes("construct") || cat.includes("cleanroom") || cat.includes("consult") || profile.companyName.toLowerCase().includes("aevitas");
+    const isTelecom = cat.includes("telecom") || cat.includes("5g") || cat.includes("broadband") || cat.includes("cellular") || cat.includes("mobile operator") || cat.includes("network provider");
+    const isConglomerate = cat.includes("conglomerate") || cat.includes("petro") || cat.includes("refin") || cat.includes("energy") || cat.includes("diversified");
+    const isEngineering = cat.includes("engineer") || cat.includes("epc") || cat.includes("cleanroom") || cat.includes("turnkey") || cat.includes("plant design") || cat.includes("industrial design");
     const isEnvironmental = cat.includes("environ") || cat.includes("waste") || cat.includes("recycl") || cat.includes("hazardous");
-    const isFinops = cat.includes("finops") || cat.includes("cloud cost") || cat.includes("cost optim") || cat.includes("aws cost") || profile.companyName.toLowerCase().includes("finops");
-    const isInsurance = cat.includes("insurance") || cat.includes("insur") || cat.includes("life") || cat.includes("policy") || profile.companyName.toLowerCase().includes("lic");
-    const isFintech = cat.includes("fintech") || cat.includes("finance") || cat.includes("pay") || cat.includes("bank") || cat.includes("wealth") || cat.includes("invest");
+    const isFinops = cat.includes("finops") || cat.includes("cloud cost") || cat.includes("cost optim") || cat.includes("aws cost");
+    const isInsurance = cat.includes("insurance") || cat.includes("insur") || cat.includes("life") || cat.includes("policy") || cat.includes("underwrit");
+    const isFintech = cat.includes("fintech") || cat.includes("finance") || cat.includes("pay") || cat.includes("bank") || cat.includes("wealth") || cat.includes("invest") || cat.includes("broker");
     const isCrm = cat.includes("crm") || cat.includes("sales") || cat.includes("pipeline") || cat.includes("lead");
     const isAnalytics = cat.includes("analytic") || cat.includes("data") || cat.includes("bi ") || cat.includes("telemetry") || cat.includes("event");
     const isSecurity = cat.includes("secur") || cat.includes("cyber") || cat.includes("auth") || cat.includes("protect") || cat.includes("vulnerab");

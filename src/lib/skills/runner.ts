@@ -353,7 +353,7 @@ async function enrichCompetitorAnalysis(analysis: SkillAnalysis, targetWebsite: 
   let finalFindings = enriched;
   if (finalFindings.length < 4) {
     const companyName = extractCleanCompanyName(analysis.findings[0]) || targetHost.split(".")[0];
-    const category = analysis.companyCategory || (targetHost.includes("aevitas") ? "engineering consultancy and life sciences turnkey projects" : "business consultancy");
+    const category = analysis.companyCategory || "Enterprise Solutions & Market Alternatives";
     const fallbackProfiles = await analyzeCompetitorLandscape(
       {
         companyName,
