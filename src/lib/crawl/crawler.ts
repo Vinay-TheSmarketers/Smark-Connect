@@ -157,10 +157,21 @@ export async function crawlWebsite(input: URL, maxPages = 48, onProgress?: (page
     }
   }
   const origin = new URL(home.url).origin;
-  const results: CrawledPage[] = [home];
-  const seen = new Set<string>([normalizedCandidate(home.url, origin) ?? home.url]);
+  const results: CrawledPage[] = [];
+  const seen = new Set<string>();
   const queued = new Set<string>();
   const queue: string[] = [];
+
+  const addResult = (page: CrawledPage): boolean => {
+    const cleanUrl = normalizedCandidate(page.url, origin) ?? page.url;
+    if (seen.has(cleanUrl)) return false;
+    seen.add(cleanUrl);
+    results.push({ ...page, url: cleanUrl });
+    return true;
+  };
+
+  addResult(home);
+
   const enqueue = (hrefs: string[]) => {
     for (const href of hrefs) {
       const candidate = normalizedCandidate(href, origin);
@@ -181,8 +192,10 @@ export async function crawlWebsite(input: URL, maxPages = 48, onProgress?: (page
     const settled = await Promise.allSettled(batch.map((href) => crawlPage(new URL(href))));
     for (const result of settled) {
       if (result.status !== "fulfilled" || result.value.wordCount < 10) continue;
-      results.push(result.value);
-      enqueue(result.value.links);
+      const added = addResult(result.value);
+      if (added) {
+        enqueue(result.value.links);
+      }
     }
     await onProgress?.(results.length, maxPages);
   }

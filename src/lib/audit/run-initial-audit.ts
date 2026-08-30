@@ -52,9 +52,30 @@ export async function runInitialAudit(jobId: string): Promise<void> {
         const progress = Math.min(27, 8 + Math.round((pagesRead / Math.max(1, target)) * 19));
         await setProgress(jobId, company.id, progress, `Reading public sources: ${pagesRead} of up to ${target} pages`);
       });
+
+      const uniquePagesMap = new Map<string, (typeof pages)[number]>();
+      for (const page of pages) {
+        const key = page.url.trim().toLowerCase();
+        if (!uniquePagesMap.has(key)) {
+          uniquePagesMap.set(key, page);
+        }
+      }
+      pages = Array.from(uniquePagesMap.values());
+
       await db.$transaction([
         db.crawlPage.deleteMany({ where: { companyId: company.id } }),
-        db.crawlPage.createMany({ data: pages.map((page) => ({ companyId: company.id, url: page.url, title: page.title, description: page.description, content: page.content, statusCode: page.statusCode, wordCount: page.wordCount })) }),
+        db.crawlPage.createMany({
+          data: pages.map((page) => ({
+            companyId: company.id,
+            url: page.url,
+            title: page.title,
+            description: page.description,
+            content: page.content,
+            statusCode: page.statusCode,
+            wordCount: page.wordCount,
+          })),
+          skipDuplicates: true,
+        }),
         db.pageSpeedAudit.deleteMany({ where: { companyId: company.id } }),
       ]);
 
