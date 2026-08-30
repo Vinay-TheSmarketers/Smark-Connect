@@ -722,19 +722,19 @@ html[data-theme="dark"] .dashboard-actions a:hover { color: #fff; }
 html[data-theme="dark"] .dashboard-grid { height: calc(100vh - 58px); background: #0d0c0c; }
 html[data-theme="dark"] .pane, html[data-theme="dark"] .chat-pane { border-color: #3a3533; color: #eeeae7; background: #211e1d; }
 html[data-theme="dark"] .pane:nth-child(even) { background: #1e1b1a; }
-html[data-theme="dark"] .pane-header { height: 46px; padding: 0 14px; border-color: #3b3532; color: #b8b1ac; background: #211e1d; font-size: 13px; font-weight: 550; }
+html[data-theme="dark"] .pane-header { height: 46px; padding: 0 14px; border-color: #3b3532; color: #b8b1ac; background: #211e1d; font-weight: 550; }
 html[data-theme="dark"] .pane-header > span:first-child svg { color: #aaa39e; }
 html[data-theme="dark"] .pane-layout-controls button { color: #8d8782; }
 html[data-theme="dark"] .pane-layout-controls button:hover, html[data-theme="dark"] .pane-layout-controls button:focus-visible { color: #f5f1ee; background: #302b29; }
 html[data-theme="dark"] .company-content { padding: 20px 16px 16px; }
-html[data-theme="dark"] .company-title-row h1 { color: #f4f0ed; font-size: 15px; }
+html[data-theme="dark"] .company-title-row h1 { color: #f4f0ed; }
 html[data-theme="dark"] .category-pill { padding: 5px 9px; color: #d2ccc7; border: 1px solid #423c39; background: #322e2c; }
 html[data-theme="dark"] .company-url { color: #beb7b2; }
-html[data-theme="dark"] .company-description { color: #e1dcd8; font-size: 12px; line-height: 1.65; }
+html[data-theme="dark"] .company-description { color: #e1dcd8; line-height: 1.65; }
 html[data-theme="dark"] .pane-section { border-color: #38322f; }
-html[data-theme="dark"] .section-label { color: #aaa39e; font-size: 10px; letter-spacing: .055em; }
+html[data-theme="dark"] .section-label { color: #aaa39e; letter-spacing: .055em; }
 html[data-theme="dark"] .section-label-row > span, html[data-theme="dark"] .account-count { color: #89827e; }
-html[data-theme="dark"] .document-list button { min-height: 46px; color: #eee9e5; border-top: 1px solid transparent; border-bottom: 1px solid transparent; font-size: 12px; }
+html[data-theme="dark"] .document-list button { min-height: 46px; color: #eee9e5; border-top: 1px solid transparent; border-bottom: 1px solid transparent; }
 html[data-theme="dark"] .document-list button:hover, html[data-theme="dark"] .document-list button:focus-visible { border-color: #3c3734; background: #292523; }
 html[data-theme="dark"] .document-list button > small { color: #908985; }
 html[data-theme="dark"] .document-hover-detail { border-top: 1px solid #3d3734; }
@@ -770,37 +770,37 @@ html[data-theme="dark"] .company-sources .research-suggestions { background: #24
 html[data-theme="dark"] .research-suggestions p { color: #c9bfca; background: #352d37; }
 html[data-theme="dark"] .analytics-content { padding: 11px 14px 44px; }
 html[data-theme="dark"] .analytics-tabs { height: 41px; padding: 4px; border: 1px solid #302b29; background: #100f0f; }
-html[data-theme="dark"] .analytics-tabs button { color: #bcb5b0; font-size: 11px; }
+html[data-theme="dark"] .analytics-tabs button { color: #bcb5b0; }
 html[data-theme="dark"] .analytics-tabs .active { color: #fff; background: #272322; }
 html[data-theme="dark"] .source-banner, html[data-theme="dark"] .score-card, html[data-theme="dark"] .vitals-grid > div, html[data-theme="dark"] .vitals-diagnosis article, html[data-theme="dark"] .evidence-note, html[data-theme="dark"] .evidence-state { border-color: #423b37; background: #282422; }
-html[data-theme="dark"] .source-banner strong, html[data-theme="dark"] .section-heading strong { color: #f0ece8; font-size: 12px; }
+html[data-theme="dark"] .source-banner strong, html[data-theme="dark"] .section-heading strong { color: #f0ece8; }
 html[data-theme="dark"] .source-banner small, html[data-theme="dark"] .section-heading small { color: #aaa39e; }
 html[data-theme="dark"] .strategy-toggle { background: #100f0f; }
 html[data-theme="dark"] .strategy-toggle .active { background: #292523; }
 html[data-theme="dark"] .score-gauge > div { width: 48px; height: 48px; }
 html[data-theme="dark"] .score-gauge > div span { color: #f0ece8; background: #282422; }
-html[data-theme="dark"] .score-gauge small { color: #d1cbc6; font-size: 8px; }
+html[data-theme="dark"] .score-gauge small { color: #d1cbc6; }
 html[data-theme="dark"] .vitals-grid strong { color: #35df99; }
 html[data-theme="dark"] .field-data-note { border: 1px solid #40383d; background: #251f25; }
 html[data-theme="dark"] .agent-row { border-color: #3b3532; }
 html[data-theme="dark"] .agent-summary { min-height: 74px; padding: 12px 15px; background: #211e1d; }
 html[data-theme="dark"] .agent-summary:hover { background: #292523; }
-html[data-theme="dark"] .agent-summary strong { color: #f3efeb; font-size: 12px; letter-spacing: .02em; }
-html[data-theme="dark"] .agent-summary small { color: #aaa39e; font-size: 11px; line-height: 1.35; }
+html[data-theme="dark"] .agent-summary strong { color: #f3efeb; letter-spacing: .02em; }
+html[data-theme="dark"] .agent-summary small { color: #aaa39e; line-height: 1.35; }
 html[data-theme="dark"] .agent-output { padding: 12px; background: #171515; }
 html[data-theme="dark"] .agent-output article, html[data-theme="dark"] .agent-output article.agent-status-card { border-color: #413b38; background: #282422; }
-html[data-theme="dark"] .agent-output h3 { color: #f1ece9; font-size: 12px; }
-html[data-theme="dark"] .agent-output p { color: #cbc5c0; font-size: 10px; }
+html[data-theme="dark"] .agent-output h3 { color: #f1ece9; }
+html[data-theme="dark"] .agent-output p { color: #cbc5c0; }
 html[data-theme="dark"] .add-agent-button { color: #c8c1bc; border-color: #443d39; background: #292523; }
 html[data-theme="dark"] .chat-hero { min-height: 72px; border-color: #3b3532; background: #1b1918; }
-html[data-theme="dark"] .chat-hero strong { color: #f4f0ed; font-size: 13px; }
-html[data-theme="dark"] .chat-hero small { color: #a7a09b; font-size: 10px; }
+html[data-theme="dark"] .chat-hero strong { color: #f4f0ed; }
+html[data-theme="dark"] .chat-hero small { color: #a7a09b; }
 html[data-theme="dark"] .chat-messages { padding: 16px 14px; }
-html[data-theme="dark"] .chat-message { color: #e1dcd8; font-size: 12px; line-height: 1.65; }
+html[data-theme="dark"] .chat-message { color: #e1dcd8; line-height: 1.65; }
 html[data-theme="dark"] .chat-message.assistant { border: 1px solid #383330; background: #282422; }
 html[data-theme="dark"] .chat-message.user { background: #ece8e4; color: #171514; }
 html[data-theme="dark"] .chat-composer { margin: 12px; border-color: #49413d; border-radius: 11px; background: #211e1d; box-shadow: none; }
-html[data-theme="dark"] .chat-composer textarea { min-height: 78px; padding: 14px; color: #eeeae7; background: #211e1d; font-size: 12px; }
+html[data-theme="dark"] .chat-composer textarea { min-height: 78px; padding: 14px; color: #eeeae7; background: #211e1d; }
 html[data-theme="dark"] .chat-composer textarea::placeholder { color: #9e9792; }
 html[data-theme="dark"] .send-button { color: #171514; background: #e2ded9; }
 html[data-theme="dark"] .column-resizer::after { background: #3a3533; }
@@ -899,10 +899,6 @@ html[data-theme="dark"] .pane[data-dragging="true"] { outline: 1px dashed #b86cf
 @keyframes auditRail { from { transform: translateX(-15%); } to { transform: translateX(55%); } }
 
 html[data-theme="dark"] .company-brief { border-color: #4b3b50; background: #272128; } html[data-theme="dark"] .company-brief p { color: #ddd6d2; }
-html[data-theme="dark"] .agent-summary strong, html[data-theme="dark"] .agent-tray article > div > strong, html[data-theme="dark"] .agent-output h3 { font-size: var(--font-size-agent-title); font-weight: var(--font-weight-agent-title); line-height: 1.3; letter-spacing: var(--letter-spacing-agent); text-transform: none; }
-html[data-theme="dark"] .agent-summary small { font-size: var(--font-size-agent-role); line-height: var(--line-height-agent); letter-spacing: var(--letter-spacing-agent); }
-html[data-theme="dark"] .agent-output p, html[data-theme="dark"] .agent-tray article p { font-size: var(--font-size-agent-body); line-height: var(--line-height-agent); letter-spacing: var(--letter-spacing-agent); }
-html[data-theme="dark"] .finding-meta, html[data-theme="dark"] .finding-sources a, html[data-theme="dark"] .agent-output button, html[data-theme="dark"] .agent-tray article button { font-size: var(--font-size-agent-meta); }
 html[data-theme="dark"] .lighthouse-panel, html[data-theme="dark"] .lighthouse-progress, html[data-theme="dark"] .lighthouse-scores > div { color: #eee8e4; border-color: #423a40; background: #282323; }
 html[data-theme="dark"] .lighthouse-heading small, html[data-theme="dark"] .lighthouse-progress-copy strong, html[data-theme="dark"] .lighthouse-scores span, html[data-theme="dark"] .lighthouse-findings li, html[data-theme="dark"] .lighthouse-audit-groups li { color: #b7afaa; }
 html[data-theme="dark"] .lighthouse-target { border-color: #423a40; background: #201c1d; } html[data-theme="dark"] .lighthouse-target a { color: #eee8e4; }
@@ -924,80 +920,49 @@ html[data-theme="dark"] .deck-preview-toolbar, html[data-theme="dark"] .deck-nav
   .audit-progress-rail span { animation: none; transform: none; }
 }
 
-/* Dashboard typography matched to the supplied Okara reference. */
+/* Dark mode keeps the light-theme type scale while retaining its own colors and emphasis. */
 html[data-theme="dark"] {
-  --font-size-agent-title: 16px;
-  --font-size-agent-role: 14px;
-  --font-size-agent-body: 15px;
-  --font-size-agent-meta: 10px;
   --font-weight-agent-title: 700;
   --line-height-agent: 1.5;
   --letter-spacing-agent: -.012em;
-  --font-size-skill-title: 12px;
-  --font-size-skill-description: 11px;
-  --font-size-skill-meta: 10px;
   --line-height-skill: 1.45;
 }
-html[data-theme="dark"] .dashboard-shell { font-family: Helvetica, "Helvetica Neue", Arial, sans-serif; font-size: 15px; font-weight: 400; letter-spacing: -.012em; }
-html[data-theme="dark"] .workspace-switch { font-size: 15px; font-weight: 600; }
-html[data-theme="dark"] .terminal-brand, html[data-theme="dark"] .dashboard-actions a { font-size: 14px; }
-html[data-theme="dark"] .pane-header { font-size: 16px; font-weight: 500; letter-spacing: -.01em; }
-html[data-theme="dark"] .company-title-row h1 { font-size: 19px; font-weight: 600; letter-spacing: -.025em; }
-html[data-theme="dark"] .category-pill { font-size: 12px; font-weight: 500; }
-html[data-theme="dark"] .company-url { font-size: 13px; }
-html[data-theme="dark"] .company-description { margin-top: 17px; color: #f0ece8; font-size: 15px; font-weight: 600; line-height: 1.62; letter-spacing: -.018em; }
-html[data-theme="dark"] .analysis-resume strong { font-size: 13px; line-height: 1.35; }
-html[data-theme="dark"] .analysis-resume small { font-size: 10px; line-height: 1.45; }
-html[data-theme="dark"] .analysis-resume button, html[data-theme="dark"] .analysis-resume a { font-size: 10px; font-weight: 700; }
-html[data-theme="dark"] .section-label { font-size: 14px; font-weight: 700; letter-spacing: .025em; }
-html[data-theme="dark"] .section-label-row > span, html[data-theme="dark"] .account-count { font-size: 10px; }
-html[data-theme="dark"] .document-list button { min-height: 50px; font-size: 15px; font-weight: 500; letter-spacing: -.012em; }
-html[data-theme="dark"] .document-list button > small { font-size: 11px; }
-html[data-theme="dark"] .document-hover-detail strong { font-size: 14px; }
-html[data-theme="dark"] .document-hover-detail span { font-size: 12px; line-height: 1.5; }
-html[data-theme="dark"] .document-hover-detail em { font-size: 10px; }
-html[data-theme="dark"] .extended-documents article strong { font-size: 13px; line-height: 1.35; }
-html[data-theme="dark"] .extended-documents article small { font-size: 10px; line-height: 1.45; }
-html[data-theme="dark"] .context-competitor strong { font-size: 13px; }
-html[data-theme="dark"] .context-competitor small { font-size: 10px; }
-html[data-theme="dark"] .analytics-tabs button { font-size: 14px; font-weight: 500; }
-html[data-theme="dark"] .lighthouse-heading strong, html[data-theme="dark"] .source-banner strong { font-size: 15px; line-height: 1.3; }
-html[data-theme="dark"] .lighthouse-heading small, html[data-theme="dark"] .source-banner small { font-size: 11px; line-height: 1.4; }
-html[data-theme="dark"] .lighthouse-target span { font-size: 10px; }
-html[data-theme="dark"] .lighthouse-target a { font-size: 13px; }
-html[data-theme="dark"] .lighthouse-strategy button { font-size: 11px; }
-html[data-theme="dark"] .section-heading strong { font-size: 16px; line-height: 1.3; }
-html[data-theme="dark"] .section-heading small { font-size: 12px; line-height: 1.4; }
-html[data-theme="dark"] .score-gauge small { font-size: 11px; }
-html[data-theme="dark"] .vitals-grid { font-size: 11px; }
-html[data-theme="dark"] .vitals-grid strong { font-size: 22px; }
-html[data-theme="dark"] .vitals-grid small { font-size: 10px; }
-html[data-theme="dark"] .vitals-diagnosis article > span { font-size: 10px; }
-html[data-theme="dark"] .vitals-diagnosis article > strong { font-size: 12px; }
-html[data-theme="dark"] .vitals-diagnosis p, html[data-theme="dark"] .field-data-note p, html[data-theme="dark"] .audit-footnote { font-size: 11px; line-height: 1.5; }
-html[data-theme="dark"] .field-data-note strong { font-size: 13px; }
+html[data-theme="dark"] .dashboard-shell { font-family: Helvetica, "Helvetica Neue", Arial, sans-serif; font-weight: 400; letter-spacing: -.012em; }
+html[data-theme="dark"] .workspace-switch { font-weight: 600; }
+html[data-theme="dark"] .pane-header { font-weight: 500; letter-spacing: -.01em; }
+html[data-theme="dark"] .company-title-row h1 { font-weight: 600; letter-spacing: -.025em; }
+html[data-theme="dark"] .category-pill { font-weight: 500; }
+html[data-theme="dark"] .company-description { margin-top: 17px; color: #f0ece8; font-weight: 600; line-height: 1.62; letter-spacing: -.018em; }
+html[data-theme="dark"] .analysis-resume strong { line-height: 1.35; }
+html[data-theme="dark"] .analysis-resume small { line-height: 1.45; }
+html[data-theme="dark"] .analysis-resume button, html[data-theme="dark"] .analysis-resume a { font-weight: 700; }
+html[data-theme="dark"] .section-label { font-weight: 700; letter-spacing: .025em; }
+html[data-theme="dark"] .document-list button { min-height: 50px; font-weight: 500; letter-spacing: -.012em; }
+html[data-theme="dark"] .document-hover-detail span { line-height: 1.5; }
+html[data-theme="dark"] .extended-documents article strong { line-height: 1.35; }
+html[data-theme="dark"] .extended-documents article small { line-height: 1.45; }
+html[data-theme="dark"] .analytics-tabs button { font-weight: 500; }
+html[data-theme="dark"] .lighthouse-heading strong, html[data-theme="dark"] .source-banner strong { line-height: 1.3; }
+html[data-theme="dark"] .lighthouse-heading small, html[data-theme="dark"] .source-banner small { line-height: 1.4; }
+html[data-theme="dark"] .section-heading strong { line-height: 1.3; }
+html[data-theme="dark"] .section-heading small { line-height: 1.4; }
+html[data-theme="dark"] .vitals-diagnosis p, html[data-theme="dark"] .field-data-note p, html[data-theme="dark"] .audit-footnote { line-height: 1.5; }
 html[data-theme="dark"] .agent-summary { min-height: 80px; }
-html[data-theme="dark"] .agent-summary strong, html[data-theme="dark"] .agent-tray article > div > strong, html[data-theme="dark"] .agent-output h3 { font-size: var(--font-size-agent-title); font-weight: 700; line-height: 1.28; letter-spacing: -.018em; }
-html[data-theme="dark"] .agent-summary small { margin-top: 5px; font-size: var(--font-size-agent-role); font-weight: 400; line-height: 1.42; letter-spacing: -.01em; }
+html[data-theme="dark"] .agent-summary strong, html[data-theme="dark"] .agent-tray article > div > strong, html[data-theme="dark"] .agent-output h3 { font-weight: 700; line-height: 1.28; letter-spacing: -.018em; }
+html[data-theme="dark"] .agent-summary small { margin-top: 5px; font-weight: 400; line-height: 1.42; letter-spacing: -.01em; }
 html[data-theme="dark"] .agent-output { padding: 14px; }
 html[data-theme="dark"] .agent-output article { padding: 15px; }
-html[data-theme="dark"] .agent-output p, html[data-theme="dark"] .agent-tray article p { font-size: var(--font-size-agent-body); font-weight: 400; line-height: var(--line-height-agent); letter-spacing: -.014em; }
+html[data-theme="dark"] .agent-output p, html[data-theme="dark"] .agent-tray article p { font-weight: 400; line-height: var(--line-height-agent); letter-spacing: -.014em; }
 html[data-theme="dark"] .agent-output .clean-markdown p { margin: 0 0 10px; }
 html[data-theme="dark"] .agent-output .clean-markdown li { margin: 5px 0; }
-html[data-theme="dark"] .agent-output article > div > strong, html[data-theme="dark"] .agent-recommendation > strong { font-size: 16px; line-height: 1.35; }
-html[data-theme="dark"] .finding-meta, html[data-theme="dark"] .finding-sources a, html[data-theme="dark"] .agent-output button, html[data-theme="dark"] .agent-tray article button { font-size: var(--font-size-agent-meta); }
-html[data-theme="dark"] .chat-hero strong { font-size: 16px; font-weight: 600; }
-html[data-theme="dark"] .chat-hero small { font-size: 13px; line-height: 1.4; }
-html[data-theme="dark"] .chat-message { font-size: 15px; font-weight: 400; line-height: 1.62; letter-spacing: -.012em; }
+html[data-theme="dark"] .agent-output article > div > strong, html[data-theme="dark"] .agent-recommendation > strong { line-height: 1.35; }
+html[data-theme="dark"] .chat-hero strong { font-weight: 600; }
+html[data-theme="dark"] .chat-hero small { line-height: 1.4; }
+html[data-theme="dark"] .chat-message { font-weight: 400; line-height: 1.62; letter-spacing: -.012em; }
 html[data-theme="dark"] .chat-message p { margin-bottom: 11px; }
 html[data-theme="dark"] .chat-message li { margin: 7px 0; }
-html[data-theme="dark"] .chat-role { font-size: 11px; letter-spacing: .02em; }
-html[data-theme="dark"] .chat-composer textarea { font-size: 15px; line-height: 1.55; }
-html[data-theme="dark"] .chat-composer > div { font-size: 10px; }
-
-@media (max-width: 860px) {
-  html[data-theme="dark"] .company-description, html[data-theme="dark"] .agent-output p, html[data-theme="dark"] .chat-message { font-size: 14px; }
-}
+html[data-theme="dark"] .chat-role { letter-spacing: .02em; }
+html[data-theme="dark"] .chat-composer textarea { line-height: 1.55; }
 
 .company-context-signals { margin-top: 15px; border-top: 1px solid #e8e1de; }
 .company-context-signals article { padding: 11px 0; border-bottom: 1px solid #e8e1de; }
@@ -1006,9 +971,9 @@ html[data-theme="dark"] .chat-composer > div { font-size: 10px; }
 .company-context-evidence { margin-top: 10px; display: flex; align-items: center; gap: 5px; color: #8d8388; font-size: 8px; line-height: 1.35; }
 html[data-theme="dark"] .company-context-signals { border-color: #3c3633; }
 html[data-theme="dark"] .company-context-signals article { border-color: #3c3633; }
-html[data-theme="dark"] .company-context-signals article > span { color: #c98aff; font-size: 10px; }
-html[data-theme="dark"] .company-context-signals article p { color: #d8d2ce; font-size: 13px; line-height: 1.55; }
-html[data-theme="dark"] .company-context-evidence { color: #8f8883; font-size: 10px; }
+html[data-theme="dark"] .company-context-signals article > span { color: #c98aff; }
+html[data-theme="dark"] .company-context-signals article p { color: #d8d2ce; line-height: 1.55; }
+html[data-theme="dark"] .company-context-evidence { color: #8f8883; }
 
 /* Enhanced Analytics & Live Agents Feed Styling */
 .google-connect-section { margin-bottom: 14px; padding: 12px; border: 1px solid #eadfd9; border-radius: 12px; background: #fffdfb; }
@@ -1253,8 +1218,8 @@ html[data-theme="dark"] .angle-tag { background: #1e293b; color: #e2e8f0; }
 .agent-summary strong { font-size: 13px !important; font-weight: 600 !important; letter-spacing: -.012em !important; }
 .agent-summary small { font-size: 11px !important; font-weight: 400 !important; line-height: 1.5 !important; color: #7a7376 !important; }
 
-html[data-theme="dark"] .agent-summary strong { color: #f5f1ed !important; font-size: 14px !important; font-weight: 600 !important; }
-html[data-theme="dark"] .agent-summary small { color: #a09893 !important; font-size: 12px !important; }
+html[data-theme="dark"] .agent-summary strong { color: #f5f1ed !important; font-weight: 600 !important; }
+html[data-theme="dark"] .agent-summary small { color: #a09893 !important; }
 
 .reddit-post-title { font-size: 13px !important; font-weight: 600 !important; line-height: 1.5 !important; letter-spacing: -.012em !important; }
 .reddit-row-meta { font-size: 11px !important; font-weight: 500 !important; color: #8e8885 !important; }
@@ -1282,4 +1247,3 @@ html[data-theme="dark"] .aeo-pill { background: #262121 !important; color: #d0c8
 html[data-theme="dark"] .aeo-gaps-badge { background: #2f2520 !important; color: #f59e0b !important; }
 html[data-theme="dark"] .aeo-action-note { background: #1c1818 !important; color: #d8d2ce !important; }
 html[data-theme="dark"] .aeo-action-note strong { color: #f5f1ed !important; }
-
