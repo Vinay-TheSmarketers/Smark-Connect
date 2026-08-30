@@ -200,6 +200,20 @@ export async function analyzeCompetitorLandscape(
         { name: "Clean Harbors", website: "https://cleanharbors.com", positioning: "Specialized environmental and industrial services company handling hazardous waste management and emergency response.", attributes: ["Hazardous waste leadership", "Emergency response readiness", "Industrial cleaning services"] },
         { name: "Veolia", website: "https://veolia.com", positioning: "Global ecological transformation leader delivering water, waste, and energy management solutions.", attributes: ["Circular economy focus", "Global municipal & industrial footprint", "Comprehensive sustainability"] },
       ],
+      telecom: [
+        { name: "Bharti Airtel", website: "https://airtel.in", positioning: "Leading telecommunications provider with premium 5G networks, enterprise cloud connectivity, and digital payments.", attributes: ["High ARPU user base", "Extensive 5G coverage", "Strong enterprise Airtel Business portfolio"] },
+        { name: "Tata Communications", website: "https://tatacommunications.com", positioning: "Global digital ecosystem enabler powering enterprise connectivity, subsea cables, and cloud security.", attributes: ["Global Tier-1 network infrastructure", "Enterprise cloud & cyber focus", "Subsea cable dominance"] },
+        { name: "Vodafone Idea (Vi)", website: "https://myvi.in", positioning: "Pan-India telecom operator offering mobile telephony, broadband, and enterprise IoT mobility.", attributes: ["Large subscriber footprint", "Mid-tier pricing", "Extensive metro coverage"] },
+        { name: "Adani Enterprises", website: "https://adanienterprises.com", positioning: "Diversified infrastructure conglomerate competing in enterprise private networks, data centers, and digital logistics.", attributes: ["Aggressive capital deployment", "Integrated infrastructure ecosystem", "Data center joint ventures"] },
+        { name: "Tata Play", website: "https://tataplay.com", positioning: "Leading direct-to-home and fiber broadband distribution platform delivering integrated entertainment.", attributes: ["Premium DTH brand", "High-speed FTTH broadband", "OTT aggregator bundling"] },
+      ],
+      conglomerate: [
+        { name: "Tata Group", website: "https://tata.com", positioning: "Multinational conglomerate leader spanning consumer retail (Tata Neu), digital services (TCS), automotive, and telecom.", attributes: ["Unmatched consumer brand trust", "Global operating scale", "Comprehensive multi-sector ecosystem"] },
+        { name: "Adani Group", website: "https://adani.com", positioning: "Integrated infrastructure, renewable energy, ports, airports, and digital supply chain conglomerate.", attributes: ["Massive infrastructure scale", "Green energy investments", "Port-to-power integration"] },
+        { name: "Aditya Birla Group", website: "https://adityabirla.com", positioning: "Global conglomerate powerhouse in retail fashion, telecom (Vi), cement, metals, and financial services.", attributes: ["Strong retail presence", "Global supply chain", "Diversified B2B & B2C leadership"] },
+        { name: "Indian Oil Corporation (IOCL)", website: "https://iocl.com", positioning: "India's largest national energy, petroleum refining, and petrochemicals distribution corporation.", attributes: ["Dominant refining capacity", "Unmatched fuel retail distribution", "Petrochemical manufacturing"] },
+        { name: "Amazon India", website: "https://amazon.in", positioning: "Global technology and e-commerce giant competing directly in retail, streaming, cloud (AWS), and digital payments.", attributes: ["Prime loyalty ecosystem", "Massive logistics and cloud moats", "Aggressive digital commerce expansion"] },
+      ],
       general: [
         { name: "HubSpot", website: "https://hubspot.com", positioning: "Integrated customer platform for scaling marketing, sales, and operations.", attributes: ["Unified CRM ecosystem", "Inbound authority", "Modular expansion"] },
         { name: "Salesforce", website: "https://salesforce.com", positioning: "Global enterprise cloud platform dominating enterprise CRM and automated workflows.", attributes: ["Enterprise market share", "Deep customization", "High total cost of ownership"] },
@@ -209,6 +223,9 @@ export async function analyzeCompetitorLandscape(
       ],
     };
 
+    const isReliance = profile.companyName.toLowerCase().includes("reliance") || profile.companyName.toLowerCase().includes("jio") || profile.websiteUrl.toLowerCase().includes("ril.com") || profile.websiteUrl.toLowerCase().includes("jio.com");
+    const isTelecom = cat.includes("telecom") || cat.includes("5g") || cat.includes("broadband") || cat.includes("mobile operator") || cat.includes("network") || profile.companyName.toLowerCase().includes("jio");
+    const isConglomerate = isReliance || cat.includes("conglomerate") || cat.includes("petro") || cat.includes("energy") || cat.includes("retail group") || cat.includes("diversified");
     const isEngineering = cat.includes("engineer") || cat.includes("epc") || cat.includes("pharma") || cat.includes("agro") || cat.includes("construct") || cat.includes("cleanroom") || cat.includes("consult") || profile.companyName.toLowerCase().includes("aevitas");
     const isEnvironmental = cat.includes("environ") || cat.includes("waste") || cat.includes("recycl") || cat.includes("hazardous");
     const isFinops = cat.includes("finops") || cat.includes("cloud cost") || cat.includes("cost optim") || cat.includes("aws cost") || profile.companyName.toLowerCase().includes("finops");
@@ -225,7 +242,11 @@ export async function analyzeCompetitorLandscape(
     const isDev = cat.includes("dev") || cat.includes("software") || cat.includes("api") || cat.includes("code") || cat.includes("infra");
     const isMarketing = cat.includes("market") || cat.includes("growth") || cat.includes("agency");
 
-    const categoryKey = isEngineering
+    const categoryKey = isTelecom
+      ? "telecom"
+      : isConglomerate
+      ? "conglomerate"
+      : isEngineering
       ? "engineering"
       : isEnvironmental
       ? "environmental"
