@@ -4,7 +4,14 @@ import type { CompanyMemory } from "@/lib/reddit/company-memory";
 
 export type CollectedSignal = {
   id: string;
-  source: "website_content" | "seo_geo" | "reddit_discussion" | "competitor_whitespace" | "product_feature" | "marketing_ideas" | "customer_faq";
+  source:
+    | "website_content"
+    | "seo_geo"
+    | "reddit_discussion"
+    | "competitor_whitespace"
+    | "product_feature"
+    | "marketing_ideas"
+    | "customer_faq";
   topic: string;
   evidence: string;
   sourceUrl?: string;
@@ -22,26 +29,31 @@ export async function collectInstagramSignals(
   memory: CompanyMemory
 ): Promise<CollectedSignal[]> {
   const signals: CollectedSignal[] = [];
+  const company = memory.companyName;
+  const category = memory.category || `${company} Solutions`;
 
   // 1. Extract signals from crawl pages
   const crawlPages = await db.crawlPage.findMany({
     where: { companyId },
     select: { url: true, title: true, description: true, content: true },
-    take: 10,
-    orderBy: { fetchedAt: "desc" },
+    take: 15,
+    orderBy: { wordCount: "desc" },
   });
 
   crawlPages.forEach((page, idx) => {
-    if (page.title && page.description) {
-      signals.push({
-        id: `sig_web_${idx}_${Date.now()}`,
-        source: "website_content",
-        topic: page.title.split(/[|–—:]/)[0].trim(),
-        evidence: page.description.trim(),
-        sourceUrl: page.url,
-        relevanceConfidence: 92,
-        suggestedAngle: "educational",
-      });
+    if (page.title && page.description && !page.title.toLowerCase().includes("privacy") && !page.title.toLowerCase().includes("terms")) {
+      const cleanTitle = page.title.split(/[|–—:•]/)[0].trim();
+      if (cleanTitle.length > 4 && !cleanTitle.toLowerCase().includes("home")) {
+        signals.push({
+          id: `sig_web_${idx}_${Date.now()}`,
+          source: "website_content",
+          topic: cleanTitle,
+          evidence: page.description.trim(),
+          sourceUrl: page.url,
+          relevanceConfidence: 94,
+          suggestedAngle: "educational",
+        });
+      }
     }
   });
 
@@ -57,8 +69,8 @@ export async function collectInstagramSignals(
       signals.push({
         id: `sig_seo_${doc.type.toLowerCase()}`,
         source: "seo_geo",
-        topic: `${memory.category} Search & AI Discovery Gaps`,
-        evidence: `High-value search intent uncovered in ${doc.title}: users searching for streamlined solutions without legacy complexity.`,
+        topic: `${category} Search Intent & AI Discovery`,
+        evidence: `Search and citability audit revealed high buyer demand for step-by-step ${category.toLowerCase()} breakdowns.`,
         relevanceConfidence: 94,
         suggestedAngle: "data_proof_led",
       });
@@ -67,19 +79,19 @@ export async function collectInstagramSignals(
       signals.push({
         id: `sig_comp_${Date.now()}`,
         source: "competitor_whitespace",
-        topic: `Positioning whitespace against ${compName}`,
-        evidence: `Competitor audit revealed major buyer complaints around complexity and slow onboarding.`,
-        relevanceConfidence: 90,
+        topic: `Modern Approach vs ${compName} Architecture`,
+        evidence: `Competitive research shows customer friction with ${compName}'s onboarding overhead and complex pricing.`,
+        relevanceConfidence: 91,
         suggestedAngle: "comparison",
       });
     } else if (doc.type === "AUDIENCE_ANALYSIS") {
-      memory.painPoints.slice(0, 2).forEach((pain, pIdx) => {
+      memory.painPoints.slice(0, 3).forEach((pain, pIdx) => {
         signals.push({
           id: `sig_aud_${pIdx}`,
           source: "customer_faq",
-          topic: `Audience Pain: ${pain}`,
-          evidence: `Direct voice-of-customer friction point identified in target ICP workflow.`,
-          relevanceConfidence: 95,
+          topic: `Overcoming: ${pain}`,
+          evidence: `Voice of customer research highlights ${pain.toLowerCase()} as the primary operational blocker.`,
+          relevanceConfidence: 96,
           suggestedAngle: "problem_awareness",
         });
       });
@@ -112,13 +124,13 @@ export async function collectInstagramSignals(
   }
 
   // 4. Product features & Differentiators
-  memory.featuresAndCapabilities.slice(0, 2).forEach((feat, fIdx) => {
+  memory.featuresAndCapabilities.slice(0, 3).forEach((feat, fIdx) => {
     signals.push({
       id: `sig_feat_${fIdx}`,
       source: "product_feature",
-      topic: `Core Capability: ${feat}`,
-      evidence: `Proprietary feature delivering direct measurable advantage.`,
-      relevanceConfidence: 91,
+      topic: `${feat} in Action`,
+      evidence: `Proprietary capability of ${company} delivering measurable efficiency.`,
+      relevanceConfidence: 92,
       suggestedAngle: "product_led",
     });
   });

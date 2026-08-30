@@ -12,6 +12,8 @@ import { formatSkillName } from "@/lib/skills/format";
 import { evaluateLinkedInOpportunity, evaluateRedditCandidate, evaluateXOpportunity, scoreOpportunity, type RedditActionFeedOpportunity } from "@/lib/signals/store";
 import { RedditOpportunityFeed } from "./reddit-opportunity-feed";
 import { InstagramOpportunityFeed } from "./instagram-opportunity-feed";
+import { XOpportunityFeed } from "./x-opportunity-feed";
+import type { XOpportunity } from "@/lib/x/types";
 import type { InstagramOpportunity, InstagramOpportunityMap } from "@/lib/instagram/types";
 import { CompetitorAgentViewer } from "./competitor-agent-viewer";
 import { Brand } from "./brand";
@@ -1221,22 +1223,16 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     running={Boolean(runningAgent === "LINKEDIN")}
                   />
                 ) : type === "X" ? (
-                  items.map((item, index) => {
-                    const key = opportunityKey(type, item, index);
-                    return (
-                      <SocialFindingCard
-                        key={key}
-                        type={type}
-                        item={item}
-                        index={index}
-                        company={data.company}
-                        liveConnected={liveConnected}
-                        completed={completedOpportunities.has(key)}
-                        onComplete={() => completeOpportunity(type, key)}
-                        onRegenerate={() => runAgent(type)}
-                      />
-                    );
-                  })
+                  <XOpportunityFeed
+                    companyId={data.company.id}
+                    companyName={data.company.name}
+                    initialOpportunities={
+                      (run?.output && typeof run.output === "object" && Array.isArray((run.output as Record<string, unknown>).opportunities)
+                        ? (run.output as Record<string, unknown>).opportunities
+                        : []) as XOpportunity[]
+                    }
+                    onOpportunityUpdated={() => router.refresh()}
+                  />
                 ) : type === "COMPETITOR" ? (
                   <div className="competitor-findings-unified-container">
                     <div className="findings-card-head">

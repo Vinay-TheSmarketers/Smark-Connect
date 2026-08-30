@@ -9,6 +9,7 @@ import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { discoverLiveResearch, liveResearchAction, type LiveDiscoveryItem } from "@/lib/research/live-discovery";
 import { runRedditOpportunityPipeline } from "@/lib/reddit/discovery-pipeline";
 import { runInstagramOpportunityPipeline } from "@/lib/instagram/discovery-pipeline";
+import { runXOpportunityPipeline } from "@/lib/x/discovery-pipeline";
 import { runCompetitorIntelligencePipeline } from "@/lib/competitors/pipeline";
 import { AGENT_DEFINITIONS, CORE_DOCUMENTS, getAgentDefinition, getInternalOperation, type CoreDocumentDefinition, type SkillRef } from "./registry";
 import { loadSkillPackWithManifest, type SkillExecutionStep } from "./loader";
@@ -660,6 +661,78 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
             sources: [company.websiteUrl] as unknown as Prisma.InputJsonValue,
             skills: { mapped: definition.skills } as unknown as Prisma.InputJsonValue,
             confidence: 95,
+            tokensUsed: tokensEstimate,
+            completedAt: new Date(),
+          },
+        }),
+        db.user.update({ where: { id: args.userId }, data: { tokenUsed: { increment: tokensEstimate } } }),
+      ]);
+      return { runId: run.id };
+    }
+
+    if (definition.type === "X") {
+      const pipelineResult = await runXOpportunityPipeline({
+        companyId: company.id,
+        userId: args.userId,
+      });
+
+      const xFindings: Finding[] = [
+        {
+          title: `X Opportunity Engine Active: ${pipelineResult.opportunities.length} high-signal angles`,
+          evidence: `Synthesized ${pipelineResult.totalSignalsCollected} verified signals across crawl pages, SEO/GEO audits, competitor analysis, and customer discussions. Generated ${pipelineResult.totalOpportunitiesGenerated} actionable X opportunities (${pipelineResult.highPriorityCount} High Priority).`,
+          impact: `Monitors evidence-led post hooks, contrarian POVs, and structured threads tailored to ${company.name}.`,
+          action: "Review ranked opportunities in the Action Feed, choose variants or thread structures, and schedule.",
+          kind: "current_status",
+          platform: "X",
+          sourceLabel: "X Strategy & Opportunity Engine",
+          publishedAt: new Date().toISOString(),
+          draftContent: "",
+          recommendedResponse: "",
+          tags: ["x_writer", "threads", "contrarian_pov"],
+          companyName: company.name,
+          officialWebsite: company.websiteUrl,
+          logoUrl: "",
+          competitiveAttributes: [],
+          priority: "high",
+          confidence: 96,
+          sourceUrls: [company.websiteUrl],
+        },
+        ...pipelineResult.opportunities.map((opp): Finding => ({
+          title: opp.title,
+          evidence: `${opp.hookHeadline} | Score: ${opp.score.total}/100 (${opp.score.tier.toUpperCase()}) | Type: ${opp.opportunityType}`,
+          impact: opp.whyThisMatters,
+          action: `Publish ${opp.format}`,
+          kind: "new_post",
+          platform: "X",
+          sourceLabel: opp.signalOrigin.source.replace(/_/g, " "),
+          publishedAt: opp.createdAt,
+          draftContent: opp.executionPackage.postContent,
+          recommendedResponse: opp.executionPackage.cta,
+          tags: [opp.format.toLowerCase(), opp.opportunityType.toLowerCase(), `${opp.score.total} pts`],
+          companyName: company.name,
+          officialWebsite: company.websiteUrl,
+          logoUrl: "",
+          competitiveAttributes: [],
+          priority: opp.score.total >= 90 ? "critical" : opp.score.total >= 80 ? "high" : "medium",
+          confidence: opp.confidence,
+          sourceUrls: opp.signalOrigin.sourceUrl ? [opp.signalOrigin.sourceUrl] : [company.websiteUrl],
+        })),
+      ];
+
+      const tokensEstimate = 1300;
+      await db.$transaction([
+        db.agentRun.update({
+          where: { id: run.id },
+          data: {
+            status: "DONE",
+            summary: `${pipelineResult.opportunities.length} high-signal X opportunities generated across ${pipelineResult.totalSignalsCollected} verified signals.`,
+            output: {
+              findings: xFindings,
+              opportunities: pipelineResult.opportunities,
+            } as unknown as Prisma.InputJsonValue,
+            sources: [company.websiteUrl] as unknown as Prisma.InputJsonValue,
+            skills: { mapped: definition.skills } as unknown as Prisma.InputJsonValue,
+            confidence: 96,
             tokensUsed: tokensEstimate,
             completedAt: new Date(),
           },
