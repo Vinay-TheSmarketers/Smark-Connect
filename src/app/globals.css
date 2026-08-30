@@ -13,9 +13,9 @@
   --font-family-primary: Helvetica, "Helvetica Neue", Arial, sans-serif;
   --font-sans: var(--font-family-primary);
   --font-display: var(--font-family-primary);
-  --font-size-agent-title: 12px;
-  --font-size-agent-role: 10px;
-  --font-size-agent-body: 10px;
+  --font-size-agent-title: 11px;
+  --font-size-agent-role: 8px;
+  --font-size-agent-body: 11px;
   --font-size-agent-meta: 8px;
   --font-weight-agent-title: 800;
   --line-height-agent: 1.5;
@@ -1214,28 +1214,122 @@ html[data-theme="dark"] .why-matched-box { border-color: #1e3a8a; background: #0
 html[data-theme="dark"] .evidence-quote-box { border-left-color: #3b82f6; background: #1e293b; color: #cbd5e1; }
 html[data-theme="dark"] .angle-tag { background: #1e293b; color: #e2e8f0; }
 
-/* Context Pane Exact Typography & Card Alignment Sync */
-.agent-summary strong { font-size: 13px !important; font-weight: 600 !important; letter-spacing: -.012em !important; }
-.agent-summary small { font-size: 11px !important; font-weight: 400 !important; line-height: 1.5 !important; color: #7a7376 !important; }
+/* Context-pane typography is the shared scale for Analytics, Agent Feed, and generated cards. */
+.agent-summary strong,
+.agent-output h3,
+.agent-output .agent-status-card h3,
+.agent-output .reddit-content > h3,
+.agent-output .social-card > h3,
+.agent-output .social-opportunity-card h3,
+.agent-output .clean-markdown :is(h1, h2, h3, h4, h5, h6),
+.agent-output article > div > strong,
+.agent-recommendation > strong,
+.agent-tray article > div > strong,
+.reddit-post-title,
+.aeo-finding-item h3,
+.section-header-block h3,
+.voice-text strong,
+.page-query-info strong {
+  font-size: var(--font-size-agent-title) !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
 
-html[data-theme="dark"] .agent-summary strong { color: #f5f1ed !important; font-weight: 600 !important; }
-html[data-theme="dark"] .agent-summary small { color: #a09893 !important; }
+.agent-summary small,
+.agent-summary em,
+.agent-tray article small,
+.reddit-row-meta,
+.finding-meta,
+.finding-sources a,
+.agent-card-actions,
+.agent-status-card > small,
+.social-history-head strong,
+.social-history-head small,
+.social-history-head em,
+.social-draft-actions small,
+.opportunity-label > span,
+.opportunity-label > em,
+.opportunity-tags span,
+.opportunity-meta span,
+.competitor-card-head > div > span,
+.competitor-card-head a,
+.competitive-attributes span,
+.competitor-impact > strong,
+.aeo-pill,
+.aeo-gaps-badge,
+.upgrade-pill,
+.voice-text small,
+.cat-label,
+.total-label,
+.sev-tag,
+.subreddit-pill,
+.page-label,
+.passed-count-tag,
+.page-query-info small,
+.pillar-label,
+.evidence-quote-box small {
+  font-size: var(--font-size-agent-meta) !important;
+  line-height: 1.4 !important;
+  letter-spacing: .02em !important;
+}
 
-.reddit-post-title { font-size: 13px !important; font-weight: 600 !important; line-height: 1.5 !important; letter-spacing: -.012em !important; }
-.reddit-row-meta { font-size: 11px !important; font-weight: 500 !important; color: #8e8885 !important; }
+.agent-output article,
+.agent-output p,
+.agent-output li,
+.agent-output blockquote,
+.agent-output .clean-markdown :is(p, li, blockquote),
+.agent-output .social-card .social-post-copy,
+.agent-tray article p,
+.social-composer textarea,
+.social-draft-card textarea,
+.recommended-response textarea,
+.post-copy-body,
+.pillar-text,
+.aeo-intro,
+.aeo-finding-item p,
+.section-header-block p,
+.table-row-item,
+.check-row-item,
+.issue-row,
+.link-progress-row,
+.attr-row,
+.citation-row-item,
+.cited-page-row,
+.why-matched-box,
+.evidence-quote-box,
+.angle-tag {
+  font-size: var(--font-size-agent-body) !important;
+  font-weight: 400 !important;
+  line-height: 1.55 !important;
+  letter-spacing: 0 !important;
+}
 
-html[data-theme="dark"] .reddit-post-title { color: #f5f1ed !important; }
+.agent-output .clean-markdown :is(h1, h2, h3, h4, h5, h6) { margin: 10px 0 5px !important; }
+.agent-output .clean-markdown :is(ul, ol) { margin: 6px 0 !important; padding-left: 18px !important; }
+.agent-output .clean-markdown strong { font-size: inherit !important; font-weight: 700 !important; }
+
+.agent-output button,
+.agent-tray article button,
+.aeo-action-note,
+.why-matched-toggle,
+.voice-setup-btn,
+.post-publish-btn,
+.run-fresh-btn,
+.reddit-post-btn {
+  font-size: var(--font-size-agent-meta) !important;
+}
+
+html[data-theme="dark"] .agent-summary strong,
+html[data-theme="dark"] .reddit-post-title,
+html[data-theme="dark"] .aeo-finding-item h3 { color: #f5f1ed !important; }
+html[data-theme="dark"] .agent-summary small,
 html[data-theme="dark"] .reddit-row-meta { color: #a09893 !important; }
-
-.post-copy-body, .pillar-text, .aeo-intro, .aeo-finding-item p { font-size: 13px !important; font-weight: 400 !important; line-height: 1.62 !important; letter-spacing: -.012em !important; }
-
 html[data-theme="dark"] .post-copy-body,
 html[data-theme="dark"] .pillar-text,
 html[data-theme="dark"] .aeo-intro,
 html[data-theme="dark"] .aeo-finding-item p { color: #f0ece8 !important; }
-
-.aeo-finding-item h3 { font-size: 14px !important; font-weight: 600 !important; }
-html[data-theme="dark"] .aeo-finding-item h3 { color: #f5f1ed !important; }
 
 html[data-theme="dark"] .aeo-summary-card,
 html[data-theme="dark"] .aeo-finding-item {
