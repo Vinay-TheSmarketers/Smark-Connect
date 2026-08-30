@@ -44,7 +44,14 @@ export function buildResearchQueries(agentType: AgentType, companyName: string, 
     INSTAGRAM: [`site:instagram.com (${brand})`, `site:instagram.com ${topic}`],
     YOUTUBE: [`site:youtube.com ${topic}`, `site:youtube.com (${brand})`],
     ARTICLES: [`${topic} guide OR analysis`, `${brand} insights`],
-    COMPETITOR: [`${topic} direct competitors official company`, `${topic} consulting alternatives`, `${brand} alternatives competitors`, `${topic} adjacent solutions companies`],
+    COMPETITOR: [
+      `"${companyName}" competitors alternatives`,
+      `${topic} top competitors platforms software companies`,
+      `${topic} alternatives best tools`,
+      `${brand} market competitors`,
+      `${topic} direct competitors`,
+      `${topic} software solutions companies`,
+    ],
     AUDIENCE: [`${topic} questions challenges`, `site:reddit.com ${topic} help`],
     CONTENT_AUDIT: [`${topic} latest research`, `${brand} content`],
     GEO: [`${brand}`, `${topic} expert sources`],
@@ -57,7 +64,7 @@ export function buildResearchQueries(agentType: AgentType, companyName: string, 
     PAID_MEDIA: [`${topic} advertising`, `${brand} ads`],
     COMMUNITY: [`${topic} community questions`, `site:reddit.com ${topic}`],
   };
-  return (queries[agentType] ?? [`${brand}`, `${topic} latest`]).slice(0, agentType === "REDDIT" ? 6 : agentType === "COMPETITOR" ? 4 : 2);
+  return (queries[agentType] ?? [`${brand}`, `${topic} latest`]).slice(0, agentType === "REDDIT" ? 6 : agentType === "COMPETITOR" ? 6 : 2);
 }
 
 async function searchBingRss(query: string): Promise<LiveDiscoveryItem[]> {
