@@ -112,101 +112,29 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
-const REPORT_STAGES = [
-  "Collecting evidence",
-  "Building executive summary",
-  "Mapping findings",
-  "Generating visualizations",
-  "Building recommendations",
-  "Rendering report",
-  "Final quality check",
-];
-
-function ReportPreviewSkeleton() {
-  const [stage, setStage] = useState(0);
-  useEffect(() => {
-    const timer = window.setInterval(
-      () => setStage((current) => Math.min(current + 1, REPORT_STAGES.length - 1)),
-      850
-    );
-    return () => window.clearInterval(timer);
-  }, []);
+function SinglePdfProgressBar({ progress, stageLabel }: { progress: number; stageLabel: string }) {
   return (
-    <div className="report-preview-loading" role="status" aria-live="polite" aria-label="Preparing your report">
-      <div className="report-loading-message">
-        <Sparkles size={15} />
-        <span>
-          <strong>{REPORT_STAGES[stage]}…</strong>
-          <small>Constructing the analytical report and checking every rendered page.</small>
-        </span>
-        <em>
-          {stage + 1}/{REPORT_STAGES.length}
-        </em>
+    <div className="single-pdf-loader-container" role="status" aria-live="polite">
+      <div className="single-pdf-loader-card">
+        <div className="pdf-loader-header">
+          <div className="pdf-loader-icon-wrap">
+            <Sparkles className="pulse-icon" size={18} />
+          </div>
+          <div className="pdf-loader-titles">
+            <strong>Generating Smarketers A4 Executive PDF</strong>
+            <small>{stageLabel}</small>
+          </div>
+          <span className="pdf-loader-percent">{Math.min(100, Math.round(progress))}%</span>
+        </div>
+        
+        <div className="single-progress-track">
+          <div className="single-progress-fill" style={{ width: `${Math.min(100, progress)}%` }} />
+        </div>
+
+        <div className="pdf-loader-footer-note">
+          <span>Autonomous Business Report Designer · HTML/CSS → A4 PDF</span>
+        </div>
       </div>
-      <div className="report-stage-track" aria-hidden="true">
-        {REPORT_STAGES.map((label, index) => (
-          <span className={index < stage ? "done" : index === stage ? "active" : ""} key={label}>
-            {label}
-          </span>
-        ))}
-      </div>
-      <article className="report-skeleton-page" aria-hidden="true">
-        <header>
-          <i className="skeleton-kicker" />
-          <i className="skeleton-title" />
-          <i className="skeleton-title short" />
-        </header>
-        <section className="skeleton-company">
-          <i />
-          <div>
-            <b />
-            <b />
-            <b />
-          </div>
-        </section>
-        <section className="skeleton-context">
-          <i />
-          <b />
-          <b />
-        </section>
-        <section className="skeleton-metrics">
-          <span />
-          <span />
-          <span />
-          <span />
-        </section>
-        <section className="skeleton-agent-grid">
-          <div>
-            <i />
-            <b />
-            <b />
-          </div>
-          <div>
-            <i />
-            <b />
-            <b />
-          </div>
-        </section>
-        <section className="skeleton-skill-grid">
-          <span />
-          <span />
-          <span />
-        </section>
-        <section className="skeleton-visuals">
-          <div className="skeleton-chart">
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
-          <div className="skeleton-recommendations">
-            <b />
-            <b />
-            <b />
-            <b />
-          </div>
-        </section>
-      </article>
     </div>
   );
 }
@@ -228,6 +156,8 @@ export function DocumentWorkspace({
   const [error, setError] = useState("");
   const [prompt, setPrompt] = useState("");
   const [pdfState, setPdfState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [pdfStageLabel, setPdfStageLabel] = useState("Synthesizing A4 HTML & CSS print layout...");
   const [pdfError, setPdfError] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
   const pdfUrlRef = useRef("");
@@ -260,7 +190,26 @@ export function DocumentWorkspace({
   async function generatePdf(download = false) {
     if (pdfState === "loading") return;
     setPdfState("loading");
+    setPdfProgress(12);
+    setPdfStageLabel("Synthesizing A4 HTML & CSS print layout...");
     setPdfError("");
+
+    const progressTimer = window.setInterval(() => {
+      setPdfProgress((current) => {
+        if (current < 35) {
+          setPdfStageLabel("Applying Smarketers brand architecture & typography...");
+          return current + 8;
+        } else if (current < 65) {
+          setPdfStageLabel("Rasterizing vector diagrams, matrices, and tables...");
+          return current + 6;
+        } else if (current < 92) {
+          setPdfStageLabel("Compiling high-resolution A4 PDF document...");
+          return current + 4;
+        }
+        return current;
+      });
+    }, 280);
+
     try {
       const response = await fetch(`/api/documents/${document.id}/export?format=pdf&preview=1`, { cache: "no-store" });
       if (!response.ok) {
@@ -274,7 +223,15 @@ export function DocumentWorkspace({
       if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
       pdfUrlRef.current = nextUrl;
       setPdfUrl(nextUrl);
+
+      // Finish single progress bar to 100%
+      window.clearInterval(progressTimer);
+      setPdfProgress(100);
+      setPdfStageLabel("PDF Ready!");
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
       setPdfState("ready");
+
       if (download) {
         const link = window.document.createElement("a");
         link.href = nextUrl;
@@ -286,6 +243,7 @@ export function DocumentWorkspace({
         link.remove();
       }
     } catch (cause) {
+      window.clearInterval(progressTimer);
       setPdfState("error");
       setPdfError(cause instanceof Error ? cause.message : "The PDF could not be generated.");
     }
@@ -563,7 +521,9 @@ export function DocumentWorkspace({
             />
           ) : (
             <div className="pdf-preview-stage">
-              {pdfState === "loading" && <ReportPreviewSkeleton />}
+              {(pdfState === "loading" || pdfState === "idle") && (
+                <SinglePdfProgressBar progress={pdfProgress} stageLabel={pdfStageLabel} />
+              )}
               {pdfState === "error" && (
                 <div className="pdf-preview-error" role="alert">
                   <strong>We couldn’t prepare this PDF.</strong>
@@ -577,7 +537,7 @@ export function DocumentWorkspace({
                 <>
                   <div className="pdf-preview-success" role="status">
                     <CheckCircle2 size={14} />
-                    <span>Your PDF is ready to preview and download.</span>
+                    <span>Your A4 Smarketers Executive PDF is ready to preview and download.</span>
                   </div>
                   <iframe
                     title={`${document.title} PDF preview`}
@@ -586,7 +546,6 @@ export function DocumentWorkspace({
                   />
                 </>
               )}
-              {pdfState === "idle" && <ReportPreviewSkeleton />}
             </div>
           )}
         </div>

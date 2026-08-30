@@ -50,9 +50,8 @@ export async function GET(request: Request, context: { params: Promise<{ documen
   if ((format === "pdf" || format === "pptx" || format === "xlsx") && !isArtifactEnabled(documentManifest, format as ArtifactFormat)) {
     return Response.json({ error: documentManifest.decisions[format as ArtifactFormat].reason, manifest: documentManifest }, { status: 409 });
   }
-  // A company-wide workbook is still supported when explicitly requested.
-  // Normal exports stay report-specific so all formats share one data model.
-  const includeAllModules = format === "xlsx" && url.searchParams.get("scope") === "company";
+  // Support company-wide master dossier compilation (18-22 pages across all modules)
+  const includeAllModules = url.searchParams.get("scope") === "company" || (document.type as string) === "STRATEGIC_INTELLIGENCE";
   const coreOrder = new Map(CORE_DOCUMENTS.map((definition, index) => [definition.type, index]));
   const siblingDocuments = includeAllModules ? await db.document.findMany({ where: { companyId: document.companyId }, orderBy: { updatedAt: "desc" } }) : [];
   const coreDocuments = siblingDocuments.filter((item) => coreOrder.has(item.type)).sort((left, right) => (coreOrder.get(left.type) ?? 99) - (coreOrder.get(right.type) ?? 99));

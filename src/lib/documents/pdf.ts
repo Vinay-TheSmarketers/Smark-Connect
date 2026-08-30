@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { Launcher } from "chrome-launcher";
 import type { ArtifactManifest, ReportDataModel } from "../artifacts/types";
 
-export type VisualReportCompetitor = { companyName: string; officialWebsite: string; logoUrl: string; logoDataUrl?: string; positioning: string; competitiveAttributes: string[] };
+export type VisualReportCompetitor = { companyName: string; officialWebsite: string; logoUrl?: string; logoDataUrl?: string; positioning: string; competitiveAttributes: string[] };
 export type VisualReportModule = { type: string; title: string; markdown: string; competitors?: VisualReportCompetitor[] };
 export type VisualReportSkill = { repository: string; skill: string; phase?: string; reason?: string };
 export type VisualReportArgs = { companyName: string; companyWebsite?: string; companyCategory?: string | null; companyBrief?: string; title: string; documentType?: string; markdown: string; updatedAt: Date; sourceCount: number; skills?: VisualReportSkill[]; modules?: VisualReportModule[]; reportModel?: ReportDataModel; manifest?: ArtifactManifest };
