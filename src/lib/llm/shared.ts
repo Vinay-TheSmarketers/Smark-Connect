@@ -1,8 +1,8 @@
 import { ProviderError } from "./types";
 
-export async function providerFetch(url: string, init: RequestInit): Promise<unknown> {
+export async function providerFetch(url: string, init: RequestInit, timeoutMs = 120_000): Promise<unknown> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 45_000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { ...init, signal: controller.signal, cache: "no-store" });
     const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;

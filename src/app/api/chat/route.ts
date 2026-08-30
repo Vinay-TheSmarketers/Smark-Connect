@@ -15,6 +15,9 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ error: "Enter a message." }, { status: 400 });
   if (user.demoMode) return Response.json({ error: "Demo Mode — connect a real provider key in Settings to chat live." }, { status: 409 });
   if (!user.llmProvider || !user.llmApiKeyEnc || !user.llmModel) return Response.json({ error: "Reconnect your provider key in Settings." }, { status: 403 });
+  if (user.tokenBudget > 0 && user.tokenUsed >= user.tokenBudget) {
+    return Response.json({ error: "Your token budget has been reached. Update your token limit in Settings to continue." }, { status: 403 });
+  }
   const company = await db.company.findFirst({ where: { id: parsed.data.companyId, userId: user.id }, include: { documents: true, agentRuns: { where: { status: "DONE" }, orderBy: { createdAt: "desc" }, take: 8 }, chatAttachments: { where: { remembered: true }, take: 6 } } });
   if (!company) return Response.json({ error: "Company not found." }, { status: 404 });
   let session = parsed.data.sessionId ? await db.chatSession.findFirst({ where: { id: parsed.data.sessionId, companyId: company.id }, include: { messages: { orderBy: { createdAt: "asc" }, take: 12 } } }) : null;
@@ -32,6 +35,8 @@ export async function POST(request: Request) {
     const embeddedSkills = await loadSkillPack(operation.skills, 48_000);
     const content = await getProvider(user.llmProvider).complete({ apiKey: decryptSecret(user.llmApiKeyEnc), model: user.llmModel, system: `You are the AI CMO inside Smark Connect. Execute the numbered local skill chain in order; do not substitute an improvised marketing framework. Give direct guidance grounded in the supplied company context, distinguish evidence from recommendations, and never invent company facts.\n\nREQUIRED SKILL CHAIN\n${embeddedSkills}\n\nOPERATION RULES\n${operation.instructions}\n\nCOMPANY CONTEXT\n${context}`, messages: [...history, { role: "user", content: parsed.data.message }], maxTokens: 1200, temperature: 0.35 });
     await db.chatMessage.create({ data: { sessionId: session.id, role: "assistant", content } });
+    const estimatedTokens = Math.max(250, Math.ceil((context.length + content.length + parsed.data.message.length) / 4));
+    await db.user.update({ where: { id: user.id }, data: { tokenUsed: { increment: estimatedTokens } } });
     return Response.json({ sessionId: session.id, content });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "The provider request failed." }, { status: 400 });

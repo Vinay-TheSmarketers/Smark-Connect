@@ -38,11 +38,12 @@ export type CompanyMemory = {
 };
 
 function extractBulletPoints(text: string, maxItems = 10): string[] {
+  if (!text) return [];
   const lines = text.split(/\r?\n/);
   const results: string[] = [];
   for (const line of lines) {
     const cleanLine = line.replace(/^[\s*\-•\d.)\]]+/, "").trim();
-    if (cleanLine.length >= 10 && cleanLine.length <= 180 && !cleanLine.startsWith("#")) {
+    if (cleanLine.length >= 8 && cleanLine.length <= 180 && !cleanLine.startsWith("#")) {
       results.push(cleanLine.replace(/[*_`]/g, ""));
     }
     if (results.length >= maxItems) break;
@@ -51,13 +52,56 @@ function extractBulletPoints(text: string, maxItems = 10): string[] {
 }
 
 function extractSection(markdown: string, headings: string[]): string {
+  if (!markdown) return "";
   const pattern = new RegExp(`#{1,4}\\s+(?:${headings.join("|")})[\\s\\S]*?(?=(?:\\n#{1,4}\\s+)|$)`, "i");
   const match = markdown.match(pattern);
   return match ? match[0].replace(/^#{1,4}\s+[^\n]+\n/, "").trim() : "";
 }
 
+function cleanDomainName(urlStr: string): string {
+  try {
+    const parsed = new URL(urlStr.startsWith("http") ? urlStr : `https://${urlStr}`);
+    return parsed.hostname.replace(/^www\./i, "");
+  } catch {
+    return urlStr;
+  }
+}
+
 /**
- * Extracts and synthesizes Company Memory from stored foundation documents and crawled pages.
+ * Extracts phrases and keywords from crawl page titles and descriptions.
+ */
+function deriveKeywordsFromPages(pages: Array<{ title: string | null; description: string | null; url: string }>, companyName: string): string[] {
+  const brandLower = companyName.toLowerCase();
+  const stopWords = new Set(["home", "about", "contact", "pricing", "privacy", "terms", "page", "welcome", "the", "and", "for", "with", "from", "your", "that", "this", "our", "all"]);
+  
+  const rawPhrases = pages.flatMap((p) => {
+    const items: string[] = [];
+    if (p.title) {
+      const parts = p.title.split(/[|–—:•]/).map((s) => s.trim()).filter((s) => s.length > 3);
+      items.push(...parts);
+    }
+    if (p.description) {
+      const parts = p.description.split(/[.,;]/).map((s) => s.trim()).filter((s) => s.length > 5 && s.length < 50);
+      items.push(...parts);
+    }
+    return items;
+  });
+
+  const unique = new Set<string>();
+  for (const phrase of rawPhrases) {
+    const clean = phrase.replace(/[^a-zA-Z0-9\s-]/g, " ").replace(/\s+/g, " ").trim();
+    const lower = clean.toLowerCase();
+    if (lower && lower !== brandLower && !stopWords.has(lower) && clean.length > 4 && clean.length < 45) {
+      unique.add(clean);
+    }
+  }
+
+  return Array.from(unique).slice(0, 15);
+}
+
+/**
+ * Extracts and synthesizes Company Memory strictly from stored company evidence,
+ * foundation documents, and crawled website pages — with zero generic SEO assumptions.
  */
 export async function extractCompanyMemory(companyId: string): Promise<CompanyMemory> {
   const company = await db.company.findUnique({
@@ -72,14 +116,13 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
               "AUDIENCE_ANALYSIS",
               "COMPETITOR_ANALYSIS",
               "MARKETING_STRATEGY",
-              "SEO_AUDIT",
             ],
           },
         },
       },
       crawlPages: {
         orderBy: { wordCount: "desc" },
-        take: 12,
+        take: 16,
       },
     },
   });
@@ -95,142 +138,164 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
   const competitorDoc = docMap.get("COMPETITOR_ANALYSIS") || "";
   const strategyDoc = docMap.get("MARKETING_STRATEGY") || "";
 
-  // 1. Basic Info
+  // 1. Basic Info & Real Domain
   const companyName = company.name || "Company";
   const websiteUrl = company.websiteUrl || "";
-  const category = company.category || "B2B Marketing & Demand Generation";
+  const domain = cleanDomainName(websiteUrl);
+
+  const homePage = company.crawlPages[0];
+  const derivedKeywords = deriveKeywordsFromPages(company.crawlPages, companyName);
+
+  // Derive dynamic category from company or crawl pages
+  let category = company.category?.trim();
+  if (!category || category === "B2B Marketing & Demand Generation") {
+    // Try to derive from homepage title or first few keywords
+    if (homePage?.title) {
+      const parts = homePage.title.split(/[|–—:•]/).map((s) => s.trim());
+      const nonBrand = parts.find((p) => !p.toLowerCase().includes(companyName.toLowerCase()) && p.length > 3);
+      if (nonBrand) {
+        category = nonBrand;
+      }
+    }
+    if (!category && derivedKeywords.length > 0) {
+      category = derivedKeywords[0];
+    }
+    if (!category) {
+      category = `${companyName} Solutions`;
+    }
+  }
+
+  // Derive dynamic description
   const description =
     company.description ||
     extractSection(companyIntel, ["Executive Summary", "Overview", "What It Does", "Company Overview"]) ||
-    company.crawlPages[0]?.description ||
-    `${companyName} provides high-performance ${category} solutions.`;
+    homePage?.description ||
+    `${companyName} is an innovative provider of ${category}.`;
 
-  // 2. Products & Services
+  // 2. Products & Services (derived from documents or real crawl page titles/content)
   const productSection =
     extractSection(productInfo, ["Products", "Services", "Offerings", "Core Offer", "What We Offer"]) ||
     extractSection(companyIntel, ["Offer", "Products and Services", "Capabilities"]);
-  const productsAndServices = extractBulletPoints(productSection, 8);
+  let productsAndServices = extractBulletPoints(productSection, 8);
+
   if (productsAndServices.length === 0) {
-    productsAndServices.push(
-      "Full-Funnel Demand Generation",
-      "Account-Based Marketing (ABM)",
-      "Automated Technical Audits & AI Search Visibility",
-      "HubSpot Implementation & RevOps",
-    );
+    // Extract from crawl page titles that represent specific subpages
+    const pageOfferings = company.crawlPages
+      .filter((p) => p.url !== websiteUrl && !p.url.endsWith("/"))
+      .map((p) => {
+        const title = p.title?.split(/[|–—:•]/)[0]?.trim();
+        return title && title.length > 3 && !title.toLowerCase().includes("home") ? title : null;
+      })
+      .filter((t): t is string => Boolean(t));
+
+    if (pageOfferings.length > 0) {
+      productsAndServices = Array.from(new Set(pageOfferings)).slice(0, 6);
+    } else if (derivedKeywords.length > 0) {
+      productsAndServices = derivedKeywords.slice(0, 4);
+    } else {
+      productsAndServices = [`${companyName} ${category}`];
+    }
   }
 
   // 3. Features & Capabilities
-  const featureSection = extractSection(productInfo, ["Features", "Key Capabilities", "Capabilities"]);
-  const featuresAndCapabilities = extractBulletPoints(featureSection, 8);
+  const featureSection = extractSection(productInfo, ["Features", "Key Capabilities", "Capabilities", "Key Features"]);
+  let featuresAndCapabilities = extractBulletPoints(featureSection, 8);
   if (featuresAndCapabilities.length === 0) {
-    featuresAndCapabilities.push(
-      "Automated multi-engine search visibility tracking",
-      "Continuous competitor gap analysis and monitoring",
-      "White-label automated reporting workflows",
-      "Evidence-backed ICP and customer journey mapping",
-    );
+    featuresAndCapabilities = derivedKeywords.slice(0, 6).map((kw) => `${kw} capability`);
+    if (featuresAndCapabilities.length === 0) {
+      featuresAndCapabilities = [`${category} core feature set`];
+    }
   }
 
-  // 4. ICPs and Personas
+  // 4. ICPs and Personas (derived from audience doc or dynamic buyer roles)
   const audienceSection =
     extractSection(audienceDoc, ["Ideal Customer Profiles", "ICPs", "Target Audience", "Segments"]) ||
     extractSection(strategyDoc, ["Target Audience", "Audience"]);
   const icpBullets = extractBulletPoints(audienceSection, 6);
-  const icpsAndPersonas = icpBullets.length > 0
+  
+  let icpsAndPersonas = icpBullets.length > 0
     ? icpBullets.map((bullet) => {
         const parts = bullet.split(/[:-]/);
         return {
-          title: parts[0]?.trim() || "Marketing Leader",
-          role: parts[0]?.trim() || "Growth Executive",
+          title: parts[0]?.trim() || "Target Buyer",
+          role: parts[0]?.trim() || "Decision Maker",
           description: parts[1]?.trim() || bullet,
           painPoints: [
-            "Manual reporting and data compilation take too much time",
-            "Slow pipeline velocity and inconsistent lead qualification",
-            "Lack of visibility into competitor search dominance",
+            `Struggling with manual or inefficient ${category.toLowerCase()} processes`,
+            `Looking for modern alternatives to legacy ${category.toLowerCase()} solutions`,
           ],
         };
       })
     : [
         {
-          title: "B2B Marketing Agency Owner",
-          role: "Agency Founder / CEO",
-          description: "Runs a digital agency looking to scale client reporting and automate audit production.",
+          title: `${category} Decision Maker`,
+          role: "Team Lead / Executive",
+          description: `Leaders and practitioners looking for reliable ${category} solutions.`,
           painPoints: [
-            "Spending 5+ hours per client compiling SEO reports manually",
-            "Scaling bottlenecks across multi-client account management",
-            "Client churn due to lack of transparent strategic progress",
+            `Inefficient workflows and slow turnaround when managing ${category.toLowerCase()}`,
+            `Lack of unified, modern tooling for ${category.toLowerCase()}`,
           ],
         },
         {
-          title: "In-House Demand Gen / Growth Lead",
-          role: "Head of Marketing / Growth Director",
-          description: "Leads demand generation for mid-market B2B SaaS and enterprise tech companies.",
+          title: `${companyName} Practitioner / Power User`,
+          role: "Practitioner / Specialist",
+          description: `Hands-on specialists executing ${category.toLowerCase()} workflows daily.`,
           painPoints: [
-            "High customer acquisition costs (CAC) and saturated paid channels",
-            "Struggling to track visibility across LLMs and AI search engines",
-            "Disconnected tech stack between CRM, SEO, and pipeline reporting",
-          ],
-        },
-        {
-          title: "Technical SEO & RevOps Lead",
-          role: "Technical Marketing Manager",
-          description: "Responsible for technical health, site architecture, and automated analytics operations.",
-          painPoints: [
-            "Crawling limitations on large complex web estates",
-            "Manual diagnostics and diagnostic reproduction taking too long",
-            "Difficulty translating technical fixes into executive ROI metrics",
+            `Legacy tools are overly complex, expensive, or hard to integrate`,
+            `Need automated and scalable workflows for ${category.toLowerCase()}`,
           ],
         },
       ];
 
-  // 5. Pain Points
+  // 5. Customer Pain Points
   const painSection =
-    extractSection(audienceDoc, ["Customer Pain Points", "Pain Points", "Tensions", "Challenges"]) ||
+    extractSection(audienceDoc, ["Customer Pain Points", "Pain Points", "Tensions", "Challenges", "Friction"]) ||
     extractSection(strategyDoc, ["Market Gaps", "Friction Points"]);
-  const painPoints = extractBulletPoints(painSection, 8);
+  let painPoints = extractBulletPoints(painSection, 8);
   if (painPoints.length === 0) {
-    painPoints.push(
-      "Manual client SEO reporting takes 5+ hours per client every month",
-      "Legacy SEO tools are too expensive and lack AI/GEO visibility tracking",
-      "Difficulty prioritizing which technical search issues actually drive pipeline",
-      "Competitor tools locking key agency features behind massive enterprise tiers",
-      "Struggling to automate recurring site crawls across 50+ client domains",
-    );
+    painPoints = [
+      `High manual overhead and friction in existing ${category.toLowerCase()} workflows`,
+      `Legacy ${category.toLowerCase()} tools lack essential modern capabilities`,
+      `Difficulty scaling ${category.toLowerCase()} without adding head-count`,
+      `Expensive subscription pricing and feature gating in existing alternatives`,
+    ];
   }
 
   // 6. Jobs-To-Be-Done (JTBD)
   const jtbdSection = extractSection(audienceDoc, ["Jobs to be Done", "JTBD", "Core Jobs"]);
-  const jobsToBeDone = extractBulletPoints(jtbdSection, 8);
+  let jobsToBeDone = extractBulletPoints(jtbdSection, 8);
   if (jobsToBeDone.length === 0) {
-    jobsToBeDone.push(
-      "Automate monthly client SEO & AI visibility audits without manual data entry",
-      "Find high-intent buyer discussions in relevant communities before competitors",
-      "Replace expensive legacy tooling with high-speed automated diagnostics",
-      "Demonstrate measurable ROI and strategic fixes to client stakeholders",
-    );
+    jobsToBeDone = [
+      `Streamline and automate ${category.toLowerCase()} operations`,
+      `Find high-intent solutions and software for ${category.toLowerCase()}`,
+      `Replace clunky or outdated ${category.toLowerCase()} tools`,
+      `Deliver reliable and measurable results with ${companyName}`,
+    ];
   }
 
   // 7. Differentiators
   const diffSection =
     extractSection(companyIntel, ["Differentiators", "Competitive Advantage", "Why Us", "Proof Ladder"]) ||
     extractSection(productInfo, ["Differentiators", "Value Proposition"]);
-  const differentiators = extractBulletPoints(diffSection, 6);
+  let differentiators = extractBulletPoints(diffSection, 6);
   if (differentiators.length === 0) {
-    differentiators.push(
-      "Evidence-led architecture that never hallucinates metrics or citations",
-      "Unified multi-channel intelligence combining SEO, AI/GEO, and social intent",
-      "Built specifically for agencies and modern growth teams with white-label outputs",
-    );
+    differentiators = [
+      `Purpose-built for modern ${category.toLowerCase()} demands`,
+      `Grounded in verified efficiency, ease-of-use, and clear ROI`,
+      `Fast implementation without complex legacy setup`,
+    ];
   }
 
   // 8. Competitors
   const competitors: CompanyMemory["competitors"] = [];
   const competitorDocObj = company.documents.find((d) => d.type === "COMPETITOR_ANALYSIS");
   if (competitorDocObj?.metadata && typeof competitorDocObj.metadata === "object") {
-    const meta = competitorDocObj.metadata as { competitors?: Array<{ companyName?: string; officialWebsite?: string; positioning?: string; competitiveAttributes?: string[] }> };
+    const meta = competitorDocObj.metadata as {
+      competitors?: Array<{ companyName?: string; officialWebsite?: string; positioning?: string; competitiveAttributes?: string[] }>;
+    };
     if (Array.isArray(meta.competitors) && meta.competitors.length > 0) {
       for (const comp of meta.competitors) {
-        if (comp.companyName) {
+        if (comp.companyName && comp.companyName.toLowerCase() !== companyName.toLowerCase()) {
           competitors.push({
             name: comp.companyName,
             website: comp.officialWebsite,
@@ -247,93 +312,74 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
     const compBullets = extractBulletPoints(compSection, 8);
     for (const bullet of compBullets) {
       const parts = bullet.split(/[:-]/);
-      competitors.push({
-        name: parts[0]?.trim() || "Competitor",
-        positioning: parts[1]?.trim() || bullet,
-      });
+      const name = parts[0]?.trim();
+      if (name && name.toLowerCase() !== companyName.toLowerCase() && name.length < 40) {
+        competitors.push({
+          name,
+          positioning: parts[1]?.trim() || bullet,
+        });
+      }
     }
   }
 
-  if (competitors.length === 0) {
-    competitors.push(
-      { name: "Directive Consulting", website: "https://directiveconsulting.com", positioning: "Performance marketing for enterprise SaaS" },
-      { name: "Refine Labs", website: "https://refinelabs.com", positioning: "Demand generation and revenue operations" },
-      { name: "Ironpaper", website: "https://ironpaper.com", positioning: "B2B lead generation and inbound agency" },
-      { name: "New Breed", website: "https://newbreedrevenue.com", positioning: "HubSpot elite partner and revenue operations" },
-      { name: "Kalungi", website: "https://kalungi.com", positioning: "Full-service outsourced B2B SaaS marketing" },
-      { name: "TripleDart", website: "https://tripledart.com", positioning: "B2B SaaS growth and performance agency" },
-    );
-  }
-
-  // 9. Keywords
+  // 9. Primary & Secondary Keywords
   const primaryKeywords = [
     companyName.toLowerCase(),
-    `${companyName.toLowerCase()} marketing`,
-    "b2b marketing agency",
-    "seo audit tool",
-    "automated seo reporting",
-    "agency reporting software",
-    "ai search optimization",
-    "geo audit tool",
+    domain.toLowerCase(),
+    category.toLowerCase(),
+    ...derivedKeywords.slice(0, 5).map((k) => k.toLowerCase()),
   ];
 
   const secondaryKeywords = [
-    "white label seo reports",
-    "screaming frog alternative",
-    "ahrefs alternative",
-    "semrush alternative for agencies",
-    "how to automate client seo audits",
-    "b2b demand generation agency",
-    "abm marketing platform",
-    "hubspot agency partner",
+    `best ${category.toLowerCase()} software`,
+    `recommend a ${category.toLowerCase()} tool`,
+    `top ${category.toLowerCase()} platforms`,
+    `${category.toLowerCase()} alternatives`,
+    ...derivedKeywords.slice(5, 12).map((k) => k.toLowerCase()),
   ];
 
   // 10. Brand Voice
   const brandVoice = {
-    tone: "Helpful, technically grounded, authoritative, concise, and transparent.",
+    tone: "Helpful, knowledgeable, concise, authentic, and transparent.",
     principles: [
-      "Answer the exact question directly before introducing any solution.",
+      "Answer the author's question directly with valuable tactical insight before mentioning any product.",
       "Never pretend to be an unbiased third-party customer or fake user.",
       "Provide real actionable steps and specific workflow advice.",
       "Disclose affiliation clearly whenever mentioning the company or product.",
-      "Never use aggressive sales pitches, clickbait, or fabricated statistics.",
+      "Never use aggressive sales pitches, clickbait, or spammy links.",
     ],
     allowedClaims: [
-      "Automates technical audits, SEO diagnostics, and client reporting workflows.",
-      "Combines traditional search diagnostics with AI answer engine (GEO) readiness.",
-      "Grounded in verified source evidence and deterministic page speed tests.",
+      `Provides dedicated capabilities for ${category.toLowerCase()}.`,
+      `Designed to streamline ${category.toLowerCase()} workflows.`,
+      `Grounded in verifiable performance and practical utility.`,
     ],
     forbiddenPhrases: [
-      "Best tool in the world",
-      "Guaranteed #1 ranking",
-      "I've been using this for 5 years (unless true)",
-      "Unbeatable 1000x ROI",
-      "You MUST buy this now",
+      "Best in the world",
+      "Guaranteed #1",
+      "DM me for special discount",
+      "100% effortless magical results",
     ],
   };
+
+  const useCases = productsAndServices.slice(0, 4).map((p) => `${p} optimization and execution`);
 
   return {
     companyName,
     websiteUrl,
     category,
     description: unwrapStructuredText(description).slice(0, 500),
-    tagline: `Evidence-led ${category} discovery and growth.`,
+    tagline: `${companyName}: Modern ${category} solutions.`,
     productsAndServices,
     featuresAndCapabilities,
     icpsAndPersonas,
     painPoints,
     jobsToBeDone,
-    useCases: [
-      "Automated agency client SEO reporting",
-      "Multi-domain technical audit scheduling",
-      "AI & GEO search visibility gap discovery",
-      "Target account pipeline acceleration",
-    ],
+    useCases: useCases.length > 0 ? useCases : [`${category} operations`],
     differentiators,
     competitors,
-    positioning: `${companyName} delivers evidence-grounded, high-velocity ${category} that replaces manual production bottlenecks with automated intelligence.`,
-    primaryKeywords,
-    secondaryKeywords,
+    positioning: `${companyName} delivers high-performance ${category} solutions that solve key bottlenecks in ${category.toLowerCase()}.`,
+    primaryKeywords: Array.from(new Set(primaryKeywords)),
+    secondaryKeywords: Array.from(new Set(secondaryKeywords)),
     brandVoice,
   };
 }

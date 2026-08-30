@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { CheckCircle2, Clock3, Download, FileSpreadsheet, FileText, Presentation, RefreshCw, ShieldCheck, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Clock3, Download, FileSpreadsheet, FileText, Lock, Presentation, RefreshCw, ShieldCheck, Sparkles, Unlock, X } from "lucide-react";
 import { unwrapStructuredText } from "@/lib/text-format";
 import { formatSkillName } from "@/lib/skills/format";
 import { resolveArtifactManifest } from "@/lib/artifacts/config";
@@ -19,6 +19,7 @@ export type WorkspaceDocument = {
   skillProvenance: unknown;
   tokenEstimate: number;
   version: number;
+  locked?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -133,9 +134,29 @@ export function DocumentWorkspace({ document, onClose, onUpdate }: { document: W
     if (pdfState === "idle" || pdfState === "error") void generatePdf(false);
   }
 
+  async function toggleLock() {
+    if (pending) return;
+    setPending(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: document.locked ? "unlock" : "lock" }),
+      });
+      const data = await response.json() as { document?: WorkspaceDocument; error?: string };
+      if (!response.ok || !data.document) throw new Error(data.error ?? "Failed to update lock status.");
+      onUpdate(data.document);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to update lock status.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function editDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending || prompt.trim().length < 3) return;
+    if (pending || document.locked || prompt.trim().length < 3) return;
     setPending(true);
     setError("");
     try {
@@ -157,6 +178,7 @@ export function DocumentWorkspace({ document, onClose, onUpdate }: { document: W
       <header className="document-toolbar">
         <div className="document-title"><span className="document-icon">{isCoreModule(document.type) ? <ModuleIcon type={document.type} size={16} /> : <FileText size={16} />}</span><span><strong>{document.title}</strong><small>Version {document.version} · {formatNumber(document.tokenEstimate)} tokens on last generation</small></span>{execution ? <em className="execution-badge verified"><ShieldCheck size={12} /> Verified skill run</em> : preparedDemo ? <em className="execution-badge demo">Prepared demo</em> : <em className="execution-badge legacy">Skill plan recorded</em>}</div>
         <div className="document-actions">
+          <button type="button" className={`lock-action ${document.locked ? "is-locked" : ""}`} onClick={toggleLock} title={document.locked ? "Unlock document to allow edits" : "Lock document to prevent edits"}>{document.locked ? <Lock size={14} /> : <Unlock size={14} />} {document.locked ? "Locked" : "Unlocked"}</button>
           <a href={`/api/documents/${document.id}/export?format=pptx`}><Presentation size={14} /> PPTX</a>
           {xlsxEnabled && <a className="spreadsheet-action" href={`/api/documents/${document.id}/export?format=xlsx`}><FileSpreadsheet size={14} /> XLSX</a>}
           <button className="generate-pdf-action" type="button" disabled={pdfState === "loading"} onClick={() => void generatePdf(true)}><Download size={14} /> {pdfState === "loading" ? "Preparing PDF" : "Generate PDF"}</button>
@@ -169,15 +191,23 @@ export function DocumentWorkspace({ document, onClose, onUpdate }: { document: W
       </div>
       <aside className="document-editor">
         <div className="skill-provenance"><span>Ordered skill chain</span><div>{skills.map((skill, index) => <em key={`${skill.repository}-${skill.skill}`} title={skill.reason}>{index + 1}. {formatSkillName(skill.skill)}</em>)}</div></div>
-        <form onSubmit={editDocument}>
-          <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Ask Smark Connect to strengthen a section, add evidence, change tone, or restructure this report…" rows={3} />
-          <div className="editor-controls">
-            <label className="focused-toggle" title="Sends only this document and the requested change to reduce token use"><input type="checkbox" checked={focused} onChange={(event) => setFocused(event.target.checked)} /><span /><strong>Focused edit</strong><small>~{formatNumber(estimatedEditTokens)} tokens</small></label>
-            <button type="submit" disabled={pending || prompt.trim().length < 3}>{pending ? <RefreshCw className="spin" size={14} /> : <Sparkles size={14} />}{pending ? "Editing…" : "Apply edit"}</button>
+        {document.locked ? (
+          <div className="document-locked-banner" style={{ padding: "16px", background: "var(--color-surface, #F9FAFB)", borderRadius: "8px", border: "1px solid var(--color-border, #E5E7EB)", textAlign: "center", margin: "12px 0" }}>
+            <Lock size={20} style={{ margin: "0 auto 8px", color: "var(--color-primary, #7C3AED)" }} />
+            <strong style={{ display: "block", fontSize: "12px" }}>This document is locked</strong>
+            <p style={{ margin: "4px 0 0", fontSize: "11px", color: "#6B7280" }}>Click &ldquo;Locked&rdquo; in the toolbar above to unlock before applying new AI edits.</p>
           </div>
-          {!focused && <p className="regenerate-warning">Full regeneration includes stored website evidence and uses more tokens.</p>}
-          {error && <p className="form-error" role="alert">{error}</p>}
-        </form>
+        ) : (
+          <form onSubmit={editDocument}>
+            <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Ask Smark Connect to strengthen a section, add evidence, change tone, or restructure this report…" rows={3} />
+            <div className="editor-controls">
+              <label className="focused-toggle" title="Sends only this document and the requested change to reduce token use"><input type="checkbox" checked={focused} onChange={(event) => setFocused(event.target.checked)} /><span /><strong>Focused edit</strong><small>~{formatNumber(estimatedEditTokens)} tokens</small></label>
+              <button type="submit" disabled={pending || prompt.trim().length < 3}>{pending ? <RefreshCw className="spin" size={14} /> : <Sparkles size={14} />}{pending ? "Editing…" : "Apply edit"}</button>
+            </div>
+            {!focused && <p className="regenerate-warning">Full regeneration includes stored website evidence and uses more tokens.</p>}
+            {error && <p className="form-error" role="alert">{error}</p>}
+          </form>
+        )}
       </aside>
     </section>
   </div>;

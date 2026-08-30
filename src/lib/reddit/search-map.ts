@@ -28,22 +28,67 @@ export type RedditOpportunitySearchMap = {
   allQueries: SearchMapQuery[];
 };
 
-export const DEFAULT_PRIORITY_SUBREDDITS = [
-  "r/SEO",
-  "r/marketing",
-  "r/agency",
-  "r/SaaS",
-  "r/webdev",
-  "r/bigseo",
-  "r/digitalmarketing",
-  "r/GrowthHacking",
-  "r/Entrepreneur",
-  "r/smallbusiness",
-];
+/**
+ * Dynamically infers relevant niche subreddits from the company's real profile, category, and keywords.
+ */
+export function inferPrioritySubreddits(memory: CompanyMemory, customSubreddits?: string[]): string[] {
+  const userSubs = (customSubreddits || []).map((s) => (s.startsWith("r/") ? s : `r/${s}`));
+  const textToScan = [
+    memory.companyName,
+    memory.category,
+    ...memory.productsAndServices,
+    ...memory.featuresAndCapabilities,
+    ...memory.primaryKeywords,
+    ...memory.secondaryKeywords,
+    ...memory.painPoints,
+  ].join(" ").toLowerCase();
+
+  const matchedSubs = new Set<string>();
+
+  // Domain-specific subreddit clusters
+  if (/developer|code|api|sdk|react|nextjs|javascript|python|software|backend|frontend|devops|cloud|hosting|server|infrastructure/i.test(textToScan)) {
+    ["r/webdev", "r/programming", "r/devops", "r/softwareengineering", "r/reactjs", "r/nextjs", "r/javascript", "r/cloud"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/ai|artificial intelligence|machine learning|llm|gpt|openai|rag|models|deep learning|nlp|agents/i.test(textToScan)) {
+    ["r/MachineLearning", "r/ArtificialInteligence", "r/LocalLLaMA", "r/OpenAI", "r/datascience", "r/ChatGPT"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/ecommerce|e-commerce|shopify|store|retail|dropship|amazon|fba|d2c|products|cart/i.test(textToScan)) {
+    ["r/ecommerce", "r/shopify", "r/dropship", "r/FulfillmentByAmazon", "r/smallbusiness"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/finance|fintech|accounting|payroll|invoice|payment|tax|banking|invest|crypto|wealth/i.test(textToScan)) {
+    ["r/Fintech", "r/personalfinance", "r/accounting", "r/investing", "r/smallbusiness"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/design|ui|ux|graphic|figma|creative|video|animation|branding/i.test(textToScan)) {
+    ["r/web_design", "r/UI_Design", "r/userexperience", "r/graphic_design", "r/frontend"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/security|cyber|cybersecurity|auth|privacy|compliance|hipaa|soc2|infosec|pentest/i.test(textToScan)) {
+    ["r/cybersecurity", "r/netsec", "r/sysadmin", "r/infosec", "r/ITManagers"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/health|medical|clinic|doctor|patient|ehr|wellness|telehealth|pharma/i.test(textToScan)) {
+    ["r/healthtech", "r/medicine", "r/digitalhealth", "r/healthcare"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/sales|crm|pipeline|deals|prospecting|b2b sales|cold email|lead gen|outreach/i.test(textToScan)) {
+    ["r/sales", "r/CRM", "r/salesforce", "r/b2b", "r/leadgeneration"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/seo|search engine|backlinks|keyword|organic traffic|rankings|technical seo|serp/i.test(textToScan)) {
+    ["r/SEO", "r/bigseo", "r/TechSEO", "r/digitalmarketing", "r/marketing"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/agency|marketing|growth|content|social media|advertising|ppc|copywriting/i.test(textToScan)) {
+    ["r/marketing", "r/agency", "r/digitalmarketing", "r/GrowthHacking", "r/PPC"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/hr|recruiting|hiring|talent|employees|payroll|staffing|job/i.test(textToScan)) {
+    ["r/humanresources", "r/recruiting", "r/jobs"].forEach((s) => matchedSubs.add(s));
+  }
+
+  // Always include high-velocity general business & SaaS subreddits
+  ["r/SaaS", "r/startups", "r/entrepreneur", "r/smallbusiness"].forEach((s) => matchedSubs.add(s));
+
+  return Array.from(new Set([...userSubs, ...Array.from(matchedSubs)])).slice(0, 16);
+}
 
 /**
  * Automatically generates and maintains the Reddit Opportunity Search Map
- * across all 7 required query families based on Company Memory and marketing skills.
+ * across all 7 required query families strictly tailored to Company Memory.
  */
 export function generateRedditSearchMap(
   memory: CompanyMemory,
@@ -51,49 +96,51 @@ export function generateRedditSearchMap(
   customKeywords?: string[]
 ): RedditOpportunitySearchMap {
   const compName = memory.companyName;
-  const category = memory.category || "SEO & Demand Gen";
+  const category = memory.category || `${compName} Solutions`;
+  const products = memory.productsAndServices.length > 0 ? memory.productsAndServices : [category];
+  const primaryProduct = products[0] || category;
+  const secondaryProduct = products[1] || products[0] || category;
+  const painPoints = memory.painPoints.length > 0 ? memory.painPoints : [`managing ${category.toLowerCase()}`];
+  const primaryPain = painPoints[0];
+  const jtbd = memory.jobsToBeDone.length > 0 ? memory.jobsToBeDone : [`automate ${category.toLowerCase()}`];
+  const primaryJtbd = jtbd[0];
   const competitors = memory.competitors.map((c) => c.name).filter(Boolean);
-  const primaryCompetitor = competitors[0] || "Screaming Frog";
-  const secondaryCompetitor = competitors[1] || "Semrush";
+  const primaryCompetitor = competitors[0];
+  const secondaryCompetitor = competitors[1] || competitors[0];
 
-  const subreddits = Array.from(
-    new Set([
-      ...(customSubreddits || []),
-      ...DEFAULT_PRIORITY_SUBREDDITS,
-    ])
-  ).slice(0, 20);
+  const subreddits = inferPrioritySubreddits(memory, customSubreddits);
 
   // 1. Direct Product/Category Searches
   const directProduct: SearchMapQuery[] = [
     {
       id: "dp-1",
-      query: `best SEO audit tool`,
+      query: `best ${category.toLowerCase()} tool`,
       family: "direct_product",
-      label: "Best SEO Audit Tool",
+      label: `Best ${category} Tool`,
       priority: "high",
       expectedIntent: "BUYING_INTENT",
     },
     {
       id: "dp-2",
-      query: `SEO audit software agency`,
+      query: `${primaryProduct.toLowerCase()} software`,
       family: "direct_product",
-      label: "SEO Audit Software for Agencies",
+      label: `${primaryProduct} Software`,
       priority: "high",
       expectedIntent: "BUYING_INTENT",
     },
     {
       id: "dp-3",
-      query: `automated client SEO reporting software`,
+      query: `top ${category.toLowerCase()} platform`,
       family: "direct_product",
-      label: "Automated SEO Reporting Software",
+      label: `Top ${category} Platform`,
       priority: "high",
       expectedIntent: "BUYING_INTENT",
     },
     {
       id: "dp-4",
-      query: `GEO AI search optimization tool`,
+      query: `automated ${secondaryProduct.toLowerCase()} solution`,
       family: "direct_product",
-      label: "GEO / AI Search Optimization Tool",
+      label: `Automated ${secondaryProduct} Solution`,
       priority: "medium",
       expectedIntent: "BUYING_INTENT",
     },
@@ -103,191 +150,261 @@ export function generateRedditSearchMap(
   const recommendationBuying: SearchMapQuery[] = [
     {
       id: "rb-1",
-      query: `recommend an SEO tool`,
+      query: `recommend a ${category.toLowerCase()} tool`,
       family: "recommendation_buying",
-      label: "Recommend an SEO Tool",
+      label: `Recommend a ${category} Tool`,
       priority: "high",
       expectedIntent: "RECOMMENDATION_REQUEST",
     },
     {
       id: "rb-2",
-      query: `what tool should I use for SEO audit`,
+      query: `what tool should I use for ${primaryProduct.toLowerCase()}`,
       family: "recommendation_buying",
-      label: "What Tool Should I Use",
+      label: `What Tool Should I Use for ${primaryProduct}`,
       priority: "high",
       expectedIntent: "RECOMMENDATION_REQUEST",
     },
     {
       id: "rb-3",
-      query: `looking for client reporting software agency`,
+      query: `looking for ${category.toLowerCase()} software`,
       family: "recommendation_buying",
-      label: "Looking For Reporting Software",
+      label: `Looking for ${category} Software`,
       priority: "high",
       expectedIntent: "BUYING_INTENT",
     },
     {
       id: "rb-4",
-      query: `best tool for website technical audit`,
+      query: `what's the best software for ${primaryProduct.toLowerCase()}`,
       family: "recommendation_buying",
-      label: "Best Tool for Website Audits",
+      label: `Best Software for ${primaryProduct}`,
       priority: "high",
       expectedIntent: "RECOMMENDATION_REQUEST",
     },
   ];
 
   // 3. Pain / Problem Searches
+  const cleanPain1 = primaryPain.replace(/^managing\s+/i, "").slice(0, 40);
+  const cleanPain2 = (painPoints[1] || primaryPain).replace(/^managing\s+/i, "").slice(0, 40);
+
   const painProblem: SearchMapQuery[] = [
     {
       id: "pp-1",
-      query: `SEO reporting takes too long`,
+      query: `${cleanPain1} takes too long`,
       family: "pain_problem",
-      label: "SEO Reporting Takes Too Long",
+      label: `${cleanPain1} Takes Too Long`,
       priority: "high",
       expectedIntent: "PAIN_POINT",
     },
     {
       id: "pp-2",
-      query: `how do I automate client SEO reports`,
+      query: `how do I automate ${primaryProduct.toLowerCase()}`,
       family: "pain_problem",
-      label: "Automate Client Reports",
+      label: `How Do I Automate ${primaryProduct}`,
       priority: "high",
       expectedIntent: "PAIN_POINT",
     },
     {
       id: "pp-3",
-      query: `spending hours building SEO reports`,
+      query: `struggling with ${cleanPain2}`,
       family: "pain_problem",
-      label: "Hours Building SEO Reports",
+      label: `Struggling With ${cleanPain2}`,
       priority: "medium",
       expectedIntent: "PAIN_POINT",
     },
     {
       id: "pp-4",
-      query: `struggling with site audit crawls`,
+      query: `how to solve ${category.toLowerCase()} bottleneck`,
       family: "pain_problem",
-      label: "Struggling With Crawl Limits",
+      label: `Solve ${category} Bottleneck`,
       priority: "medium",
       expectedIntent: "PAIN_POINT",
     },
   ];
 
   // 4. Competitor Searches
-  const competitorSearches: SearchMapQuery[] = [
-    {
-      id: "comp-1",
-      query: `${primaryCompetitor} alternative`,
-      family: "competitor",
-      label: `${primaryCompetitor} Alternative`,
-      priority: "high",
-      expectedIntent: "COMPETITOR_DISSATISFACTION",
-    },
-    {
-      id: "comp-2",
-      query: `${secondaryCompetitor} too expensive`,
-      family: "competitor",
-      label: `${secondaryCompetitor} Too Expensive`,
-      priority: "high",
-      expectedIntent: "COMPETITOR_DISSATISFACTION",
-    },
-    {
-      id: "comp-3",
-      query: `switching from ${primaryCompetitor}`,
-      family: "competitor",
-      label: `Switching From ${primaryCompetitor}`,
-      priority: "high",
-      expectedIntent: "COMPETITOR_DISSATISFACTION",
-    },
-    {
+  const competitorSearches: SearchMapQuery[] = [];
+  if (primaryCompetitor) {
+    competitorSearches.push(
+      {
+        id: "comp-1",
+        query: `${primaryCompetitor} alternative`,
+        family: "competitor",
+        label: `${primaryCompetitor} Alternative`,
+        priority: "high",
+        expectedIntent: "COMPETITOR_DISSATISFACTION",
+      },
+      {
+        id: "comp-2",
+        query: `${primaryCompetitor} too expensive`,
+        family: "competitor",
+        label: `${primaryCompetitor} Too Expensive`,
+        priority: "high",
+        expectedIntent: "COMPETITOR_DISSATISFACTION",
+      },
+      {
+        id: "comp-3",
+        query: `switching from ${primaryCompetitor}`,
+        family: "competitor",
+        label: `Switching From ${primaryCompetitor}`,
+        priority: "high",
+        expectedIntent: "COMPETITOR_DISSATISFACTION",
+      }
+    );
+  }
+  if (secondaryCompetitor && secondaryCompetitor !== primaryCompetitor) {
+    competitorSearches.push({
       id: "comp-4",
-      query: `best alternative to ${secondaryCompetitor}`,
+      query: `${secondaryCompetitor} alternative`,
       family: "competitor",
-      label: `Best Alternative to ${secondaryCompetitor}`,
-      priority: "medium",
+      label: `${secondaryCompetitor} Alternative`,
+      priority: "high",
       expectedIntent: "COMPETITOR_DISSATISFACTION",
-    },
-  ];
+    });
+  }
+  if (competitorSearches.length === 0) {
+    competitorSearches.push(
+      {
+        id: "comp-fallback-1",
+        query: `legacy ${category.toLowerCase()} alternatives`,
+        family: "competitor",
+        label: `Legacy ${category} Alternatives`,
+        priority: "high",
+        expectedIntent: "COMPETITOR_DISSATISFACTION",
+      },
+      {
+        id: "comp-fallback-2",
+        query: `replace outdated ${category.toLowerCase()} software`,
+        family: "competitor",
+        label: `Replace Outdated ${category} Software`,
+        priority: "medium",
+        expectedIntent: "COMPETITOR_DISSATISFACTION",
+      }
+    );
+  }
 
   // 5. Jobs-To-Be-Done (JTBD) Searches
-  const jtbdSearches: SearchMapQuery[] = [
+  const cleanJtbd = primaryJtbd.replace(/^[a-z]+\s+/i, "").slice(0, 45);
+  const jobsToBeDoneSearches: SearchMapQuery[] = [
     {
       id: "jtbd-1",
-      query: `how to audit 50 client websites`,
+      query: `how to ${cleanJtbd}`,
       family: "jobs_to_be_done",
-      label: "How to Audit 50 Client Websites",
+      label: `How to ${cleanJtbd}`,
       priority: "high",
-      expectedIntent: "HOW_TO_QUESTION",
+      expectedIntent: "JOB_TO_BE_DONE",
     },
     {
       id: "jtbd-2",
-      query: `how agencies automate reporting`,
+      query: `best way to manage ${primaryProduct.toLowerCase()}`,
       family: "jobs_to_be_done",
-      label: "How Agencies Automate Reporting",
+      label: `Best Way to Manage ${primaryProduct}`,
       priority: "high",
-      expectedIntent: "HOW_TO_QUESTION",
+      expectedIntent: "JOB_TO_BE_DONE",
     },
     {
       id: "jtbd-3",
-      query: `white label SEO client audit workflow`,
+      query: `how teams handle ${category.toLowerCase()} workflows`,
       family: "jobs_to_be_done",
-      label: "White-Label Client Audit Workflow",
+      label: `How Teams Handle ${category} Workflows`,
       priority: "medium",
-      expectedIntent: "HOW_TO_QUESTION",
+      expectedIntent: "JOB_TO_BE_DONE",
     },
   ];
 
   // 6. Comparison Searches
-  const comparisonSearches: SearchMapQuery[] = [
-    {
-      id: "cmp-1",
-      query: `${primaryCompetitor} vs ${secondaryCompetitor}`,
+  const comparisonSearches: SearchMapQuery[] = [];
+  if (primaryCompetitor && secondaryCompetitor && primaryCompetitor !== secondaryCompetitor) {
+    comparisonSearches.push(
+      {
+        id: "comp-comp-1",
+        query: `${primaryCompetitor} vs ${secondaryCompetitor}`,
+        family: "comparison",
+        label: `${primaryCompetitor} vs ${secondaryCompetitor}`,
+        priority: "high",
+        expectedIntent: "COMPARISON",
+      },
+      {
+        id: "comp-comp-2",
+        query: `${primaryCompetitor} vs other ${category.toLowerCase()} tools`,
+        family: "comparison",
+        label: `${primaryCompetitor} vs Alternatives`,
+        priority: "high",
+        expectedIntent: "COMPARISON",
+      }
+    );
+  } else if (primaryCompetitor) {
+    comparisonSearches.push({
+      id: "comp-comp-1",
+      query: `${primaryCompetitor} vs modern ${category.toLowerCase()} tools`,
       family: "comparison",
-      label: `${primaryCompetitor} vs ${secondaryCompetitor}`,
-      priority: "medium",
+      label: `${primaryCompetitor} vs Modern Tools`,
+      priority: "high",
       expectedIntent: "COMPARISON",
-    },
-    {
-      id: "cmp-2",
-      query: `Ahrefs vs Semrush agency reporting`,
-      family: "comparison",
-      label: "Ahrefs vs Semrush for Agency Reporting",
-      priority: "medium",
-      expectedIntent: "COMPARISON",
-    },
-  ];
+    });
+  } else {
+    comparisonSearches.push(
+      {
+        id: "comp-comp-1",
+        query: `${category.toLowerCase()} tools comparison`,
+        family: "comparison",
+        label: `${category} Tools Comparison`,
+        priority: "high",
+        expectedIntent: "COMPARISON",
+      },
+      {
+        id: "comp-comp-2",
+        query: `best alternatives for ${category.toLowerCase()}`,
+        family: "comparison",
+        label: `Best Alternatives for ${category}`,
+        priority: "high",
+        expectedIntent: "COMPARISON",
+      }
+    );
+  }
 
-  // 7. Broader ICP Discussions
-  const broaderIcp: SearchMapQuery[] = [
+  // 7. Broader ICP & Niche Debates
+  const icpRole = memory.icpsAndPersonas[0]?.role || `${category} Lead`;
+  const broaderIcpSearches: SearchMapQuery[] = [
     {
       id: "icp-1",
-      query: `SEO agency client retention reporting`,
+      query: `${icpRole.toLowerCase()} ${category.toLowerCase()} workflow`,
       family: "broader_icp",
-      label: "Agency Client Retention & Reporting",
+      label: `${icpRole} ${category} Workflow`,
       priority: "medium",
-      expectedIntent: "INDUSTRY_DISCUSSION",
-      targetSubreddits: ["r/agency", "r/marketing", "r/SEO"],
+      expectedIntent: "BROADER_ICP_DISCUSSION",
     },
     {
       id: "icp-2",
-      query: `B2B SaaS demand gen pipeline audit`,
+      query: `${category.toLowerCase()} best practices`,
       family: "broader_icp",
-      label: "B2B SaaS Pipeline & Audit Strategy",
+      label: `${category} Best Practices`,
       priority: "medium",
-      expectedIntent: "INDUSTRY_DISCUSSION",
-      targetSubreddits: ["r/SaaS", "r/GrowthHacking"],
+      expectedIntent: "BROADER_ICP_DISCUSSION",
+    },
+    {
+      id: "icp-3",
+      query: `how to scale ${primaryProduct.toLowerCase()}`,
+      family: "broader_icp",
+      label: `How to Scale ${primaryProduct}`,
+      priority: "medium",
+      expectedIntent: "BROADER_ICP_DISCUSSION",
     },
   ];
 
-  // Add custom keywords if provided
+  // Append any user custom keywords as direct high-priority queries
   if (customKeywords && customKeywords.length > 0) {
-    customKeywords.slice(0, 10).forEach((kw, idx) => {
-      directProduct.push({
-        id: `custom-kw-${idx + 1}`,
-        query: kw,
-        family: "direct_product",
-        label: `Custom: ${kw}`,
-        priority: "high",
-        expectedIntent: "BUYING_INTENT",
-      });
+    customKeywords.forEach((kw, idx) => {
+      const cleanKw = kw.trim();
+      if (cleanKw) {
+        directProduct.unshift({
+          id: `custom-kw-${idx}`,
+          query: cleanKw,
+          family: "direct_product",
+          label: `Custom: ${cleanKw}`,
+          priority: "high",
+          expectedIntent: "BUYING_INTENT",
+        });
+      }
     });
   }
 
@@ -296,20 +413,12 @@ export function generateRedditSearchMap(
     recommendation_buying: recommendationBuying,
     pain_problem: painProblem,
     competitor: competitorSearches,
-    jobs_to_be_done: jtbdSearches,
+    jobs_to_be_done: jobsToBeDoneSearches,
     comparison: comparisonSearches,
-    broader_icp: broaderIcp,
+    broader_icp: broaderIcpSearches,
   };
 
-  const allQueries = [
-    ...directProduct,
-    ...recommendationBuying,
-    ...painProblem,
-    ...competitorSearches,
-    ...jtbdSearches,
-    ...comparisonSearches,
-    ...broaderIcp,
-  ];
+  const allQueries = Object.values(queryFamilies).flat();
 
   return {
     companyName: compName,

@@ -82,6 +82,16 @@ export async function discoverCompanyLogo(websiteUrl: URL): Promise<string | nul
 }
 
 export async function fetchCompanyLogoAsset(logoUrl: string): Promise<{ body: ArrayBuffer; contentType: string } | null> {
+  if (logoUrl.startsWith("data:")) {
+    const match = logoUrl.match(/^data:([^;,]+)(;base64)?,(.*)$/);
+    if (!match) return null;
+    const contentType = match[1] || "image/png";
+    const isBase64 = Boolean(match[2]);
+    const rawData = match[3];
+    const buffer = isBase64 ? Buffer.from(rawData, "base64") : Buffer.from(decodeURIComponent(rawData), "utf8");
+    if (!buffer.byteLength || buffer.byteLength > MAX_LOGO_BYTES) return null;
+    return { body: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength), contentType };
+  }
   const response = await fetchPublicUrl(new URL(logoUrl), "image/avif,image/webp,image/svg+xml,image/*,*/*;q=0.5");
   const contentType = normalizedImageType(response);
   const declaredLength = Number(response.headers.get("content-length") ?? 0);

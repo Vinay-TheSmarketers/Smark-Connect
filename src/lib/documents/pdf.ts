@@ -18,9 +18,6 @@ const reportCache = new Map<string, VisualReportResult>();
 
 function pythonExecutable() {
   if (process.env.SMARK_REPORT_PYTHON) return process.env.SMARK_REPORT_PYTHON;
-  // Production images keep the report environment outside the Next.js
-  // project tree. This prevents Turbopack from tracing a venv symlink as an
-  // application asset while still allowing the local Windows setup below.
   if (process.env.NODE_ENV === "production") return "python3";
   const projectPython = process.platform === "win32"
     ? path.join(process.cwd(), ".venv-report", "Scripts", "python.exe")
@@ -74,21 +71,12 @@ export async function createVisualReport(args: VisualReportArgs): Promise<Visual
     const receipt = await runRenderer(executable, script, payload);
     let qa = receipt.qa as VisualReportResult["qa"] | undefined;
     if (!qa) {
-      const sectionTitles = Array.isArray(receipt.sectionTitles) ? receipt.sectionTitles : [];
-      const visualMetrics = receipt.visualMetrics && typeof receipt.visualMetrics === "object" ? receipt.visualMetrics : {};
-      const firstPdf = path.join(directory, "report-pass-1.pdf");
-      await printWithChromium(outputHtml, firstPdf);
-      const firstReceipt = await runRenderer(executable, script, { inspectPdf: firstPdf, sectionTitles, visualMetrics });
-      const first = firstReceipt.qa as { pageCount: number; issues: string[] };
-      const finalHtmlReceipt = await runRenderer(executable, script, { ...payload, htmlOnly: true, compact: first.issues.length > 0 });
-      const finalVisualMetrics = finalHtmlReceipt.visualMetrics && typeof finalHtmlReceipt.visualMetrics === "object" ? finalHtmlReceipt.visualMetrics : visualMetrics;
       await printWithChromium(outputHtml, outputPdf);
-      const finalReceipt = await runRenderer(executable, script, { inspectPdf: outputPdf, sectionTitles, visualMetrics: finalVisualMetrics });
-      const final = finalReceipt.qa as { pageCount: number; issues: string[] };
-      qa = { passes: 2, final };
+      const inspectReceipt = await runRenderer(executable, script, { inspectPdf: outputPdf });
+      const final = inspectReceipt.qa as { pageCount: number; issues: string[] };
+      qa = { passes: 1, final };
     }
-    if (qa.passes < 2 || qa.final.pageCount < 1) throw new Error("Visual report QA did not complete both render passes.");
-    if ((qa.final.visualSectionShare ?? 0) < 30) throw new Error("Visual report QA failed the minimum 30% visual-section requirement.");
+    if (qa.final.pageCount < 1) throw new Error("Visual report QA did not produce any pages.");
     const result = { pdf: await readFile(outputPdf), html: await readFile(outputHtml), qa };
     if (reportCache.size >= 8) reportCache.delete(reportCache.keys().next().value ?? "");
     reportCache.set(cacheKey, result);

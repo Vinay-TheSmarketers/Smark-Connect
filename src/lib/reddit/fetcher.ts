@@ -36,7 +36,7 @@ function tag(item: string, name: string): string {
 
 function extractSubredditFromUrl(url: string): string {
   const match = url.match(/reddit\.com\/r\/([^/]+)/i);
-  return match?.[1] ? `r/${match[1]}` : "r/SEO";
+  return match?.[1] ? `r/${match[1]}` : "r/SaaS";
 }
 
 function extractPostIdFromUrl(url: string): string {
@@ -205,7 +205,7 @@ async function searchRedditJson(queryObj: SearchMapQuery, subreddit?: string): P
       candidates.push({
         id: d.id || extractPostIdFromUrl(fullUrl),
         url: fullUrl,
-        subreddit: d.subreddit_name_prefixed || (subreddit ? `r/${subreddit.replace(/^r\//, "")}` : "r/SEO"),
+        subreddit: d.subreddit_name_prefixed || (subreddit ? `r/${subreddit.replace(/^r\//, "")}` : "r/SaaS"),
         title: d.title,
         excerpt: (d.selftext || d.title).slice(0, 700),
         author: d.author || "reddit_user",

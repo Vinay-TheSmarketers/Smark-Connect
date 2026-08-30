@@ -220,4 +220,69 @@ describe("Reddit Continuous Opportunity Discovery System", () => {
     expect(reportingCluster?.signals.length).toBe(2);
     expect(reportingCluster?.totalStrength).toBeGreaterThan(0.8);
   });
+
+  it("shifts 100% to company-specific niche (e.g. Shopify / Ecommerce) and avoids generic SEO", () => {
+    const ecommerceMemory: CompanyMemory = {
+      companyName: "InventorySync Pro",
+      websiteUrl: "https://inventorysyncpro.io",
+      category: "Shopify Multi-Channel Inventory Management",
+      description: "Real-time inventory synchronization across Shopify, Amazon, and eBay stores.",
+      tagline: "Automated e-commerce inventory sync",
+      productsAndServices: [
+        "Real-Time Shopify Inventory Sync",
+        "Multi-Store Warehouse Tracking",
+        "Automated Stock Level Alerts",
+      ],
+      featuresAndCapabilities: [
+        "Instant webhook updates",
+        "Zero overselling stock locks",
+      ],
+      icpsAndPersonas: [
+        {
+          title: "Multi-Store Shopify Merchant",
+          role: "Ecommerce Operations Director",
+          description: "Runs multiple 7-figure Shopify stores selling across channels.",
+          painPoints: ["Overselling stock when sales spike on TikTok and Shopify simultaneously"],
+        },
+      ],
+      painPoints: [
+        "Overselling stock across multiple Shopify stores",
+        "Manual CSV inventory updates take 10+ hours a week",
+      ],
+      jobsToBeDone: [
+        "Sync stock levels between Shopify and Amazon in under 3 seconds",
+      ],
+      useCases: ["Multi-store Shopify stock sync"],
+      differentiators: [
+        "Sub-second sync latency",
+        "Native Shopify POS integration",
+      ],
+      competitors: [
+        { name: "Stitch Labs", website: "https://stitchlabs.com" },
+        { name: "Sellbrite", website: "https://sellbrite.com" },
+      ],
+      positioning: "The fastest real-time inventory sync platform for high-volume Shopify merchants.",
+      primaryKeywords: ["shopify inventory sync", "multi store stock sync", "inventory management app"],
+      secondaryKeywords: ["stitch labs alternative", "sellbrite alternative"],
+      brandVoice: {
+        tone: "Practical, merchant-first, concise.",
+        principles: ["Direct answers", "Disclose affiliation clearly"],
+        allowedClaims: ["Sub-second sync"],
+        forbiddenPhrases: ["Best ever"],
+      },
+    };
+
+    const searchMap = generateRedditSearchMap(ecommerceMemory);
+
+    // Subreddits should reflect ecommerce & Shopify, NOT SEO
+    expect(searchMap.prioritySubreddits).toContain("r/shopify");
+    expect(searchMap.prioritySubreddits).toContain("r/ecommerce");
+
+    // All queries must be ecommerce-specific
+    const allQueryTexts = searchMap.allQueries.map((q) => q.query.toLowerCase()).join(" ");
+    expect(allQueryTexts).toContain("shopify");
+    expect(allQueryTexts).toContain("inventory");
+    expect(allQueryTexts).not.toContain("seo audit");
+    expect(allQueryTexts).not.toContain("screaming frog");
+  });
 });

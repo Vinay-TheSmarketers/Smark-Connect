@@ -19,9 +19,36 @@ def response_score(ttfb_ms: float, total_ms: float, transfer_bytes: int) -> int:
     return max(0, min(100, round(100 - ttfb_penalty - total_penalty - size_penalty)))
 
 
+import ipaddress
+import socket
+import urllib.parse
+
+
+class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urllib.parse.urlparse(newurl)
+        if parsed.scheme not in ("http", "https"):
+            raise urllib.error.HTTPError(newurl, code, "Invalid redirect scheme", headers, fp)
+        hostname = parsed.hostname
+        if not hostname:
+            raise urllib.error.HTTPError(newurl, code, "Invalid redirect host", headers, fp)
+        try:
+            addr_info = socket.getaddrinfo(hostname, None)
+            for _, _, _, _, sockaddr in addr_info:
+                ip = ipaddress.ip_address(sockaddr[0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    raise urllib.error.HTTPError(newurl, 403, "Redirect to private address forbidden", headers, fp)
+        except Exception as err:
+            if isinstance(err, urllib.error.HTTPError):
+                raise
+            raise urllib.error.HTTPError(newurl, code, f"DNS resolution failed: {err}", headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def run(payload: dict[str, object]) -> dict[str, object]:
     website_url = str(payload["websiteUrl"])
     strategy = str(payload.get("strategy", "desktop"))
+    opener = urllib.request.build_opener(SafeRedirectHandler)
     request = urllib.request.Request(
         website_url,
         headers={
@@ -33,7 +60,7 @@ def run(payload: dict[str, object]) -> dict[str, object]:
     )
     started = time.perf_counter()
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with opener.open(request, timeout=20) as response:
             headers_received = time.perf_counter()
             body = response.read(8_000_000)
             completed = time.perf_counter()

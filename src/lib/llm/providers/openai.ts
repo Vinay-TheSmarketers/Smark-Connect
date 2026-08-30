@@ -2,24 +2,31 @@ import type { CompletionParams, LLMProvider } from "../types";
 import { providerFetch } from "../shared";
 
 export const openAIProvider: LLMProvider = {
-  async validateKey(apiKey, model = process.env.SMARK_MODEL_OPENAI || "gpt-5.4-mini") {
+  async validateKey(apiKey, model = process.env.SMARK_MODEL_OPENAI || "gpt-4o-mini") {
     await this.complete({ apiKey, model, messages: [{ role: "user", content: "Reply with OK." }], maxTokens: 12 });
   },
   async complete(params: CompletionParams) {
-    const input = params.messages.map((message) => ({ role: message.role, content: [{ type: "input_text", text: message.content }] }));
-    const data = (await providerFetch("https://api.openai.com/v1/responses", {
+    const messages = [
+      ...(params.system ? [{ role: "system" as const, content: params.system }] : []),
+      ...params.messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+    ];
+    const body: Record<string, unknown> = {
+      model: params.model,
+      messages,
+      max_tokens: params.maxTokens,
+      temperature: params.temperature,
+    };
+    if (params.jsonSchema) {
+      body.response_format = {
+        type: "json_schema",
+        json_schema: { name: params.jsonSchema.name, schema: params.jsonSchema.schema, strict: true },
+      };
+    }
+    const data = (await providerFetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${params.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: params.model,
-        instructions: params.system,
-        input,
-        max_output_tokens: params.maxTokens,
-        temperature: params.temperature,
-        store: false,
-        text: params.jsonSchema ? { format: { type: "json_schema", name: params.jsonSchema.name, schema: params.jsonSchema.schema, strict: true } } : undefined,
-      }),
-    })) as { output_text?: string; output?: Array<{ content?: Array<{ type?: string; text?: string }> }> };
-    return data.output_text ?? data.output?.flatMap((item) => item.content ?? []).find((part) => part.type === "output_text")?.text ?? "";
+      body: JSON.stringify(body),
+    })) as { choices?: Array<{ message?: { content?: string } }> };
+    return data.choices?.[0]?.message?.content ?? "";
   },
 };

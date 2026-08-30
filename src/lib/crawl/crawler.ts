@@ -62,11 +62,21 @@ export async function crawlPage(url: URL): Promise<CrawledPage> {
   return { url: response.url || url.href, title, description, content, statusCode: response.status, wordCount: content ? content.split(/\s+/).length : 0, links };
 }
 
+function isSameApex(urlA: string, originB: string): boolean {
+  try {
+    const hostA = new URL(urlA).hostname.replace(/^www\./, "").toLowerCase();
+    const hostB = new URL(originB).hostname.replace(/^www\./, "").toLowerCase();
+    return hostA === hostB;
+  } catch {
+    return false;
+  }
+}
+
 function normalizedCandidate(href: string, origin: string): string | null {
   try {
     const url = new URL(href);
     url.hash = "";
-    if (url.origin !== origin || /\.(pdf|jpg|jpeg|png|gif|svg|webp|zip|mp4|mp3|xml)(?:$|\?)/i.test(url.href)) return null;
+    if (!isSameApex(url.href, origin) || /\.(pdf|jpg|jpeg|png|gif|svg|webp|zip|mp4|mp3|xml)(?:$|\?)/i.test(url.href)) return null;
     if (excludedHints.some((hint) => url.pathname.toLowerCase().includes(hint))) return null;
     return url.href.replace(/\/$/, "") || `${origin}/`;
   } catch {
@@ -91,7 +101,7 @@ async function discoverSitemapUrls(origin: string): Promise<string[]> {
     const pageLocations = locations.filter((value) => !/\.xml(?:$|\?)/i.test(value));
     const nestedResults = await Promise.allSettled(nested.map(async (value) => {
       const nestedUrl = new URL(value, origin);
-      if (nestedUrl.origin !== origin) return [];
+      if (!isSameApex(nestedUrl.href, origin)) return [];
       const nestedResponse = await fetchWithSafeRedirects(nestedUrl);
       if (!nestedResponse.ok) return [];
       const nestedXml = (await nestedResponse.text()).slice(0, 4_000_000);
@@ -104,9 +114,48 @@ async function discoverSitemapUrls(origin: string): Promise<string[]> {
   }
 }
 
+async function renderPageWithBrowser(url: URL): Promise<CrawledPage | null> {
+  try {
+    const { Launcher } = await import("chrome-launcher");
+    const puppeteer = (await import("puppeteer-core")).default;
+    const executable = process.env.PUPPETEER_EXECUTABLE_PATH ?? process.env.CHROME_PATH ?? Launcher.getInstallations()[0];
+    if (!executable) return null;
+    const browser = await puppeteer.launch({
+      executablePath: executable,
+      headless: true,
+      args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"],
+    });
+    try {
+      const page = await browser.newPage();
+      await page.setUserAgent("SmarkConnectAuditBot/1.0 (+https://smarkconnect.local)");
+      await page.goto(url.href, { waitUntil: "networkidle2", timeout: 20_000 });
+      const html = await page.content();
+      const $ = load(html);
+      const links = $("a[href]").map((_, element) => {
+        try { return new URL($(element).attr("href")!, url.href).href; } catch { return null; }
+      }).get().filter((link): link is string => Boolean(link));
+      $("script, style, noscript, svg, canvas, iframe, template, nav, footer").remove();
+      const title = $("title").first().text().replace(/\s+/g, " ").trim();
+      const description = $('meta[name="description"]').attr("content")?.replace(/\s+/g, " ").trim() ?? "";
+      const root = $("main").first().length ? $("main").first() : $("body").first();
+      const content = root.text().replace(/\s+/g, " ").trim().slice(0, 30_000);
+      return { url: url.href, title, description, content, statusCode: 200, wordCount: content ? content.split(/\s+/).length : 0, links };
+    } finally {
+      await browser.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
 export async function crawlWebsite(input: URL, maxPages = 48, onProgress?: (pagesRead: number, target: number) => Promise<void>): Promise<CrawledPage[]> {
-  const home = await crawlPage(input);
-  if (home.wordCount < 25) throw new Error("The homepage did not contain enough readable text. This site may require browser rendering.");
+  let home = await crawlPage(input);
+  if (home.wordCount < 25) {
+    const rendered = await renderPageWithBrowser(input);
+    if (rendered && rendered.wordCount >= 20) {
+      home = rendered;
+    }
+  }
   const origin = new URL(home.url).origin;
   const results: CrawledPage[] = [home];
   const seen = new Set<string>([normalizedCandidate(home.url, origin) ?? home.url]);
@@ -131,7 +180,7 @@ export async function crawlWebsite(input: URL, maxPages = 48, onProgress?: (page
     batch.forEach((href) => { queued.delete(href); seen.add(href); });
     const settled = await Promise.allSettled(batch.map((href) => crawlPage(new URL(href))));
     for (const result of settled) {
-      if (result.status !== "fulfilled" || result.value.wordCount < 20) continue;
+      if (result.status !== "fulfilled" || result.value.wordCount < 10) continue;
       results.push(result.value);
       enqueue(result.value.links);
     }
