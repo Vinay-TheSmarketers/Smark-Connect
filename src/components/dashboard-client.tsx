@@ -11,6 +11,7 @@ import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { formatSkillName } from "@/lib/skills/format";
 import { evaluateLinkedInOpportunity, evaluateRedditCandidate, evaluateXOpportunity, scoreOpportunity, type RedditActionFeedOpportunity } from "@/lib/signals/store";
 import { RedditOpportunityFeed } from "./reddit-opportunity-feed";
+import { CompetitorAgentViewer } from "./competitor-agent-viewer";
 import { Brand } from "./brand";
 import { DocumentWorkspace, type WorkspaceDocument } from "./document-workspace";
 import { LogoutButton } from "./logout-button";
@@ -1069,9 +1070,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     );
                   })
                 ) : type === "COMPETITOR" ? (
-                  items.map((item, index) => (
-                    <CompetitorFindingCard key={`${item.companyName || item.title}-${index}`} item={item} />
-                  ))
+                  <CompetitorAgentViewer
+                    companyId={data.company.id}
+                    companyName={data.company.name}
+                    websiteUrl={data.company.websiteUrl}
+                    onRefreshParent={() => runAgent("COMPETITOR")}
+                  />
                 ) : (
                   items.map((item, index) => (
                     <GenericAgentFindingCard
