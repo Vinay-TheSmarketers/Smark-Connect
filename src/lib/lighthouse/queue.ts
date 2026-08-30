@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { runLighthouseAudit } from "./engine";
+import { pageSpeedConfigured, runPageSpeedAudit } from "./pagespeed";
 import { LighthouseAuditError } from "./types";
 import { LIGHTHOUSE_CACHE_TTL_MS } from "./policy";
 import { runWithAuditTimeout } from "./runtime";
@@ -10,6 +11,17 @@ type QueueState = { pending: string[]; running: boolean };
 const globalQueue = globalThis as unknown as { smarkLighthouseQueue?: QueueState };
 const state = globalQueue.smarkLighthouseQueue ?? { pending: [], running: false };
 globalQueue.smarkLighthouseQueue = state;
+
+function configuredProvider() {
+  const requested = process.env.SPEED_AUDIT_PROVIDER?.trim().toLowerCase();
+  if (requested === "lighthouse" || requested === "pagespeed") return requested;
+  return pageSpeedConfigured() ? "pagespeed" : "lighthouse";
+}
+
+async function runConfiguredAudit(url: string, strategy: "mobile" | "desktop", signal: AbortSignal) {
+  if (configuredProvider() === "pagespeed") return runPageSpeedAudit(url, strategy, signal);
+  return runLighthouseAudit(url, strategy, signal);
+}
 
 export function lighthouseQueueDepth() {
   return state.pending.length + (state.running ? 1 : 0);
@@ -25,7 +37,7 @@ async function executeJob(jobId: string) {
     if (!claimed.count) return;
     const job = await db.lighthouseAuditJob.findUnique({ where: { id: jobId } });
     if (!job) return;
-    const report = await runWithAuditTimeout((signal) => runLighthouseAudit(job.normalizedUrl, job.strategy === "desktop" ? "desktop" : "mobile", signal));
+    const report = await runWithAuditTimeout((signal) => runConfiguredAudit(job.normalizedUrl, job.strategy === "desktop" ? "desktop" : "mobile", signal));
     const completedAt = new Date();
     await db.lighthouseAuditJob.update({ where: { id: jobId }, data: { status: "COMPLETED", result: report, completedAt, expiresAt: new Date(completedAt.getTime() + LIGHTHOUSE_CACHE_TTL_MS) } });
   } catch (error) {

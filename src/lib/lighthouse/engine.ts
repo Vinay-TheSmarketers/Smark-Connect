@@ -55,6 +55,7 @@ export function parseLighthouseResult(lhr: Lhr, strategy: LighthouseStrategy): L
     strategy,
     fetchedAt: lhr.fetchTime,
     lighthouseVersion: lhr.lighthouseVersion,
+    provider: "lighthouse",
     scores: {
       performance: percentage(lhr.categories.performance?.score),
       accessibility: percentage(lhr.categories.accessibility?.score),

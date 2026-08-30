@@ -1,4 +1,5 @@
 export type LighthouseStrategy = "mobile" | "desktop";
+export type LighthouseProvider = "lighthouse" | "pagespeed";
 
 export type LighthouseMetric = {
   value: number | null;
@@ -21,6 +22,7 @@ export type LighthouseReport = {
   strategy: LighthouseStrategy;
   fetchedAt: string;
   lighthouseVersion: string;
+  provider?: LighthouseProvider;
   scores: {
     performance: number | null;
     accessibility: number | null;

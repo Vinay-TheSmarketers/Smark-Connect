@@ -667,7 +667,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             {lighthouse.report && <>
               <div className="pagespeed-scores-section">
                 <div className="section-title-row">
-                  <div><strong>PageSpeed Scores</strong><small>Lighthouse scores from live browser lab run</small></div>
+                  <div><strong>{lighthouse.report.provider === "pagespeed" ? "PageSpeed Insights Scores" : "Lighthouse Scores"}</strong><small>{lighthouse.report.provider === "pagespeed" ? "Google-hosted Lighthouse lab measurements" : "Self-hosted Lighthouse lab measurements"}</small></div>
                   <span className="audit-date">Audited: {new Date(lighthouse.report.fetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
                 <div className="gauges-row">
