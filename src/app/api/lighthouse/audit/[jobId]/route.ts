@@ -17,6 +17,20 @@ export async function GET(_request: Request, context: { params: Promise<{ jobId:
     throw error;
   }
   if (!job) return Response.json({ error: "Lighthouse audit job not found.", code: "NOT_FOUND" }, { status: 404 });
+  if ((job.status === "QUEUED" || job.status === "RUNNING") && job.createdAt) {
+    const ageMs = Date.now() - job.createdAt.getTime();
+    if (ageMs > 180_000) {
+      job = await db.lighthouseAuditJob.update({
+        where: { id: jobId },
+        data: {
+          status: "FAILED",
+          errorCode: "TIMEOUT",
+          errorMessage: "The audit timed out or the server restarted before completion.",
+          completedAt: new Date(),
+        },
+      });
+    }
+  }
   return Response.json({
     jobId: job.id,
     url: job.normalizedUrl,

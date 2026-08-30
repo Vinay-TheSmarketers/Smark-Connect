@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireApiUser } from "@/lib/auth-helpers";
@@ -32,13 +33,14 @@ export async function POST(request: Request) {
   try {
     const normalizedUrl = await normalizeAuditTarget(parsed.data.url);
     const cacheKey = lighthouseCacheKey(normalizedUrl, parsed.data.strategy);
-    const active = await db.lighthouseAuditJob.findFirst({
-      where: { userId: user.id, cacheKey, status: { in: ["QUEUED", "RUNNING"] } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (active && isActiveDuplicate(active)) return Response.json({ jobId: active.id, status: active.status.toLowerCase(), duplicate: true }, { status: 202 });
 
     if (!parsed.data.fresh) {
+      const active = await db.lighthouseAuditJob.findFirst({
+        where: { userId: user.id, cacheKey, status: { in: ["QUEUED", "RUNNING"] } },
+        orderBy: { createdAt: "desc" },
+      });
+      if (active && isActiveDuplicate(active)) return Response.json({ jobId: active.id, status: active.status.toLowerCase(), duplicate: true }, { status: 202 });
+
       const cached = await db.lighthouseAuditJob.findFirst({
         where: { userId: user.id, cacheKey, status: "COMPLETED", expiresAt: { gt: new Date() }, result: { not: Prisma.JsonNull } },
         orderBy: { completedAt: "desc" },
@@ -58,6 +60,11 @@ export async function POST(request: Request) {
         } });
         return Response.json({ jobId: clone.id, status: "completed", cached: true });
       }
+    } else {
+      await db.lighthouseAuditJob.updateMany({
+        where: { userId: user.id, cacheKey, status: { in: ["QUEUED", "RUNNING"] } },
+        data: { status: "FAILED", errorCode: "SUPERSEDED", errorMessage: "Superseded by a fresh audit request.", completedAt: new Date() },
+      });
     }
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -68,6 +75,9 @@ export async function POST(request: Request) {
 
     const job = await db.lighthouseAuditJob.create({ data: { userId: user.id, normalizedUrl: normalizedUrl.href, strategy: parsed.data.strategy, cacheKey } });
     enqueueLighthouseJob(job.id);
+    after(() => {
+      enqueueLighthouseJob(job.id);
+    });
     return Response.json({ jobId: job.id, status: "queued", cached: false }, { status: 202 });
   } catch (error) {
     if (isLighthouseStorageMissing(error)) return Response.json({ error: LIGHTHOUSE_STORAGE_MESSAGE, code: "STORAGE_UNAVAILABLE" }, { status: 503 });

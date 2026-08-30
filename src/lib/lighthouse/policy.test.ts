@@ -13,8 +13,10 @@ describe("Lighthouse cache and duplicate policy", () => {
   });
 
   it("recognizes queued and running duplicate jobs", () => {
-    expect(isActiveDuplicate({ status: "QUEUED" })).toBe(true);
-    expect(isActiveDuplicate({ status: "RUNNING" })).toBe(true);
-    expect(isActiveDuplicate({ status: "FAILED" })).toBe(false);
+    expect(isActiveDuplicate({ status: "QUEUED", createdAt: now }, now)).toBe(true);
+    expect(isActiveDuplicate({ status: "RUNNING", createdAt: now }, now)).toBe(true);
+    expect(isActiveDuplicate({ status: "FAILED" }, now)).toBe(false);
+    expect(isActiveDuplicate({ status: "RUNNING", createdAt: new Date(now.getTime() - 200_000) }, now)).toBe(false);
   });
 });
+
