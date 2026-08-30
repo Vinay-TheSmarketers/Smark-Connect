@@ -20,18 +20,22 @@ export function canAcceptLighthouseJob() {
 }
 
 async function executeJob(jobId: string) {
-  const claimed = await db.lighthouseAuditJob.updateMany({ where: { id: jobId, status: "QUEUED" }, data: { status: "RUNNING", startedAt: new Date(), errorCode: null, errorMessage: null } });
-  if (!claimed.count) return;
-  const job = await db.lighthouseAuditJob.findUnique({ where: { id: jobId } });
-  if (!job) return;
   try {
+    const claimed = await db.lighthouseAuditJob.updateMany({ where: { id: jobId, status: "QUEUED" }, data: { status: "RUNNING", startedAt: new Date(), errorCode: null, errorMessage: null } });
+    if (!claimed.count) return;
+    const job = await db.lighthouseAuditJob.findUnique({ where: { id: jobId } });
+    if (!job) return;
     const report = await runWithAuditTimeout((signal) => runLighthouseAudit(job.normalizedUrl, job.strategy === "desktop" ? "desktop" : "mobile", signal));
     const completedAt = new Date();
     await db.lighthouseAuditJob.update({ where: { id: jobId }, data: { status: "COMPLETED", result: report, completedAt, expiresAt: new Date(completedAt.getTime() + LIGHTHOUSE_CACHE_TTL_MS) } });
   } catch (error) {
     const auditError = error instanceof LighthouseAuditError ? error : new LighthouseAuditError("AUDIT_FAILED", error instanceof Error ? error.message : "Lighthouse could not complete the audit.");
     console.error("Lighthouse audit failed", { jobId, code: auditError.code });
-    await db.lighthouseAuditJob.update({ where: { id: jobId }, data: { status: "FAILED", errorCode: auditError.code, errorMessage: auditError.message, completedAt: new Date() } });
+    try {
+      await db.lighthouseAuditJob.update({ where: { id: jobId }, data: { status: "FAILED", errorCode: auditError.code, errorMessage: auditError.message, completedAt: new Date() } });
+    } catch (persistError) {
+      console.error("Lighthouse audit failure could not be persisted", { jobId, error: persistError instanceof Error ? persistError.message : String(persistError) });
+    }
   }
 }
 

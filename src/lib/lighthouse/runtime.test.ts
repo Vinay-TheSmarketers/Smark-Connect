@@ -18,4 +18,14 @@ describe("Lighthouse overall timeout", () => {
     expect(observedAbort).toBe(true);
     vi.useRealTimers();
   });
+
+  it("rejects even when the underlying browser operation ignores abort", async () => {
+    vi.useFakeTimers();
+    const audit = runWithAuditTimeout(() => new Promise<never>(() => undefined), 25);
+    const rejection = expect(audit).rejects.toMatchObject({ code: "TIMEOUT" });
+
+    await vi.advanceTimersByTimeAsync(25);
+    await rejection;
+    vi.useRealTimers();
+  });
 });

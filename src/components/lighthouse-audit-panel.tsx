@@ -16,6 +16,10 @@ type JobResponse = {
   completedAt?: string | null;
 };
 
+const POLL_INTERVAL_MS = 2_000;
+const POLL_MAX_DURATION_MS = 195_000;
+const POLL_REQUEST_TIMEOUT_MS = 15_000;
+
 function scoreClass(score: number | null) {
   return score === null ? "muted" : score >= 90 ? "good" : score >= 50 ? "warn" : "bad";
 }
@@ -61,8 +65,22 @@ export function useLighthouseAudit(defaultUrl: string) {
   const auditRunning = useRef(false);
 
   const poll = useCallback(async (nextJobId: string) => {
+    const startedPollingAt = Date.now();
     while (mounted.current) {
-      const response = await fetch(`/api/lighthouse/audit/${nextJobId}`, { cache: "no-store" });
+      if (Date.now() - startedPollingAt >= POLL_MAX_DURATION_MS) {
+        throw new Error("The audit worker did not finish within 195 seconds. Try again to start a fresh audit.");
+      }
+      const requestController = new AbortController();
+      const requestTimeout = window.setTimeout(() => requestController.abort(), POLL_REQUEST_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(`/api/lighthouse/audit/${nextJobId}`, { cache: "no-store", signal: requestController.signal });
+      } catch (cause) {
+        if (cause instanceof DOMException && cause.name === "AbortError") throw new Error("The audit status request timed out. Try again.");
+        throw cause;
+      } finally {
+        window.clearTimeout(requestTimeout);
+      }
       const data = await response.json() as JobResponse;
       if (!response.ok) throw new Error(data.error ?? "The audit status could not be loaded.");
       if (!mounted.current) return;
@@ -74,7 +92,7 @@ export function useLighthouseAudit(defaultUrl: string) {
         setError(userFacingErrors[data.code ?? ""] ?? data.error ?? "Lighthouse could not complete this audit.");
         return;
       }
-      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, POLL_INTERVAL_MS));
     }
   }, []);
 
