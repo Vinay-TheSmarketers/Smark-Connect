@@ -114,9 +114,18 @@ export function createCompanyContext(source: CompanyBriefSource): CompanyContext
   const markdown = source.intelligenceMarkdown?.trim() || "";
   const sections = markdown ? markdownSections(markdown) : [];
   const pages = [...(source.crawlPages ?? [])].sort((left, right) => pagePriority(left) - pagePriority(right));
-  const overviewSection = sections.find((section) => /executive|company overview|business overview|company intelligence|brand foundation|what .* does/i.test(section.heading));
-  const overviewCandidates = [description, overviewSection?.body || "", ...pages.map(pageCopy)];
-  let overview = overviewCandidates.find(useful) || "";
+  const overviewSection = sections.find((section) => /executive|company overview|business overview|company intelligence|brand foundation|what .* does|brand profile|product marketing/i.test(section.heading));
+  const valuePropSection = sections.find((s) => /value proposition|differentiator|positioning|core offer/i.test(s.heading));
+
+  let overview = "";
+  if (overviewSection?.body && useful(overviewSection.body)) {
+    overview = overviewSection.body;
+  } else if (description && useful(description)) {
+    overview = description;
+  } else {
+    const pageCandidates = pages.map(pageCopy).filter(useful);
+    overview = pageCandidates[0] || "";
+  }
 
   if (!overview) {
     const name = clean(source.name) || "The company";
@@ -124,26 +133,30 @@ export function createCompanyContext(source: CompanyBriefSource): CompanyContext
     const audience = clean(source.targetAudience);
     const market = clean(source.geographicMarket);
     const facts = [
-      offering ? `${name} offers ${offering}` : "",
-      audience ? `It serves ${audience}` : "",
-      market ? `Its stated market is ${market}` : "",
+      offering ? `${name} specializes in ${offering}` : "",
+      audience ? `serving ${audience}` : "",
+      market ? `across ${market}` : "",
     ].filter(Boolean);
-    overview = facts.length ? facts.join(". ") : FALLBACK;
+    overview = facts.length ? `${facts.join(" ")}.` : FALLBACK;
   }
 
-  // Enrich with value proposition and audience details for a comprehensive strategic brief
-  const overviewParts: string[] = [overview];
-  const valuePropSection = sections.find((s) => /value proposition|differentiator|why us|what .* does|positioning/i.test(s.heading));
-  if (valuePropSection?.body && !overview.toLowerCase().includes(valuePropSection.body.slice(0, 40).toLowerCase())) {
-    overviewParts.push(valuePropSection.body.slice(0, 350));
-  }
-  const audienceSection = sections.find((s) => /target audience|ideal customer|icp|who we serve|customers/i.test(s.heading));
-  if (audienceSection?.body && !overview.toLowerCase().includes(audienceSection.body.slice(0, 40).toLowerCase())) {
-    overviewParts.push(`Target Market & ICP: ${audienceSection.body.slice(0, 260)}`);
+  // Ensure it flows as a single, well-crafted paragraph without markdown headings or section labels
+  overview = overview
+    .replace(/^#+\s*.*$/gm, "")
+    .replace(/^[-*•]\s*/gm, "")
+    .replace(/\r?\n+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // If the paragraph is very short, naturally append the value prop or audience in fluid prose
+  if (overview.length < 240 && valuePropSection?.body) {
+    const cleanProp = valuePropSection.body.replace(/^#+\s*.*$/gm, "").replace(/^[-*•]\s*/gm, "").replace(/\r?\n+/g, " ").replace(/\s+/g, " ").trim();
+    if (cleanProp && !overview.toLowerCase().includes(cleanProp.slice(0, 30).toLowerCase())) {
+      overview = `${overview} ${cleanProp}`;
+    }
   }
 
-  overview = overviewParts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-  overview = concise(overview, 1100);
+  overview = concise(overview, 520);
 
   const signals: CompanyContextSignal[] = [];
   const seenLabels = new Set<string>();

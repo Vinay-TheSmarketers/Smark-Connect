@@ -31,7 +31,7 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
   const latestAgents = Array.from(new Map(company.agentRuns.map((run) => [run.agentType, run])).values());
   const companyContext = createCompanyContext({ ...company, intelligenceMarkdown: company.documents.find((document) => document.type === "COMPANY_INTELLIGENCE")?.contentMarkdown, crawlPages: company.crawlPages });
   return <DashboardClient data={{
-    company: { id: company.id, name: company.name, websiteUrl: company.websiteUrl, logoUrl: company.logoUrl, category: company.category, companyContext, lastAuditedAt: company.lastAuditedAt?.toISOString() ?? null },
+    company: { id: company.id, name: company.name, websiteUrl: company.websiteUrl, logoUrl: company.logoUrl, category: company.category, description: company.description, companyContext, lastAuditedAt: company.lastAuditedAt?.toISOString() ?? null },
     companies,
     user: { name: user.name, email: user.email, llmProvider: user.llmProvider, llmKeyPreview: user.llmKeyPreview, demoMode: user.demoMode, tokenBudget: user.tokenBudget, tokenUsed: user.tokenUsed },
     documents: company.documents.map((document) => ({ ...document, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() })),
@@ -39,6 +39,7 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
     integrations: company.integrations.map((integration) => ({ provider: integration.provider, status: integration.status, connectedAt: integration.connectedAt?.toISOString() ?? null })),
     agentConfigs: company.agentConfigs.map((config) => ({ agentType: config.agentType, config: config.config })),
     pagesRead: company._count.crawlPages,
+    crawlPages: company.crawlPages,
     analysis: company.auditJobs[0] ? { jobId: company.auditJobs[0].id, status: company.auditJobs[0].status, progress: company.auditJobs[0].progress, step: company.auditJobs[0].step } : null,
   }} />;
 }

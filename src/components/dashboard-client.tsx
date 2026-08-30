@@ -18,17 +18,20 @@ import { LogoutButton } from "./logout-button";
 import { ModuleIcon, isCoreModule } from "./module-icon";
 import { AuditSkeleton, LighthouseAuditPanel, useLighthouseAudit } from "./lighthouse-audit-panel";
 import { AnalyticsGeoView } from "./analytics-geo-view";
+import { AnalyticsLinksView } from "./analytics-links-view";
+import { AnalyticsTechnicalView } from "./analytics-technical-view";
 
 type FindingKind = "current_status" | "previous_post" | "new_post" | "comment_opportunity" | "audience_signal" | "insight";
 type Finding = { title?: string; evidence?: string; impact?: string; action?: string; description?: string; kind?: FindingKind; platform?: string; sourceLabel?: string; publishedAt?: string; draftContent?: string; recommendedResponse?: string; tags?: string[]; priority?: string; confidence?: number; sourceUrls?: string[]; companyName?: string; officialWebsite?: string; logoUrl?: string; competitiveAttributes?: string[] };
 type AgentItem = { id: string; agentType: string; status: string; summary: string | null; output: unknown; sources: unknown; skills: unknown; confidence: number | null; tokensUsed: number; error: string | null; createdAt: string };
 type DashboardData = {
-  company: { id: string; name: string; websiteUrl: string; logoUrl: string | null; category: string | null; companyContext: { overview: string; signals: Array<{ label: string; text: string }>; evidenceLabel: string }; lastAuditedAt: string | null };
+  company: { id: string; name: string; websiteUrl: string; logoUrl: string | null; category: string | null; description?: string | null; companyContext: { overview: string; signals: Array<{ label: string; text: string }>; evidenceLabel: string }; lastAuditedAt: string | null };
   companies: Array<{ id: string; name: string; websiteUrl: string; logoUrl: string | null; status: string }>;
   user: { name: string | null; email: string; llmProvider: string | null; llmKeyPreview: string | null; demoMode: boolean; tokenBudget: number; tokenUsed: number };
   documents: WorkspaceDocument[];
   agents: AgentItem[];
   pagesRead: number;
+  crawlPages?: Array<{ url: string; title?: string | null; description?: string | null; content: string }>;
   analysis: { jobId: string; status: string; progress: number; step: string } | null;
   integrations: Array<{ provider: string; status: string; connectedAt: string | null }>;
   agentConfigs: Array<{ agentType: string; config: unknown }>;
@@ -40,6 +43,7 @@ const queuedDocumentTypes = [...coreDocumentOrder, ...EXTENDED_DOCUMENTS.map((de
 const primaryAgents = [
   ["REDDIT", "REDDIT OPPORTUNITIES", "●", "Discovered discussions ready"],
   ["SEO", "SEO & GEO RECOMMENDATIONS", "🌐", "Recommendations and search fixes"],
+  ["PROGRAMMATIC_SEO", "PROGRAMMATIC SEO", "⚡", "Template uniqueness & index bloat safeguards"],
   ["X", "X WRITER", "𝕏", "Publish-ready angles"],
   ["ARTICLES", "ARTICLES", "✎", "Authority topics ready"],
   ["LINKEDIN", "LINKEDIN WRITER", "in", "Thought-leadership posts"],
@@ -854,16 +858,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           <a className="company-url" href={data.company.websiteUrl} target="_blank" rel="noreferrer"><Link2 size={12} />{new URL(data.company.websiteUrl).hostname}</a>
           <div className="company-context">
             <p className="company-description">{data.company.companyContext.overview}</p>
-            {data.company.companyContext.signals?.length > 0 && (
-              <div className="context-signals-list">
-                {data.company.companyContext.signals.map((sig) => (
-                  <div key={sig.label} className="context-signal-chip">
-                    <strong className="signal-badge">{sig.label}</strong>
-                    <span>{sig.text}</span>
-                  </div>
-                ))}
-              </div>
-            )}
             <small className="company-context-evidence"><Sparkles size={11} />Grounded in {data.company.companyContext.evidenceLabel}</small>
           </div>
           {(analysisRunning || queuedDocumentsReady < queuedDocumentTypes.length) && <div className="analysis-resume"><Sparkles size={15} /><div><strong>{analysisRunning ? `${data.analysis?.progress ?? 0}% · background report queue` : `${queuedDocumentTypes.length - queuedDocumentsReady} reports need generation`}</strong><small>{analysisRunning ? data.analysis?.step : "Generate the priority intelligence first, then complete every remaining report sequentially."}</small></div>{analysisRunning ? <Link href={`/onboarding/audit/${data.analysis!.jobId}`}>View processing</Link> : <button type="button" disabled={startingAnalysis} onClick={startAnalysis}>{startingAnalysis ? "Starting…" : "Generate now"}</button>}</div>}
@@ -981,37 +975,25 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               </div>
             </>}
           </div>}
-          {analysisTab === "links" && <div className="analytics-links-section">
-            <div className="source-banner aeo-banner">
-              <div>
-                <Sparkles size={18} />
-                <span>
-                  <strong>Crawled Link Structure</strong>
-                  <small>{data.pagesRead} pages analyzed for internal link integrity</small>
-                </span>
-              </div>
-              <span className="source-status evidence-badge">Evidence-led</span>
-            </div>
-            <div className="link-attributes-card margin-top">
-              <div className="attr-row"><span>Inspected Crawl Pages</span><strong>{data.pagesRead}</strong></div>
-              <div className="attr-row"><span>Internal Linking Signal</span><strong>Verified</strong></div>
-              <div className="attr-row"><span>External Backlink Profile</span><strong>Connect GSC / Ahrefs</strong></div>
-            </div>
-            <div className="evidence-note margin-top">
-              <strong>Official Backlink Verification</strong>
-              <p>In accordance with Smark Connect standards, external backlink totals, referring domains, and anchor distributions are never fabricated. Connect your Google Search Console or backlink provider in Settings to view authenticated field link data.</p>
-            </div>
-          </div>}
-          {analysisTab === "technical" && <>
-            <LighthouseAuditPanel defaultUrl={data.company.websiteUrl} />
-            <div className="evidence-note"><strong>{data.pagesRead} crawl pages inspected</strong><p>The full technical diagnosis is stored in the SEO Audit and Technical SEO agent feed. Index coverage and field Core Web Vitals require a connected Google Search Console property.</p></div>
-            <div className="audit-footnote">Lighthouse results are controlled browser-lab estimates and remain separate from field Core Web Vitals and connected first-party analytics.</div>
-          </>}
+          {analysisTab === "links" && (
+            <AnalyticsLinksView
+              companyUrl={data.company.websiteUrl}
+              crawlPages={data.crawlPages}
+            />
+          )}
+          {analysisTab === "technical" && (
+            <AnalyticsTechnicalView
+              company={data.company}
+              crawlPages={data.crawlPages}
+              pagesRead={data.pagesRead}
+            />
+          )}
           {analysisTab === "aigeo" && (
             <AnalyticsGeoView
               companyName={data.company.name}
               websiteUrl={data.company.websiteUrl}
               category={data.company.category}
+              crawlPages={data.crawlPages}
               geoSummary={geoRun?.summary}
             />
           )}
