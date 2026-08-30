@@ -34,10 +34,10 @@ export function AuditProgress({ jobId, initial }: { jobId: string; initial: JobS
       if (!response.ok) return;
       const next = await response.json() as JobState;
       setJob(next);
-      const priorityReportsReady = priorityDocumentTypes.every((type) => next.documents.some((document) => document.type === type));
-      if (["DONE", "PARTIAL"].includes(next.status) || priorityReportsReady) {
+      const firstReportReady = next.documents.length >= 1;
+      if (["DONE", "PARTIAL"].includes(next.status) || firstReportReady) {
         window.clearInterval(timer);
-        window.setTimeout(() => router.push(`/dashboard/${next.companyId}`), 900);
+        window.setTimeout(() => router.push(`/dashboard/${next.companyId}`), 700);
       }
     }, 1800);
     return () => window.clearInterval(timer);
@@ -65,10 +65,10 @@ export function AuditProgress({ jobId, initial }: { jobId: string; initial: JobS
     <div className="form-card audit-progress-card">
       <p className="eyebrow">LIVE COMPANY AUDIT</p>
       <h2>{job.status === "ERROR" ? modelError ? "Choose a different OpenRouter model." : providerError ? "Connect your AI provider." : "We hit a snag." : finished ? "Your workspace is ready." : `Learning ${job.companyName}.`}</h2>
-      <p className="form-intro">{job.status === "ERROR" ? errorMessage : finished ? "Opening the dashboard with your company intelligence and first recommendations." : job.step}</p>
+      <p className="form-intro">{job.status === "ERROR" ? errorMessage : finished ? "Opening the dashboard with your foundational intelligence. Background reports will continue compiling live." : job.step}</p>
       <div className="progress-orbit" style={{ "--progress": `${job.progress * 3.6}deg` } as React.CSSProperties}><div><strong>{job.progress}%</strong><span>{job.pagesRead} pages read</span></div></div>
       <div className="progress-track"><span style={{ width: `${job.progress}%` }} /></div>
-      <div className="audit-checks"><div className={job.progress >= 8 ? "done" : ""}><span>01</span>Website safety check</div><div className={job.progress >= 28 ? "done" : ""}><span>02</span>Research crawl</div><div className={priorityDocumentTypes.every((type) => job.documents.some((document) => document.type === type)) ? "done" : ""}><span>03</span>Priority intelligence ready</div><div className={job.documents.length >= documentPipeline.length ? "done" : ""}><span>04</span>Background report queue</div></div>
+      <div className="audit-checks"><div className={job.progress >= 8 ? "done" : ""}><span>01</span>Website safety check</div><div className={job.progress >= 28 ? "done" : ""}><span>02</span>Research crawl</div><div className={job.documents.length >= 1 ? "done" : ""}><span>03</span>Foundational intelligence ready</div><div className={job.documents.length >= documentPipeline.length ? "done" : ""}><span>04</span>Background report queue</div></div>
       <div className="document-pipeline"><div className="pipeline-heading"><strong>Sequential background report queue</strong><span>{job.documents.length}/{documentPipeline.length} ready</span></div>{documentPipeline.map(([type, label]) => { const ready = job.documents.some((document) => document.type === type); const running = !ready && type === nextDocumentType && job.progress >= 34 && job.status === "RUNNING"; return <div className={ready ? "ready" : running ? "running" : "queued"} key={type}><ModuleIcon type={type} size={15} /><strong>{label}</strong><small>{ready ? "Ready" : running ? "Generating" : "Queued"}</small><span>{ready ? "✓" : running ? "●" : "○"}</span></div>; })}</div>
       <div className="research-coverage"><span><strong>{job.pagesRead}</strong> pages read</span><span><strong>{job.agentsReady}</strong> agent results stored</span></div>
       {job.status === "ERROR" && (modelError
@@ -76,7 +76,7 @@ export function AuditProgress({ jobId, initial }: { jobId: string; initial: JobS
         : providerError
         ? <Link className="primary-button" href="/settings/credits">Connect provider<span>→</span></Link>
         : <button className="primary-button" type="button" disabled={retrying} onClick={retry}>{retrying ? "Restarting…" : "Retry audit"}<span>↻</span></button>)}
-      {!finished && job.status !== "ERROR" && <p className="submit-note">The workspace opens after the first two reports. The remaining queue continues on the server if you refresh or leave.</p>}
+      {!finished && job.status !== "ERROR" && <p className="submit-note">The workspace opens instantly once Document #1 is ready. The remaining queue continues on the server seamlessly.</p>}
     </div>
   );
 }

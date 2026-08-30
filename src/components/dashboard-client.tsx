@@ -5,8 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Clock3, Copy, ExternalLink, FileText, Globe2, GripVertical, HelpCircle, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Sparkles, XCircle, X as CloseIcon } from "lucide-react";
-import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS } from "@/lib/skills/registry";
+import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Clock3, Copy, ExternalLink, FileText, Globe2, GripVertical, HelpCircle, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Sparkles, XCircle, Zap, X as CloseIcon } from "lucide-react";
+import { StreamingTerminal, type TerminalLog } from "./streaming-terminal";
+import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS, getDocumentDefinition } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { formatSkillName } from "@/lib/skills/format";
 import { evaluateLinkedInOpportunity, evaluateRedditCandidate, evaluateXOpportunity, scoreOpportunity, type RedditActionFeedOpportunity } from "@/lib/signals/store";
@@ -654,6 +655,34 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const analysisRunning = data.analysis && ["QUEUED", "RUNNING"].includes(data.analysis.status);
   const queuedDocumentsReady = documents.filter((document) => queuedDocumentTypes.includes(document.type)).length;
 
+  const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>(() => {
+    const time = () => new Date().toLocaleTimeString("en-US", { hour12: false });
+    const initial: TerminalLog[] = [
+      { id: "init-1", timestamp: time(), level: "success", tag: "INIT", message: "Phase 1 Foundational Intelligence Layer validated (STATUS: 200_OK)." },
+      { id: "init-2", timestamp: time(), level: "info", tag: "VIEW", message: `Switched to Main Board View. Active Workspace: ${data.company.name}.` },
+      { id: "init-3", timestamp: time(), level: "info", tag: "ANALYTICS", message: `Concurrent background diagnostic engines active for ${safeHostname(data.company.websiteUrl)}.` },
+    ];
+    data.documents.forEach((doc, idx) => {
+      initial.push({
+        id: `doc-${doc.id}`,
+        timestamp: time(),
+        level: "success",
+        tag: `DOC ${idx + 1}/${queuedDocumentTypes.length}`,
+        message: `Ready: ${doc.title} -> Stored in state.`,
+      });
+    });
+    if (data.analysis && ["QUEUED", "RUNNING"].includes(data.analysis.status)) {
+      initial.push({
+        id: "prog-init",
+        timestamp: time(),
+        level: "info",
+        tag: "PROGRESS",
+        message: `${data.analysis.progress}% Background queue compiling: ${data.analysis.step}`,
+      });
+    }
+    return initial;
+  });
+
   const DEFAULT_EXTENDED_TYPES = useMemo(() => ["MARKETING_STRATEGY", "DESIGN_GUIDE", "CONTENT_STRATEGY", "PRODUCT_INFO"], []);
   const visibleExtendedDocuments = useMemo(() => {
     return EXTENDED_DOCUMENTS.filter(
@@ -808,18 +837,33 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     } finally { setChatPending(false); }
   }
 
+  function appendLog(level: "info" | "success" | "interrupt" | "p0" | "warn" | "error", tag: string, message: string) {
+    const time = new Date().toLocaleTimeString("en-US", { hour12: false });
+    setTerminalLogs((prev) => [
+      ...prev,
+      { id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, timestamp: time, level, tag, message },
+    ]);
+  }
+
   async function runAgent(agentType: string) {
     setRunningAgent(agentType);
     setAgentError("");
+    appendLog("info", "AGENT_RUN", `Running specialist agent: ${agentType}...`);
     try {
       const response = await fetch("/api/agents/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: data.company.id, agentType }) });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "The agent could not run.");
       setExpandedAgent(agentType);
       setAgentTray(false);
+      appendLog("success", "AGENT_DONE", `Specialist agent completed: ${agentType} -> Findings updated.`);
       router.refresh();
-    } catch (error) { setAgentError(error instanceof Error ? error.message : "The agent could not run."); }
-    finally { setRunningAgent(null); }
+    } catch (error) {
+      const err = error instanceof Error ? error.message : "The agent could not run.";
+      setAgentError(err);
+      appendLog("error", "AGENT_ERR", `Agent ${agentType} execution error: ${err}`);
+    } finally {
+      setRunningAgent(null);
+    }
   }
 
   async function completeOpportunity(agentType: string, key: string) {
@@ -832,22 +876,37 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   async function generateDocument(documentType: string) {
     setGeneratingDocument(documentType);
     setAgentError("");
+    const def = getDocumentDefinition(documentType as any);
+    const title = def?.title ?? documentType;
+    appendLog("info", "DOC_COMPILE", `Compiling document: ${title}...`);
     try {
       const response = await fetch("/api/documents/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: data.company.id, documentType }) });
       const result = await response.json() as { document?: WorkspaceDocument; error?: string };
       if (!response.ok || !result.document) throw new Error(result.error ?? "The document could not be generated.");
       setDocuments((current) => [...current.filter((item) => item.type !== result.document!.type), result.document!]);
       setSelectedDocument(result.document);
+      appendLog("success", "DOC_READY", `Ready: ${result.document.title} -> Rendered in workspace.`);
     } catch (error) {
-      setAgentError(error instanceof Error ? error.message : "The document could not be generated.");
+      const err = error instanceof Error ? error.message : "The document could not be generated.";
+      setAgentError(err);
+      appendLog("error", "DOC_ERR", `Failed to generate ${title}: ${err}`);
     } finally {
       setGeneratingDocument(null);
     }
   }
 
+  async function prioritizeDocument(documentType: string, customTitle?: string) {
+    const def = getDocumentDefinition(documentType as any);
+    const title = customTitle ?? def?.title ?? documentType;
+    appendLog("interrupt", "INTERRUPT", `User selected ${title} -> Elevating priority to P0 (Critical Path).`);
+    appendLog("p0", "P0_QUEUE", `Pausing background queue -> Compiling ${title} immediately...`);
+    await generateDocument(documentType);
+  }
+
   async function startAnalysis() {
     setStartingAnalysis(true);
     setAgentError("");
+    appendLog("info", "AUDIT_START", `Initializing full background intelligence pipeline for ${data.company.name}...`);
     try {
       const response = await fetch(`/api/companies/${data.company.id}/audit`, { method: "POST" });
       const result = await response.json() as { jobId?: string; error?: string };
@@ -864,13 +923,36 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     setSelectedDocument(updated);
   }
 
+  const activeState = (generatingDocument || runningAgent)
+    ? "interrupt"
+    : analysisRunning
+    ? "running"
+    : "completed";
+
+  const activeTask = generatingDocument
+    ? `P0 Compiling: ${getDocumentDefinition(generatingDocument as any)?.title ?? generatingDocument}`
+    : runningAgent
+    ? `P0 Agent: ${runningAgent}`
+    : analysisRunning
+    ? data.analysis?.step ?? "Compiling background queue"
+    : null;
+
   return <main className="dashboard-shell">
     <header className="dashboard-topbar">
       <div className="workspace-switch-wrap">
         <button className="workspace-switch" onClick={() => setCompanyMenu((value) => !value)}><CompanyLogo company={data.company} size={24} eager /><strong>{data.company.name}</strong><ChevronDown size={13} /></button>
         {companyMenu && <div className="company-menu"><p>COMPANIES</p>{data.companies.map((company) => <Link className={company.id === data.company.id ? "active" : ""} href={`/dashboard/${company.id}`} key={company.id}><CompanyLogo company={company} size={30} /><div><strong>{company.name}</strong><small>{safeHostname(company.websiteUrl)}</small></div>{company.id === data.company.id && <em>Current</em>}</Link>)}<Link className="add-company" href="/onboarding/company?mode=add"><CirclePlus size={15} /> Add another company</Link></div>}
       </div>
-      <div className="terminal-brand"><Brand inverse /><span className="terminal-label">Terminal</span><ConnectionStrip data={data} /><span className="terminal-status">✓ Skill graph loaded</span></div>
+      
+      <StreamingTerminal
+        logs={terminalLogs}
+        activeState={activeState}
+        activeTask={activeTask}
+        progress={data.analysis?.progress ?? Math.round((queuedDocumentsReady / queuedDocumentTypes.length) * 100)}
+        tokenCount={data.user.tokenUsed}
+        connectionSummary={<ConnectionStrip data={data} />}
+      />
+
       <nav className="dashboard-actions"><Link href={`/dashboard/${data.company.id}/reporting`}>Reporting</Link><Link href="/settings/credits" aria-label="Settings"><Settings size={16} /></Link><span className="avatar-small">{(data.user.name ?? data.user.email).slice(0, 2).toUpperCase()}</span><LogoutButton /></nav>
     </header>
 
@@ -887,7 +969,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           </div>
           {(analysisRunning || queuedDocumentsReady < queuedDocumentTypes.length) && <div className="analysis-resume"><Sparkles size={15} /><div><strong>{analysisRunning ? `${data.analysis?.progress ?? 0}% · background report queue` : `${queuedDocumentTypes.length - queuedDocumentsReady} reports need generation`}</strong><small>{analysisRunning ? data.analysis?.step : "Generate the priority intelligence first, then complete every remaining report sequentially."}</small></div>{analysisRunning ? <Link href={`/onboarding/audit/${data.analysis!.jobId}`}>View processing</Link> : <button type="button" disabled={startingAnalysis} onClick={startAnalysis}>{startingAnalysis ? "Starting…" : "Generate now"}</button>}</div>}
         </div>
-        <section className="pane-section"><div className="section-label-row"><p className="section-label">CORE DOCUMENTS</p><span>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length}/6</span></div><div className="document-list">{coreDocumentOrder.map((type) => { const document = documents.find((item) => item.type === type); return document ? <button type="button" key={type} onClick={() => setSelectedDocument(document)}><ModuleIcon type={type} size={14} /><span className="document-row-title">{document.title}</span><small>v{document.version}</small><ChevronRight size={13} /><span className="document-hover-detail" role="tooltip"><strong>{document.title}</strong><span>{documentPreview(document) || "Open this document to review its complete evidence and recommendations."}{document.contentMarkdown.length > 190 ? "…" : ""}</span><em>{document.tokenEstimate.toLocaleString()} tokens · Updated {new Date(document.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em></span></button> : <button className="pending-document" type="button" key={type} disabled><ModuleIcon type={type} size={14} /><span>{coreDocumentLabels[type]}</span><small>{analysisRunning ? "Queued" : "Pending"}</small></button>; })}</div></section>
+        <section className="pane-section"><div className="section-label-row"><p className="section-label">CORE DOCUMENTS</p><span>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length}/6</span></div><div className="document-list">{coreDocumentOrder.map((type) => { const document = documents.find((item) => item.type === type); return document ? <button type="button" key={type} onClick={() => setSelectedDocument(document)}><ModuleIcon type={type} size={14} /><span className="document-row-title">{document.title}</span><small>v{document.version}</small><ChevronRight size={13} /><span className="document-hover-detail" role="tooltip"><strong>{document.title}</strong><span>{documentPreview(document) || "Open this document to review its complete evidence and recommendations."}{document.contentMarkdown.length > 190 ? "…" : ""}</span><em>{document.tokenEstimate.toLocaleString()} tokens · Updated {new Date(document.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em></span></button> : <button className="pending-document p0-triggerable" type="button" key={type} disabled={Boolean(generatingDocument)} onClick={() => prioritizeDocument(type, coreDocumentLabels[type])} title="Click to elevate to P0 and compile immediately"><ModuleIcon type={type} size={14} /><span>{coreDocumentLabels[type]}</span><small className="p0-action-tag">{generatingDocument === type ? <RefreshCw className="spin" size={10} /> : <Zap size={10} />}{generatingDocument === type ? "Compiling" : "⚡ P0"}</small></button>; })}</div></section>
         <section className="pane-section extended-documents">
           <div className="section-label-row">
             <p className="section-label">SKILL-GENERATED DOCUMENTS</p>
@@ -903,15 +985,15 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   <ModuleIcon type={definition.type} size={15} />
                   <div>
                     <strong>{definition.title}</strong>
-                    <small>{queued ? "Queued for sequential background generation" : "Generated only through its ordered local skill chain"}</small>
+                    <small>{queued ? "Queued in background (Click P0 to prioritize)" : "Generated only through its ordered local skill chain"}</small>
                     <SkillChainPreview skills={definition.skills} />
                   </div>
                   {document ? (
                     <button type="button" onClick={() => setSelectedDocument(document)}>Open v{document.version}</button>
                   ) : (
-                    <button type="button" disabled={Boolean(generatingDocument) || queued} onClick={() => generateDocument(definition.type)}>
-                      {pending ? <RefreshCw className="spin" size={12} /> : queued ? <Clock3 size={12} /> : <Plus size={12} />}
-                      {pending ? "Generating" : queued ? "Queued" : "Generate"}
+                    <button type="button" className="p0-action-btn" disabled={Boolean(generatingDocument)} onClick={() => prioritizeDocument(definition.type, definition.title)} title="Elevate to P0 priority and compile now">
+                      {pending ? <RefreshCw className="spin" size={12} /> : <Zap size={12} />}
+                      {pending ? "Compiling" : "⚡ Prioritize (P0)"}
                     </button>
                   )}
                 </article>

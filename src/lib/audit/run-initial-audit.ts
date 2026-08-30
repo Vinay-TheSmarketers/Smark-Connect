@@ -84,7 +84,7 @@ export async function runInitialAudit(jobId: string): Promise<void> {
     const documentFailures: Array<{ title: string; error: unknown }> = [];
     let documentsProcessed = completedDocumentTypes.size;
 
-    if (AUDIT_PRIORITY_DOCUMENT_TYPES.every((type) => completedDocumentTypes.has(type))) {
+    if (completedDocumentTypes.size >= 1) {
       await db.company.update({ where: { id: company.id }, data: { status: "ACTIVE" } });
     }
 
@@ -110,7 +110,7 @@ export async function runInitialAudit(jobId: string): Promise<void> {
           await db.company.update({ where: { id: company.id }, data: { category: result.analysis.companyCategory || company.category, description: result.analysis.companyDescription || company.description } });
         }
         completedDocumentTypes.add(definition.type);
-        if (AUDIT_PRIORITY_DOCUMENT_TYPES.every((type) => completedDocumentTypes.has(type))) {
+        if (completedDocumentTypes.size >= 1) {
           await db.company.update({ where: { id: company.id }, data: { status: "ACTIVE" } });
         }
       } catch (error) {
