@@ -4043,4 +4043,524 @@ html[data-theme="dark"] .filter-btn {
   color: #e5e0dc !important;
 }
 
+/* ==========================================================================
+   CONTEXT PANE SIGNALS & VALUE PROP STYLES
+   ========================================================================== */
+
+.context-signals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.context-signal-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #334155;
+}
+
+.context-signal-chip .signal-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0284c7;
+}
+
+html[data-theme="dark"] .context-signal-chip {
+  background: #14181f;
+  border-color: #232b38;
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .context-signal-chip .signal-badge {
+  color: #38bdf8;
+}
+
+/* ==========================================================================
+   ENHANCED AI/GEO & AEO PRESENTATION STYLES (Ref: ref1, ref2, ref3)
+   ========================================================================== */
+
+.analytics-geo-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.geo-header-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  color: #f8fafc;
+}
+
+.geo-title-wrap h3 {
+  font-size: 15px;
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0 0 2px 0;
+}
+
+.geo-title-wrap p {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.geo-donut-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  background: #1e293b;
+  border-radius: 10px;
+}
+
+.donut-ring-wrap {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+}
+
+.donut-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.donut-bg {
+  fill: none;
+  stroke: #334155;
+  stroke-width: 3.2;
+}
+
+.donut-fill {
+  fill: none;
+  stroke: #f59e0b;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+}
+
+.donut-score-text {
+  position: absolute;
+  font-size: 16px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.donut-label-wrap strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.donut-label-wrap small {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.geo-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.geo-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bar-label-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: default;
+}
+
+.platform-toggle-btn {
+  cursor: pointer;
+}
+
+.geo-bar-track {
+  width: 100%;
+  height: 6px;
+  background: #1e293b;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.geo-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+
+.platform-sub-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 8px 14px;
+  background: #161f30;
+  border-left: 2px solid #334155;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.sub-bar-row {
+  display: grid;
+  grid-template-columns: 90px 30px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.sub-bar-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.platform-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.sub-bar-track {
+  width: 100%;
+  height: 4px;
+  background: #1e293b;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.sub-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+}
+
+/* 2. Top Aggregate Metric Cards (Image 2) */
+.geo-metric-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.geo-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  color: #f8fafc;
+}
+
+.metric-large-num {
+  font-size: 22px;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1;
+}
+
+.metric-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.metric-sub-row small {
+  display: block;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.metric-sub-row strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+/* 3. Top Citation Sources Table (Image 2) */
+.geo-citation-sources-card,
+.geo-passages-card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  color: #f8fafc;
+}
+
+.card-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 800;
+  color: #f8fafc;
+  margin-bottom: 12px;
+}
+
+.citation-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1e293b;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.citation-table-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.citation-table-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #1e293b;
+  font-size: 12px;
+}
+
+.citation-table-row:last-child {
+  border-bottom: none;
+}
+
+.domain-name-col {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.source-favicon-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.source-vol-col {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 4. High-Intent AI Queries & URL Passages (Image 3) */
+.passages-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.passage-row-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-bottom: 1px solid #1e293b;
+  gap: 12px;
+}
+
+.passage-row-item:last-child {
+  border-bottom: none;
+}
+
+.passage-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.passage-query {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0;
+}
+
+.passage-path-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.passage-path {
+  font-size: 10px;
+  color: #64748b;
+  font-family: monospace;
+}
+
+.passage-copy-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  color: #64748b;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+}
+
+.passage-copy-btn:hover {
+  color: #94a3b8;
+  background: #1e293b;
+}
+
+.passage-vol {
+  font-size: 12px;
+  font-weight: 800;
+  color: #f8fafc;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   CHECKS TAB STYLES
+   ========================================================================== */
+
+.analytics-checks-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.checks-list-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.check-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.check-item-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.check-icon-dot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  margin-top: 1px;
+}
+
+.check-icon-dot.pass {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+.check-icon-dot.warn {
+  background: #fffbeb;
+  color: #f59e0b;
+}
+
+.check-item-info strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.check-item-info small {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.check-status-tag {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.check-status-tag.pass {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.check-status-tag.warn {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+html[data-theme="dark"] .check-item-row {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+html[data-theme="dark"] .check-item-info strong {
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] .check-item-info small {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .check-icon-dot.pass {
+  background: #064e3b;
+  color: #34d399;
+}
+
+html[data-theme="dark"] .check-icon-dot.warn {
+  background: #451a03;
+  color: #fbbf24;
+}
+
+
 

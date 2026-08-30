@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import {
   ArrowUp,
@@ -47,6 +47,12 @@ export function RedditOpportunityFeed({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (opportunities.length === 0 && !scanning) {
+      void triggerLiveScan();
+    }
+  }, [companyId]);
 
   // Filter calculations
   const counts = useMemo(() => {

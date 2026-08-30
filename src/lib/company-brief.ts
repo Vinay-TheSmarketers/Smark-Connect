@@ -130,7 +130,20 @@ export function createCompanyContext(source: CompanyBriefSource): CompanyContext
     ].filter(Boolean);
     overview = facts.length ? facts.join(". ") : FALLBACK;
   }
-  overview = concise(overview, 620);
+
+  // Enrich with value proposition and audience details for a comprehensive strategic brief
+  const overviewParts: string[] = [overview];
+  const valuePropSection = sections.find((s) => /value proposition|differentiator|why us|what .* does|positioning/i.test(s.heading));
+  if (valuePropSection?.body && !overview.toLowerCase().includes(valuePropSection.body.slice(0, 40).toLowerCase())) {
+    overviewParts.push(valuePropSection.body.slice(0, 350));
+  }
+  const audienceSection = sections.find((s) => /target audience|ideal customer|icp|who we serve|customers/i.test(s.heading));
+  if (audienceSection?.body && !overview.toLowerCase().includes(audienceSection.body.slice(0, 40).toLowerCase())) {
+    overviewParts.push(`Target Market & ICP: ${audienceSection.body.slice(0, 260)}`);
+  }
+
+  overview = overviewParts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  overview = concise(overview, 1100);
 
   const signals: CompanyContextSignal[] = [];
   const seenLabels = new Set<string>();
