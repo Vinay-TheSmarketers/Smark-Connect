@@ -123,7 +123,7 @@ export function AnalyticsTechnicalView({ company, crawlPages = [], pagesRead }: 
                       </div>
                     </div>
                     <span className="text-[10px] font-mono text-slate-400 truncate max-w-[120px]">
-                      {new URL(schema.sourceUrl).pathname || "/"}
+                      {(() => { try { return new URL(schema.sourceUrl).pathname || "/"; } catch { return schema.sourceUrl || "/"; } })()}
                     </span>
                   </div>
                 ))}

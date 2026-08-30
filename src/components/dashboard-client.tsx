@@ -33,11 +33,21 @@ type DashboardData = {
   documents: WorkspaceDocument[];
   agents: AgentItem[];
   pagesRead: number;
-  crawlPages?: Array<{ url: string; title?: string | null; description?: string | null; content: string }>;
+  crawlPages: Array<{ url: string; title: string | null; description: string | null; content: string | null }>;
   analysis: { jobId: string; status: string; progress: number; step: string } | null;
   integrations: Array<{ provider: string; status: string; connectedAt: string | null }>;
   agentConfigs: Array<{ agentType: string; config: unknown }>;
 };
+
+function safeHostname(url: string | null | undefined): string {
+  if (!url) return "website";
+  try {
+    const valid = url.startsWith("http://") || url.startsWith("https://") ? url : `https://${url}`;
+    return new URL(valid).hostname.replace(/^www\./, "") || "website";
+  } catch {
+    return url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] || "website";
+  }
+}
 
 const coreDocumentOrder = ["COMPETITOR_ANALYSIS", "COMPANY_INTELLIGENCE", "SEO_AUDIT", "GEO_AUDIT", "AUDIENCE_ANALYSIS", "CONTENT_AUDIT"];
 const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Company Intelligence", SEO_AUDIT: "SEO Audit", GEO_AUDIT: "GEO and AI Visibility", COMPETITOR_ANALYSIS: "Competitor Analysis", AUDIENCE_ANALYSIS: "Audience Analysis", CONTENT_AUDIT: "Content Audit and Strategy" };
@@ -258,10 +268,10 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const source = item.sourceUrls?.[0];
-  const host = new URL(company.websiteUrl).hostname.replace(/^www\./, "");
+  const host = safeHostname(company.websiteUrl);
   const handle = `@${host.split(".")[0].replace(/[^a-z0-9_]/gi, "")}`;
   const platformName = type === "REDDIT" ? "Reddit" : type === "LINKEDIN" ? "LinkedIn" : "X";
-  const sourceName = item.sourceLabel || (source ? (() => { try { return new URL(source).hostname.replace(/^www\./, ""); } catch { return "Public source"; } })() : "Company draft");
+  const sourceName = item.sourceLabel || (source ? safeHostname(source) : "Company draft");
 
   async function copyDraft() {
     if (!draft.trim()) return;
@@ -856,7 +866,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     <header className="dashboard-topbar">
       <div className="workspace-switch-wrap">
         <button className="workspace-switch" onClick={() => setCompanyMenu((value) => !value)}><CompanyLogo company={data.company} size={24} eager /><strong>{data.company.name}</strong><ChevronDown size={13} /></button>
-        {companyMenu && <div className="company-menu"><p>COMPANIES</p>{data.companies.map((company) => <Link className={company.id === data.company.id ? "active" : ""} href={`/dashboard/${company.id}`} key={company.id}><CompanyLogo company={company} size={30} /><div><strong>{company.name}</strong><small>{new URL(company.websiteUrl).hostname}</small></div>{company.id === data.company.id && <em>Current</em>}</Link>)}<Link className="add-company" href="/onboarding/company?mode=add"><CirclePlus size={15} /> Add another company</Link></div>}
+        {companyMenu && <div className="company-menu"><p>COMPANIES</p>{data.companies.map((company) => <Link className={company.id === data.company.id ? "active" : ""} href={`/dashboard/${company.id}`} key={company.id}><CompanyLogo company={company} size={30} /><div><strong>{company.name}</strong><small>{safeHostname(company.websiteUrl)}</small></div>{company.id === data.company.id && <em>Current</em>}</Link>)}<Link className="add-company" href="/onboarding/company?mode=add"><CirclePlus size={15} /> Add another company</Link></div>}
       </div>
       <div className="terminal-brand"><Brand inverse /><span className="terminal-label">Terminal</span><ConnectionStrip data={data} /><span className="terminal-status">✓ Skill graph loaded</span></div>
       <nav className="dashboard-actions"><Link href={`/dashboard/${data.company.id}/reporting`}>Reporting</Link><Link href="/settings/credits" aria-label="Settings"><Settings size={16} /></Link><span className="avatar-small">{(data.user.name ?? data.user.email).slice(0, 2).toUpperCase()}</span><LogoutButton /></nav>
@@ -868,7 +878,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         <div className="company-content">
           <div className="company-title-row"><CompanyLogo company={data.company} size={34} eager /><h1>{data.company.name}</h1></div>
           <span className="category-pill">{data.company.category ?? "Company"}</span>
-          <a className="company-url" href={data.company.websiteUrl} target="_blank" rel="noreferrer"><Link2 size={12} />{new URL(data.company.websiteUrl).hostname}</a>
+          <a className="company-url" href={data.company.websiteUrl} target="_blank" rel="noreferrer"><Link2 size={12} />{safeHostname(data.company.websiteUrl)}</a>
           <div className="company-context">
             <p className="company-description">{data.company.companyContext.overview}</p>
             <small className="company-context-evidence"><Sparkles size={11} />Grounded in {data.company.companyContext.evidenceLabel}</small>
@@ -1029,13 +1039,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           {analysisTab === "links" && (
             <AnalyticsLinksView
               companyUrl={data.company.websiteUrl}
-              crawlPages={data.crawlPages}
+              crawlPages={data.crawlPages.map((page) => ({ url: page.url, title: page.title, content: page.content || "" }))}
             />
           )}
           {analysisTab === "technical" && (
             <AnalyticsTechnicalView
               company={data.company}
-              crawlPages={data.crawlPages}
+              crawlPages={data.crawlPages.map((page) => ({ url: page.url, title: page.title, description: page.description, content: page.content || "" }))}
               pagesRead={data.pagesRead}
             />
           )}
@@ -1044,7 +1054,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               companyName={data.company.name}
               websiteUrl={data.company.websiteUrl}
               category={data.company.category}
-              crawlPages={data.crawlPages}
+              crawlPages={data.crawlPages.map((page) => ({ url: page.url, title: page.title, description: page.description, content: page.content || "" }))}
               geoSummary={geoRun?.summary}
             />
           )}

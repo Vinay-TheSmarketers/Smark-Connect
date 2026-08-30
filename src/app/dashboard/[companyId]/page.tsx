@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 import { DashboardClient } from "@/components/dashboard-client";
 import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
-import { ALL_DOCUMENTS } from "@/lib/skills/registry";
 import { createCompanyContext } from "@/lib/company-brief";
 
 export default async function DashboardPage({ params }: PageProps<"/dashboard/[companyId]">) {
@@ -12,7 +11,7 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
   const company = await db.company.findFirst({
     where: { id: companyId, userId: user.id },
     include: {
-      documents: { where: { type: { in: ALL_DOCUMENTS.map((document) => document.type) } }, orderBy: { createdAt: "asc" } },
+      documents: { orderBy: { createdAt: "asc" } },
       crawlPages: { orderBy: { fetchedAt: "desc" }, take: 12, select: { url: true, title: true, description: true, content: true } },
       agentRuns: { where: { status: "DONE" }, orderBy: { createdAt: "desc" } },
       _count: { select: { crawlPages: true } },

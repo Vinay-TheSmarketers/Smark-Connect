@@ -72,7 +72,7 @@ export function buildReportDataModel(input: ModelInput): ReportDataModel {
   const rawSections = sectionize(blocks);
   const urls = Array.from(input.markdown.matchAll(/https?:\/\/[^\s)\]>]+/g), (match) => match[0].replace(/[.,;:]$/, ""))
     .filter((url, index, values) => values.indexOf(url) === index);
-  const sources = urls.map((url, index) => ({ id: `SRC-${String(index + 1).padStart(3, "0")}`, url, label: new URL(url).hostname.replace(/^www\./, "") }));
+  const sources = urls.map((url, index) => ({ id: `SRC-${String(index + 1).padStart(3, "0")}`, url, label: (() => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } })() }));
   const findingSourceIds = sources.map((source) => source.id);
   const recommendationPrefix = prefix(input.reportType);
   const findings: ReportFinding[] = [];

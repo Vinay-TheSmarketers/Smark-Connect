@@ -78,7 +78,7 @@ export async function runInitialAudit(jobId: string): Promise<void> {
     const researchTopics = deriveResearchTopics(pages, company.name);
     const completedDocumentTypes = new Set(
       reuseEvidence
-        ? (await db.document.findMany({ where: { companyId: company.id, type: { in: AUDIT_DOCUMENT_QUEUE.map((definition) => definition.type) } }, select: { type: true } })).map((document) => document.type)
+        ? (await db.document.findMany({ where: { companyId: company.id }, select: { type: true } })).map((document) => document.type)
         : [],
     );
     const documentFailures: Array<{ title: string; error: unknown }> = [];
