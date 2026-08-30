@@ -142,6 +142,45 @@ export async function analyzeCompetitorLandscape(
         { name: "Spot by NetApp", website: "https://spot.io", positioning: "Continuous infrastructure optimization using machine learning to maximize cloud compute efficiency.", attributes: ["Enterprise scale", "Broad cloud support", "Workload elasticity"] },
         { name: "Vantage", website: "https://vantage.sh", positioning: "Modern developer-centric cloud cost transparency, reporting, and financial tracking.", attributes: ["Multi-cloud unified view", "Virtual tagging", "Fast self-serve setup"] },
       ],
+      crm: [
+        { name: "Salesforce", website: "https://salesforce.com", positioning: "Global market leader in enterprise customer relationship management and cloud sales workflows.", attributes: ["Enterprise ecosystem", "Deep pipeline tracking", "High implementation overhead"] },
+        { name: "HubSpot CRM", website: "https://hubspot.com", positioning: "Easy-to-adopt, scalable CRM platform connecting marketing, sales, and service teams.", attributes: ["Frictionless adoption", "Native inbound sync", "Tiered upgrade costs"] },
+        { name: "Pipedrive", website: "https://pipedrive.com", positioning: "Sales-first CRM designed by salespeople to optimize activity-based selling and pipeline velocity.", attributes: ["Visual pipeline UI", "Activity automations", "Mid-market focus"] },
+        { name: "Zoho CRM", website: "https://zoho.com/crm", positioning: "Omnichannel customer relationship management with AI-powered sales assistance.", attributes: ["Extensive customizability", "Affordable pricing", "Broad app suite integration"] },
+        { name: "Apollo.io", website: "https://apollo.io", positioning: "All-in-one B2B lead intelligence, prospecting, and sales engagement execution platform.", attributes: ["Massive B2B contact database", "Sequencing automation", "Credit-based pricing"] },
+      ],
+      analytics: [
+        { name: "Mixpanel", website: "https://mixpanel.com", positioning: "Self-serve product analytics for tracking conversion funnels, user retention, and cohorts.", attributes: ["Event-based tracking", "Interactive funnel exploration", "Fast query engine"] },
+        { name: "Amplitude", website: "https://amplitude.com", positioning: "Digital analytics platform helping companies understand user journeys and optimize product growth.", attributes: ["Cohort behavioral analysis", "Experimentation suite", "Enterprise data governance"] },
+        { name: "PostHog", website: "https://posthog.com", positioning: "Open-source, all-in-one product analytics, session replay, and feature flags platform for developers.", attributes: ["Developer-first", "Session recordings", "Self-hostable or cloud"] },
+        { name: "Heap", website: "https://heap.io", positioning: "Automated digital insights capturing every user interaction without upfront manual tracking.", attributes: ["Autocapture technology", "Retroactive data queries", "Product optimization"] },
+        { name: "Segment", website: "https://segment.com", positioning: "Customer data platform (CDP) routing user events to analytics, marketing, and data warehouse tools.", attributes: ["Universal data pipeline", "Hundreds of integrations", "Real-time sync"] },
+      ],
+      cybersecurity: [
+        { name: "CrowdStrike", website: "https://crowdstrike.com", positioning: "Cloud-native endpoint protection, threat intelligence, and automated cyber defense.", attributes: ["Falcon platform", "AI threat telemetry", "Enterprise market leader"] },
+        { name: "Palo Alto Networks", website: "https://paloaltonetworks.com", positioning: "Global cybersecurity leader delivering next-gen firewalls, SASE, and cloud security.", attributes: ["Broad enterprise portfolio", "Network & cloud security", "High enterprise TCO"] },
+        { name: "Cloudflare", website: "https://cloudflare.com", positioning: "Global network platform delivering DDoS mitigation, web application firewalls, and edge security.", attributes: ["Global network capacity", "Zero Trust suite", "Fast self-serve onboarding"] },
+        { name: "Okta", website: "https://okta.com", positioning: "Independent identity and access management provider for secure workforce and customer authentication.", attributes: ["Universal directory", "Broad SSO integrations", "Industry standard"] },
+        { name: "Snyk", website: "https://snyk.io", positioning: "Developer security platform automatically finding and fixing vulnerabilities in code, open source, and containers.", attributes: ["Developer-first security", "IDE & CI/CD integrations", "Open-source vulnerability database"] },
+      ],
+      hr: [
+        { name: "BambooHR", website: "https://bamboohr.com", positioning: "Complete HR software solution for small and medium businesses to manage employee lifecycles.", attributes: ["Intuitive employee self-serve", "Applicant tracking", "SMB focused"] },
+        { name: "Rippling", website: "https://rippling.com", positioning: "Unified workforce platform managing HR, IT, and Finance in a single system of record.", attributes: ["HR + IT device management", "Global payroll", "Deep automation engine"] },
+        { name: "Gusto", website: "https://gusto.com", positioning: "Modern payroll, benefits, and HR platform designed for growing small businesses.", attributes: ["Seamless payroll runs", "Benefits administration", "Transparent pricing"] },
+        { name: "Deel", website: "https://deel.com", positioning: "Global compliance and payroll platform for hiring and paying international contractors and full-time employees.", attributes: ["150+ countries coverage", "Employer of Record (EOR)", "Fast international onboarding"] },
+      ],
+      edtech: [
+        { name: "Coursera", website: "https://coursera.org", positioning: "Online learning platform partnering with top universities to offer degrees, certificates, and courses.", attributes: ["University credentials", "Enterprise upskilling", "Global learner reach"] },
+        { name: "Udemy", website: "https://udemy.com", positioning: "Global marketplace for learning and teaching online across technology and business skills.", attributes: ["Massive course catalog", "Practitioner instructors", "Affordable on-demand courses"] },
+        { name: "Pluralsight", website: "https://pluralsight.com", positioning: "Technology skills development platform providing skill assessments, learning paths, and cloud labs.", attributes: ["Skill IQ benchmarking", "Hands-on cloud sandboxes", "Enterprise engineering focus"] },
+        { name: "UpGrad", website: "https://upgrad.com", positioning: "Higher education and professional upskilling platform offering postgraduate degrees and bootcamps.", attributes: ["Mentorship & career support", "Industry-aligned curriculum", "High-touch student experience"] },
+      ],
+      healthcare: [
+        { name: "Practo", website: "https://practo.com", positioning: "Integrated digital healthcare platform connecting patients with doctors, diagnostics, and teleconsultations.", attributes: ["Doctor discovery", "Electronic medical records", "Broad clinic network"] },
+        { name: "Teladoc Health", website: "https://teladochealth.com", positioning: "Global virtual healthcare and telemedicine leader providing whole-person virtual care.", attributes: ["24/7 physician access", "Chronic condition management", "Enterprise health plan integration"] },
+        { name: "Epic Systems", website: "https://epic.com", positioning: "Industry-standard electronic health record (EHR) system for major hospital networks and health systems.", attributes: ["Hospital network dominance", "Comprehensive clinical workflows", "Deep interoperability"] },
+        { name: "1mg (Tata 1mg)", website: "https://1mg.com", positioning: "Digital health platform offering online pharmacy delivery, diagnostic lab tests, and doctor consultations.", attributes: ["Medicine delivery network", "Diagnostic test integration", "Trusted healthcare content"] },
+      ],
       marketing: [
         { name: "HubSpot", website: "https://hubspot.com", positioning: "All-in-one inbound marketing, sales CRM, and customer service platform.", attributes: ["Comprehensive inbound tooling", "Extensive app marketplace", "High tier upgrade costs"] },
         { name: "Klaviyo", website: "https://klaviyo.com", positioning: "Intelligent marketing automation and customer data platform for e-commerce and retail.", attributes: ["Deep e-commerce data sync", "Predictive analytics", "High-volume pricing"] },
@@ -160,12 +199,44 @@ export async function analyzeCompetitorLandscape(
     const isFinops = cat.includes("finops") || cat.includes("cloud cost") || cat.includes("cost optim") || cat.includes("aws cost") || profile.companyName.toLowerCase().includes("finops");
     const isInsurance = cat.includes("insurance") || cat.includes("insur") || cat.includes("life") || cat.includes("policy") || profile.companyName.toLowerCase().includes("lic");
     const isFintech = cat.includes("fintech") || cat.includes("finance") || cat.includes("pay") || cat.includes("bank") || cat.includes("wealth") || cat.includes("invest");
+    const isCrm = cat.includes("crm") || cat.includes("sales") || cat.includes("pipeline") || cat.includes("lead");
+    const isAnalytics = cat.includes("analytic") || cat.includes("data") || cat.includes("bi ") || cat.includes("telemetry") || cat.includes("event");
+    const isSecurity = cat.includes("secur") || cat.includes("cyber") || cat.includes("auth") || cat.includes("protect") || cat.includes("vulnerab");
+    const isHr = cat.includes("hr") || cat.includes("payroll") || cat.includes("people") || cat.includes("recruit") || cat.includes("talent");
+    const isEdtech = cat.includes("edtech") || cat.includes("learn") || cat.includes("course") || cat.includes("educat") || cat.includes("training");
+    const isHealth = cat.includes("health") || cat.includes("medic") || cat.includes("doctor") || cat.includes("patient") || cat.includes("clinic") || cat.includes("pharma");
     const isSeo = cat.includes("seo") || cat.includes("search") || cat.includes("rank");
     const isEcom = cat.includes("ecom") || cat.includes("shopify") || cat.includes("store") || cat.includes("retail");
     const isDev = cat.includes("dev") || cat.includes("software") || cat.includes("api") || cat.includes("code") || cat.includes("infra");
-    const isMarketing = cat.includes("market") || cat.includes("growth") || cat.includes("agency") || cat.includes("lead");
+    const isMarketing = cat.includes("market") || cat.includes("growth") || cat.includes("agency");
 
-    const categoryKey = isFinops ? "finops" : isInsurance ? "insurance" : isFintech ? "fintech" : isSeo ? "seo" : isEcom ? "ecommerce" : isDev ? "developer" : isMarketing ? "marketing" : "general";
+    const categoryKey = isFinops
+      ? "finops"
+      : isInsurance
+      ? "insurance"
+      : isFintech
+      ? "fintech"
+      : isCrm
+      ? "crm"
+      : isAnalytics
+      ? "analytics"
+      : isSecurity
+      ? "cybersecurity"
+      : isHr
+      ? "hr"
+      : isEdtech
+      ? "edtech"
+      : isHealth
+      ? "healthcare"
+      : isSeo
+      ? "seo"
+      : isEcom
+      ? "ecommerce"
+      : isDev
+      ? "developer"
+      : isMarketing
+      ? "marketing"
+      : "general";
     const selectedPeers = industryPeers[categoryKey] || industryPeers.general;
 
     candidatePool.push(...selectedPeers);
