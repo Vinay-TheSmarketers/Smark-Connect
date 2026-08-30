@@ -171,7 +171,45 @@ function ContextCompetitor({ item }: { item: Finding }) {
 }
 
 function CompetitorFindingCard({ item }: { item: Finding }) {
-  return <article className="competitor-finding-card"><div className="competitor-card-head"><OfficialCompetitorLogo item={item} /><div><span>VERIFIED COMPETITOR</span><h3>{item.companyName || item.title}</h3>{item.officialWebsite && <a href={item.officialWebsite} target="_blank" rel="noreferrer">Official website <ExternalLink size={11} /></a>}</div></div><CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>{item.competitiveAttributes?.length ? <div className="competitive-attributes">{item.competitiveAttributes.map((attribute) => <span key={attribute}>{attribute}</span>)}</div> : null}{item.impact && <div className="competitor-impact"><strong>Competitive relevance</strong><CleanMarkdown>{item.impact}</CleanMarkdown></div>}</article>;
+  const competitorName = item.companyName || item.title || "Competitor";
+  return (
+    <article className="competitor-finding-card">
+      <div className="competitor-card-head">
+        <OfficialCompetitorLogo item={item} />
+        <div>
+          <span className="verified-badge">VERIFIED MARKET COMPETITOR</span>
+          <h3>{competitorName}</h3>
+          {item.officialWebsite && (
+            <a href={item.officialWebsite} target="_blank" rel="noreferrer" className="competitor-website-link">
+              {item.officialWebsite.replace(/^https?:\/\//i, "").replace(/\/$/, "")} <ExternalLink size={11} />
+            </a>
+          )}
+        </div>
+      </div>
+      <div className="competitor-evidence-text">
+        <CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>
+      </div>
+      {item.competitiveAttributes?.length ? (
+        <div className="competitive-attributes">
+          {item.competitiveAttributes.map((attribute) => (
+            <span key={attribute} className="attr-pill">{attribute}</span>
+          ))}
+        </div>
+      ) : null}
+      {item.impact && (
+        <div className="competitor-impact">
+          <strong>How We Differ &amp; Strategic Relevance</strong>
+          <CleanMarkdown>{item.impact}</CleanMarkdown>
+        </div>
+      )}
+      {item.action && (
+        <div className="competitor-action">
+          <strong>Counter-Strategy &amp; Action</strong>
+          <CleanMarkdown>{item.action}</CleanMarkdown>
+        </div>
+      )}
+    </article>
+  );
 }
 
 function savedOpportunityKeys(configs: DashboardData["agentConfigs"]): string[] {
@@ -1070,12 +1108,29 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     );
                   })
                 ) : type === "COMPETITOR" ? (
-                  <CompetitorAgentViewer
-                    companyId={data.company.id}
-                    companyName={data.company.name}
-                    websiteUrl={data.company.websiteUrl}
-                    onRefreshParent={() => runAgent("COMPETITOR")}
-                  />
+                  <div className="competitor-findings-unified-container">
+                    <div className="findings-card-head">
+                      <div className="head-title-wrap">
+                        <div>
+                          <strong>VERIFIED COMPETITOR INTELLIGENCE &amp; LANDSCAPE</strong>
+                          <small>{items.length} real market competitors analyzed directly from company memory &amp; live evidence</small>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="refresh-findings-btn"
+                        disabled={Boolean(runningAgent === "COMPETITOR")}
+                        onClick={() => runAgent("COMPETITOR")}
+                      >
+                        <RefreshCw size={11} className={runningAgent === "COMPETITOR" ? "spin" : ""} /> Refresh
+                      </button>
+                    </div>
+                    <div className="competitor-findings-grid">
+                      {items.map((item, index) => (
+                        <CompetitorFindingCard key={`${item.companyName || item.title}-${index}`} item={item} />
+                      ))}
+                    </div>
+                  </div>
                 ) : (
                   items.map((item, index) => (
                     <GenericAgentFindingCard

@@ -2890,8 +2890,140 @@ html[data-theme="dark"] .finding-card-callout.action-callout strong {
 }
 
 /* ==========================================================================
-   COMPETITOR AGENT VIEWER & 12-DIMENSION INTELLIGENCE STYLES
+   COMPETITOR AGENT DIRECT STREAM & 12-DIMENSION INTELLIGENCE STYLES
    ========================================================================== */
+
+.competitor-findings-unified-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.competitor-findings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.competitor-finding-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: all 0.15s ease;
+}
+
+.competitor-finding-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+}
+
+.competitor-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.competitor-card-head .verified-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+.competitor-card-head h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 2px 0 3px 0;
+}
+
+.competitor-website-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #0284c7;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.competitor-website-link:hover {
+  text-decoration: underline;
+}
+
+.competitor-evidence-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.competitor-finding-card .competitive-attributes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.competitor-finding-card .attr-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  background: #f1f5f9;
+  color: #334155;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.competitor-finding-card .competitor-impact {
+  padding: 10px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #1e3a8a;
+}
+
+.competitor-finding-card .competitor-impact strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #1d4ed8;
+  margin-bottom: 3px;
+}
+
+.competitor-finding-card .competitor-action {
+  padding: 10px 12px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #065f46;
+}
+
+.competitor-finding-card .competitor-action strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #047857;
+  margin-bottom: 3px;
+}
 
 .competitor-agent-viewer {
   display: flex;

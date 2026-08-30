@@ -595,65 +595,21 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
       return { runId: run.id };
     }
 
-    if (definition.type === "COMPETITOR") {
-      const competitorPayload = await runCompetitorIntelligencePipeline({
-        companyId: company.id,
-        userId: args.userId,
-      });
-
-      const competitorFindings: Finding[] = competitorPayload.competitors.map((comp, idx) => ({
-        title: comp.name,
-        evidence: comp.evidenceSummary,
-        impact: `Primary USP: ${comp.primaryUsp}. How we differ: ${comp.howWeDiffer}`,
-        action: `Differentiate against ${comp.name}'s ${comp.weaknesses[0]?.toLowerCase() || "drawbacks"} using our ${competitorPayload.companyProfile.differentiators[0] || "core workflow advantages"}.`,
-        kind: "insight",
-        platform: "",
-        sourceLabel: comp.officialWebsite,
-        publishedAt: competitorPayload.generatedAt,
-        draftContent: "",
-        recommendedResponse: "",
-        tags: [comp.category, comp.marketShareTier.replace(/_/g, " ")],
-        companyName: comp.name,
-        officialWebsite: comp.officialWebsite,
-        logoUrl: comp.logoUrl,
-        competitiveAttributes: comp.keyFeatures,
-        priority: idx < 2 ? "high" : "medium",
-        confidence: comp.confidenceScore,
-        sourceUrls: comp.officialWebsite ? [comp.officialWebsite] : [],
-      }));
-
-      const tokensEstimate = 1200;
-      await db.$transaction([
-        db.agentRun.update({
-          where: { id: run.id },
-          data: {
-            status: "DONE",
-            summary: competitorPayload.executiveSummary,
-            output: {
-              findings: competitorFindings,
-              companyProfile: competitorPayload.companyProfile,
-              competitors: competitorPayload.competitors,
-              executiveSummary: competitorPayload.executiveSummary,
-              companyPositioningSummary: competitorPayload.companyPositioningSummary,
-              normalizedFindings: competitorPayload.findings,
-              actionItems: competitorPayload.actionItems,
-              generatedAt: competitorPayload.generatedAt,
-              analyzedSourcesCount: competitorPayload.analyzedSourcesCount,
-            } as unknown as Prisma.InputJsonValue,
-            sources: Array.from(new Set(competitorPayload.competitors.map((c) => c.officialWebsite).filter(Boolean))) as unknown as Prisma.InputJsonValue,
-            skills: { mapped: definition.skills } as unknown as Prisma.InputJsonValue,
-            confidence: 92,
-            tokensUsed: tokensEstimate,
-            completedAt: new Date(),
-          },
-        }),
-        db.user.update({ where: { id: args.userId }, data: { tokenUsed: { increment: tokensEstimate } } }),
-      ]);
-      return { runId: run.id };
-    }
-
-    const completed = await completeAnalysis({ providerName: company.user.llmProvider, apiKeyEnc: company.user.llmApiKeyEnc, model: company.user.llmModel, companyName: company.name, websiteUrl: company.websiteUrl, title: definition.label, purpose: definition.description, instructions: `${definition.instructions} Execute the mapped skill chain in order. Start with current discovered items when present and state that discovery is public-web indexing rather than an authenticated platform API.`, skills: definition.skills, evidence, outputKind: "agent", maxTokens: 4200 });
-    const result = completed;
+    const completed = await completeAnalysis({
+      providerName: company.user.llmProvider,
+      apiKeyEnc: company.user.llmApiKeyEnc,
+      model: company.user.llmModel,
+      companyName: company.name,
+      websiteUrl: company.websiteUrl,
+      title: definition.label,
+      purpose: definition.description,
+      instructions: `${definition.instructions} Execute the mapped skill chain in order. Identify 5-6 real, distinct competitor companies directly relevant to ${company.name}'s specific products, category, and target audience. For each competitor, state the companyName, officialWebsite, positioning in evidence, strengths, weaknesses, how we differ in impact, and a clear counter-positioning action. Never output generic 'Finding 1' labels.`,
+      skills: definition.skills,
+      evidence,
+      outputKind: "agent",
+      maxTokens: definition.type === "COMPETITOR" ? 5600 : 4200,
+    });
+    const result = definition.type === "COMPETITOR" ? { ...completed, analysis: await enrichCompetitorAnalysis(completed.analysis, company.websiteUrl) } : completed;
     const isSocial = ["X", "REDDIT", "LINKEDIN"].includes(definition.type);
     const liveFindings: Finding[] = liveItems.slice(0, 4).map((item) => {
       const isReddit = definition.type === "REDDIT";
