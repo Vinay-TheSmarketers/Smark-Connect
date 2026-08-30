@@ -36,11 +36,27 @@ const moduleKinds: Record<string, { Icon: LucideIcon; className: string; label: 
   CONTENT_STRATEGY: { Icon: Layers, className: "content-strategy", label: "Full-Funnel Content Strategy" },
   PRODUCT_INFO: { Icon: Boxes, className: "product", label: "Offer and Product Intelligence" },
   STRATEGIC_INTELLIGENCE: { Icon: Sparkles, className: "strategic", label: "Strategic Intelligence Report" },
+
+  PAGE_CRO_AUDIT: { Icon: Target, className: "cro", label: "Landing Page & Hero CRO Audit" },
+  ONBOARDING_CRO_AUDIT: { Icon: Layers, className: "cro", label: "Onboarding & Activation Audit" },
+  AB_TEST_ROADMAP: { Icon: Compass, className: "strategy", label: "A/B Testing & Experimentation Roadmap" },
+  TOPIC_CLUSTER_BLUEPRINT: { Icon: Search, className: "seo", label: "Topic Cluster & Pillar Architecture" },
+  PSEO_BLUEPRINT: { Icon: Globe2, className: "geo", label: "Programmatic SEO (pSEO) Blueprint" },
+  BACKLINK_OUTREACH_BLUEPRINT: { Icon: Globe2, className: "seo", label: "Backlink & Digital PR Outreach Playbook" },
+  LOCAL_SEO_AUDIT: { Icon: Search, className: "seo", label: "Local SEO & Google Business Profile Audit" },
+  COLD_OUTBOUND_PLAYBOOK: { Icon: Target, className: "audience", label: "Cold Outbound & Account-Based Playbook" },
+  EMAIL_LIFECYCLE_PLAYBOOK: { Icon: Files, className: "content", label: "Email Lifecycle & Lead Nurture Architecture" },
+  LEAD_MAGNET_STRATEGY: { Icon: Boxes, className: "product", label: "Lead Magnet & Free Tool Strategy" },
+  PAID_ADS_PLAYBOOK: { Icon: Compass, className: "strategy", label: "Multi-Channel Paid Ads Playbook" },
+  COMPETITOR_COMPARISON_PLAYBOOK: { Icon: Swords, className: "competitor", label: "Competitor Comparison Landing Page Playbook" },
+  SOCIAL_BATCH_PLAN: { Icon: Files, className: "content", label: "Social Media Batch Content & Calendar Plan" },
+  SHORT_FORM_VIDEO_BLUEPRINT: { Icon: Palette, className: "design", label: "Short-Form Video & UGC Creative Blueprint" },
+  BRAND_STORYTELLING_GUIDE: { Icon: Building2, className: "company", label: "Brand Storytelling & Founder Thought Leadership" },
+  ANALYTICS_TRACKING_BLUEPRINT: { Icon: Sparkles, className: "strategic", label: "Analytics Tracking & Attribution Blueprint" },
 };
 
 export function ModuleIcon({ type, size = 16, decorative = true }: { type: string; size?: number; decorative?: boolean }) {
-  const item = moduleKinds[type];
-  if (!item) return null;
+  const item = moduleKinds[type] || { Icon: Sparkles, className: "default", label: "Report" };
   const { Icon } = item;
   return <span className={`module-icon module-icon-${item.className}`} title={decorative ? undefined : item.label} aria-hidden={decorative || undefined} aria-label={decorative ? undefined : item.label}><Icon size={size} strokeWidth={2.1} /></span>;
 }

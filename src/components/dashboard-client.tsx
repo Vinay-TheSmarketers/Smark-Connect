@@ -11,6 +11,8 @@ import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { formatSkillName } from "@/lib/skills/format";
 import { evaluateLinkedInOpportunity, evaluateRedditCandidate, evaluateXOpportunity, scoreOpportunity, type RedditActionFeedOpportunity } from "@/lib/signals/store";
 import { RedditOpportunityFeed } from "./reddit-opportunity-feed";
+import { InstagramOpportunityFeed } from "./instagram-opportunity-feed";
+import type { InstagramOpportunity, InstagramOpportunityMap } from "@/lib/instagram/types";
 import { CompetitorAgentViewer } from "./competitor-agent-viewer";
 import { Brand } from "./brand";
 import { DocumentWorkspace, type WorkspaceDocument } from "./document-workspace";
@@ -42,6 +44,7 @@ const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Comp
 const queuedDocumentTypes = [...coreDocumentOrder, ...EXTENDED_DOCUMENTS.map((definition) => definition.type)];
 const primaryAgents = [
   ["REDDIT", "REDDIT OPPORTUNITIES", "●", "Discovered discussions ready"],
+  ["INSTAGRAM", "INSTAGRAM OPPORTUNITIES", "📷", "Visual discovery, Carousels & Reels ready"],
   ["SEO", "SEO & GEO RECOMMENDATIONS", "🌐", "Recommendations and search fixes"],
   ["PROGRAMMATIC_SEO", "PROGRAMMATIC SEO", "⚡", "Template uniqueness & index bloat safeguards"],
   ["X", "X WRITER", "𝕏", "Publish-ready angles"],
@@ -57,6 +60,7 @@ const agentLogoPaths: Record<string, string> = {
   X: "/agent-logos/x.svg",
   REDDIT: "/agent-logos/reddit.svg",
   LINKEDIN: "/agent-logos/linkedin.svg",
+  INSTAGRAM: "/agent-logos/instagram.svg",
 };
 
 type PaneId = "context" | "analytics" | "agents" | "chat";
@@ -615,6 +619,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [runningAgent, setRunningAgent] = useState<string | null>(null);
   const [generatingDocument, setGeneratingDocument] = useState<string | null>(null);
   const [startingAnalysis, setStartingAnalysis] = useState(false);
+  const [showReportsCatalog, setShowReportsCatalog] = useState(false);
+  const [catalogCategory, setCatalogCategory] = useState<string>("all");
   const [agentError, setAgentError] = useState("");
   const [completedOpportunities, setCompletedOpportunities] = useState(() => new Set(savedOpportunityKeys(data.agentConfigs)));
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([{ role: "assistant", content: `I’ve synthesized ${documents.length} core documents and ${data.pagesRead} source pages for ${data.company.name}. Ask me for a detailed priority analysis or campaign decision.` }]);
@@ -635,6 +641,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   }, [data.agents, data.documents]);
   const analysisRunning = data.analysis && ["QUEUED", "RUNNING"].includes(data.analysis.status);
   const queuedDocumentsReady = documents.filter((document) => queuedDocumentTypes.includes(document.type)).length;
+
+  const DEFAULT_EXTENDED_TYPES = useMemo(() => ["MARKETING_STRATEGY", "DESIGN_GUIDE", "CONTENT_STRATEGY", "PRODUCT_INFO"], []);
+  const visibleExtendedDocuments = useMemo(() => {
+    return EXTENDED_DOCUMENTS.filter(
+      (definition) => DEFAULT_EXTENDED_TYPES.includes(definition.type) || documents.some((d) => d.type === definition.type)
+    );
+  }, [documents, DEFAULT_EXTENDED_TYPES]);
 
   useEffect(() => {
     setDocuments(data.documents);
@@ -863,7 +876,45 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           {(analysisRunning || queuedDocumentsReady < queuedDocumentTypes.length) && <div className="analysis-resume"><Sparkles size={15} /><div><strong>{analysisRunning ? `${data.analysis?.progress ?? 0}% · background report queue` : `${queuedDocumentTypes.length - queuedDocumentsReady} reports need generation`}</strong><small>{analysisRunning ? data.analysis?.step : "Generate the priority intelligence first, then complete every remaining report sequentially."}</small></div>{analysisRunning ? <Link href={`/onboarding/audit/${data.analysis!.jobId}`}>View processing</Link> : <button type="button" disabled={startingAnalysis} onClick={startAnalysis}>{startingAnalysis ? "Starting…" : "Generate now"}</button>}</div>}
         </div>
         <section className="pane-section"><div className="section-label-row"><p className="section-label">CORE DOCUMENTS</p><span>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length}/6</span></div><div className="document-list">{coreDocumentOrder.map((type) => { const document = documents.find((item) => item.type === type); return document ? <button type="button" key={type} onClick={() => setSelectedDocument(document)}><ModuleIcon type={type} size={14} /><span className="document-row-title">{document.title}</span><small>v{document.version}</small><ChevronRight size={13} /><span className="document-hover-detail" role="tooltip"><strong>{document.title}</strong><span>{documentPreview(document) || "Open this document to review its complete evidence and recommendations."}{document.contentMarkdown.length > 190 ? "…" : ""}</span><em>{document.tokenEstimate.toLocaleString()} tokens · Updated {new Date(document.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em></span></button> : <button className="pending-document" type="button" key={type} disabled><ModuleIcon type={type} size={14} /><span>{coreDocumentLabels[type]}</span><small>{analysisRunning ? "Queued" : "Pending"}</small></button>; })}</div></section>
-        <section className="pane-section extended-documents"><div className="section-label-row"><p className="section-label">SKILL-GENERATED DOCUMENTS</p><span>{documents.filter((item) => EXTENDED_DOCUMENTS.some((definition) => definition.type === item.type)).length}/{EXTENDED_DOCUMENTS.length}{analysisRunning ? " background" : " ready"}</span></div><div>{EXTENDED_DOCUMENTS.map((definition) => { const document = documents.find((item) => item.type === definition.type); const pending = generatingDocument === definition.type; const queued = Boolean(analysisRunning) && !document; return <article key={definition.type}><ModuleIcon type={definition.type} size={15} /><div><strong>{definition.title}</strong><small>{queued ? "Queued for sequential background generation" : "Generated only through its ordered local skill chain"}</small><SkillChainPreview skills={definition.skills} /></div>{document ? <button type="button" onClick={() => setSelectedDocument(document)}>Open v{document.version}</button> : <button type="button" disabled={Boolean(generatingDocument) || queued} onClick={() => generateDocument(definition.type)}>{pending ? <RefreshCw className="spin" size={12} /> : queued ? <Clock3 size={12} /> : <Plus size={12} />}{pending ? "Generating" : queued ? "Queued" : "Generate"}</button>}</article>; })}</div></section>
+        <section className="pane-section extended-documents">
+          <div className="section-label-row">
+            <p className="section-label">SKILL-GENERATED DOCUMENTS</p>
+            <span>{documents.filter((item) => EXTENDED_DOCUMENTS.some((definition) => definition.type === item.type)).length}/{visibleExtendedDocuments.length}{analysisRunning ? " background" : " ready"}</span>
+          </div>
+          <div>
+            {visibleExtendedDocuments.map((definition) => {
+              const document = documents.find((item) => item.type === definition.type);
+              const pending = generatingDocument === definition.type;
+              const queued = Boolean(analysisRunning) && !document;
+              return (
+                <article key={definition.type}>
+                  <ModuleIcon type={definition.type} size={15} />
+                  <div>
+                    <strong>{definition.title}</strong>
+                    <small>{queued ? "Queued for sequential background generation" : "Generated only through its ordered local skill chain"}</small>
+                    <SkillChainPreview skills={definition.skills} />
+                  </div>
+                  {document ? (
+                    <button type="button" onClick={() => setSelectedDocument(document)}>Open v{document.version}</button>
+                  ) : (
+                    <button type="button" disabled={Boolean(generatingDocument) || queued} onClick={() => generateDocument(definition.type)}>
+                      {pending ? <RefreshCw className="spin" size={12} /> : queued ? <Clock3 size={12} /> : <Plus size={12} />}
+                      {pending ? "Generating" : queued ? "Queued" : "Generate"}
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+            <button
+              type="button"
+              className="more-reports-catalog-btn"
+              onClick={() => setShowReportsCatalog(true)}
+            >
+              <Plus size={13} />
+              <span>More Reports ({Math.max(0, EXTENDED_DOCUMENTS.length - visibleExtendedDocuments.length)} available)</span>
+            </button>
+          </div>
+        </section>
         <section className="pane-section context-competitors"><div className="section-label-row"><p className="section-label">COMPETITORS</p><span>{competitorItems.length ? `${competitorItems.length} verified` : "Discovery pending"}</span></div>{competitorItems.length ? <div className="context-competitor-grid">{competitorItems.map((item, index) => <ContextCompetitor item={item} key={`${item.companyName || item.title}-${index}`} />)}</div> : <div className="context-competitor-empty"><ModuleIcon type="COMPETITOR" size={15} /><div><strong>Build the competitor set</strong><small>Run the competitor agent to discover six real companies and their official logos.</small></div><button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent("COMPETITOR")}>{runningAgent === "COMPETITOR" ? "Finding…" : "Find competitors"}</button></div>}</section>
         {paneResizer("context")}
       </aside>
@@ -1131,6 +1182,22 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   }
                   onOpportunityUpdated={() => router.refresh()}
                 />
+              ) : type === "INSTAGRAM" ? (
+                <InstagramOpportunityFeed
+                  companyId={data.company.id}
+                  companyName={data.company.name}
+                  initialOpportunities={
+                    (run?.output && typeof run.output === "object" && Array.isArray((run.output as Record<string, unknown>).opportunities)
+                      ? (run.output as Record<string, unknown>).opportunities
+                      : []) as InstagramOpportunity[]
+                  }
+                  opportunityMapSummary={
+                    run?.output && typeof run.output === "object" && (run.output as Record<string, unknown>).opportunityMap
+                      ? ((run.output as Record<string, unknown>).opportunityMap as InstagramOpportunityMap)
+                      : null
+                  }
+                  onOpportunityUpdated={() => router.refresh()}
+                />
               ) : items.length ? (
                 type === "LINKEDIN" ? (
                   <LinkedInAgentFeed
@@ -1217,5 +1284,94 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
     {selectedDocument && <DocumentWorkspace key={`${selectedDocument.id}-${selectedDocument.version}`} document={selectedDocument} onClose={() => setSelectedDocument(null)} onUpdate={updateDocument} />}
     {agentTray && <div className="drawer-backdrop agent-tray-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setAgentTray(false); }}><section className="agent-tray"><header><div><p className="eyebrow">SKILL-GOVERNED SPECIALISTS</p><h2>Add an agent</h2><span>Every agent executes a validated sequence of local skill files before returning output.</span></div><button onClick={() => setAgentTray(false)}>×</button></header><div>{AGENT_DEFINITIONS.filter((agent) => agent.optional).map((agent) => <article key={agent.type}><AgentLogo type={agent.type} fallback="✦" /><div><strong>{agent.label}</strong><p>{agent.description}</p><SkillChainPreview skills={agent.skills} /></div><button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(agent.type)}>{runningAgent === agent.type ? <RefreshCw className="spin" size={13} /> : <Sparkles size={13} />}{runningAgent === agent.type ? "Running" : "Run analysis"}</button></article>)}</div>{agentError && <p className="form-error">{agentError}</p>}</section></div>}
+    {showReportsCatalog && (
+      <div className="drawer-backdrop reports-catalog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowReportsCatalog(false); }}>
+        <section className="reports-catalog-modal" role="dialog" aria-modal="true" aria-label="Skill-Generated Reports Catalog">
+          <header className="catalog-header">
+            <div>
+              <p className="eyebrow">VENDOR SKILL REPOSITORIES</p>
+              <h2>Skill-Generated Reports Catalog</h2>
+              <span>Choose and generate specialized reports powered by your installed marketing, CRO, SEO, outbound, and creative skill chains.</span>
+            </div>
+            <button type="button" className="catalog-close-btn" onClick={() => setShowReportsCatalog(false)}>×</button>
+          </header>
+
+          <div className="catalog-categories-bar">
+            {([
+              ["all", "All Reports"],
+              ["cro", "CRO & Funnels"],
+              ["seo", "SEO & Search Architecture"],
+              ["outbound", "Outbound & Email"],
+              ["growth", "Paid & Growth"],
+              ["content", "Content & Brand"],
+              ["analytics", "Analytics & Tracking"],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                className={`cat-pill-btn ${catalogCategory === key ? "active" : ""}`}
+                onClick={() => setCatalogCategory(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="catalog-reports-grid">
+            {EXTENDED_DOCUMENTS.filter((def) => {
+              if (catalogCategory === "all") return true;
+              if (catalogCategory === "cro") return ["PAGE_CRO_AUDIT", "ONBOARDING_CRO_AUDIT", "AB_TEST_ROADMAP"].includes(def.type);
+              if (catalogCategory === "seo") return ["TOPIC_CLUSTER_BLUEPRINT", "PSEO_BLUEPRINT", "BACKLINK_OUTREACH_BLUEPRINT", "LOCAL_SEO_AUDIT"].includes(def.type);
+              if (catalogCategory === "outbound") return ["COLD_OUTBOUND_PLAYBOOK", "EMAIL_LIFECYCLE_PLAYBOOK", "LEAD_MAGNET_STRATEGY"].includes(def.type);
+              if (catalogCategory === "growth") return ["PAID_ADS_PLAYBOOK", "COMPETITOR_COMPARISON_PLAYBOOK", "MARKETING_STRATEGY"].includes(def.type);
+              if (catalogCategory === "content") return ["CONTENT_STRATEGY", "SOCIAL_BATCH_PLAN", "SHORT_FORM_VIDEO_BLUEPRINT", "BRAND_STORYTELLING_GUIDE", "DESIGN_GUIDE", "PRODUCT_INFO"].includes(def.type);
+              if (catalogCategory === "analytics") return ["ANALYTICS_TRACKING_BLUEPRINT"].includes(def.type);
+              return true;
+            }).map((definition) => {
+              const document = documents.find((item) => item.type === definition.type);
+              const pending = generatingDocument === definition.type;
+              return (
+                <article key={definition.type} className="catalog-report-card">
+                  <div className="report-card-head">
+                    <ModuleIcon type={definition.type} size={18} />
+                    <div className="report-card-titles">
+                      <h4>{definition.title}</h4>
+                      <p>{definition.purpose}</p>
+                    </div>
+                  </div>
+                  <div className="report-card-skills">
+                    <SkillChainPreview skills={definition.skills} />
+                  </div>
+                  <div className="report-card-action">
+                    {document ? (
+                      <button
+                        type="button"
+                        className="catalog-open-btn"
+                        onClick={() => {
+                          setSelectedDocument(document);
+                          setShowReportsCatalog(false);
+                        }}
+                      >
+                        <CheckCircle2 size={12} /> Open v{document.version}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="catalog-generate-btn"
+                        disabled={Boolean(generatingDocument)}
+                        onClick={() => void generateDocument(definition.type)}
+                      >
+                        {pending ? <RefreshCw className="spin" size={12} /> : <Plus size={12} />}
+                        {pending ? "Generating with Skills…" : "Generate Report"}
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    )}
   </main>;
 }

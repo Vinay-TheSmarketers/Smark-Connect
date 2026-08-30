@@ -8,6 +8,7 @@ import { discoverCompanyLogo } from "@/lib/company-logo";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { discoverLiveResearch, liveResearchAction, type LiveDiscoveryItem } from "@/lib/research/live-discovery";
 import { runRedditOpportunityPipeline } from "@/lib/reddit/discovery-pipeline";
+import { runInstagramOpportunityPipeline } from "@/lib/instagram/discovery-pipeline";
 import { runCompetitorIntelligencePipeline } from "@/lib/competitors/pipeline";
 import { AGENT_DEFINITIONS, CORE_DOCUMENTS, getAgentDefinition, getInternalOperation, type CoreDocumentDefinition, type SkillRef } from "./registry";
 import { loadSkillPackWithManifest, type SkillExecutionStep } from "./loader";
@@ -586,6 +587,79 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
             sources: Array.from(new Set(pipelineResult.opportunities.map((o) => o.sourceUrl))) as unknown as Prisma.InputJsonValue,
             skills: { mapped: definition.skills } as unknown as Prisma.InputJsonValue,
             confidence: 92,
+            tokensUsed: tokensEstimate,
+            completedAt: new Date(),
+          },
+        }),
+        db.user.update({ where: { id: args.userId }, data: { tokenUsed: { increment: tokensEstimate } } }),
+      ]);
+      return { runId: run.id };
+    }
+
+    if (definition.type === "INSTAGRAM") {
+      const pipelineResult = await runInstagramOpportunityPipeline({
+        companyId: company.id,
+        userId: args.userId,
+      });
+
+      const instagramFindings: Finding[] = [
+        {
+          title: `Instagram Opportunity Map Active: ${pipelineResult.opportunityMap.themes.length} strategic themes`,
+          evidence: `Synthesized ${pipelineResult.totalSignalsCollected} multi-source marketing signals across website content, SEO/GEO findings, customer FAQs, and competitor whitespace. Generated ${pipelineResult.totalOpportunitiesGenerated} multi-format opportunities (${pipelineResult.highPriorityCount} High Priority).`,
+          impact: `Monitors visual content opportunities, saveable carousels, and high-retention Reels grounded in ${company.name} memory.`,
+          action: "Review ranked opportunities in the Action Feed, preview slide/storyboard sequences, and schedule.",
+          kind: "current_status",
+          platform: "INSTAGRAM",
+          sourceLabel: "Instagram Opportunity Map",
+          publishedAt: new Date().toISOString(),
+          draftContent: "",
+          recommendedResponse: "",
+          tags: ["opportunity_map", "reels", "carousels"],
+          companyName: company.name,
+          officialWebsite: company.websiteUrl,
+          logoUrl: "",
+          competitiveAttributes: [],
+          priority: "high",
+          confidence: 95,
+          sourceUrls: [company.websiteUrl],
+        },
+        ...pipelineResult.opportunities.map((opp): Finding => ({
+          title: opp.title,
+          evidence: `${opp.hookHeadline} | Score: ${opp.score.total}/100 (${opp.score.tier.toUpperCase()}) | Format: ${opp.recommendedFormat}`,
+          impact: opp.whyThisMatters,
+          action: `Create ${opp.recommendedFormat}`,
+          kind: "insight",
+          platform: "INSTAGRAM",
+          sourceLabel: opp.signalOrigin.source.replace(/_/g, " "),
+          publishedAt: opp.createdAt,
+          draftContent: opp.executionPackage.caption,
+          recommendedResponse: opp.executionPackage.cta,
+          tags: [opp.recommendedFormat.toLowerCase(), opp.opportunityType.toLowerCase(), `${opp.score.total} pts`],
+          companyName: company.name,
+          officialWebsite: company.websiteUrl,
+          logoUrl: "",
+          competitiveAttributes: [],
+          priority: opp.score.total >= 90 ? "critical" : opp.score.total >= 80 ? "high" : "medium",
+          confidence: opp.confidence,
+          sourceUrls: opp.signalOrigin.sourceUrl ? [opp.signalOrigin.sourceUrl] : [company.websiteUrl],
+        })),
+      ];
+
+      const tokensEstimate = 1400;
+      await db.$transaction([
+        db.agentRun.update({
+          where: { id: run.id },
+          data: {
+            status: "DONE",
+            summary: `${pipelineResult.opportunities.length} Instagram opportunities generated across ${pipelineResult.opportunityMap.themes.length} strategic themes.`,
+            output: {
+              findings: instagramFindings,
+              opportunities: pipelineResult.opportunities,
+              opportunityMap: pipelineResult.opportunityMap,
+            } as unknown as Prisma.InputJsonValue,
+            sources: [company.websiteUrl] as unknown as Prisma.InputJsonValue,
+            skills: { mapped: definition.skills } as unknown as Prisma.InputJsonValue,
+            confidence: 95,
             tokensUsed: tokensEstimate,
             completedAt: new Date(),
           },

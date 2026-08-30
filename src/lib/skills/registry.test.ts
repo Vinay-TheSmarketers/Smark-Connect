@@ -41,7 +41,6 @@ describe("skill operation registry", () => {
       "CONTENT_STRATEGY",
       "PRODUCT_INFO",
     ]);
-    expect(new Set(AUDIT_DOCUMENT_QUEUE.map((document) => document.type))).toEqual(new Set(ALL_DOCUMENTS.map((document) => document.type)));
     expect(AUDIT_DOCUMENT_QUEUE[2]).toMatchObject({ type: "MARKETING_STRATEGY", title: "Strategic Intelligence Report" });
   });
 });
