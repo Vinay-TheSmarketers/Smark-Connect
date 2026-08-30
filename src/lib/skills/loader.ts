@@ -12,16 +12,16 @@ export type SkillExecutionStep = SkillRef & {
   references: string[];
 };
 
-const repositoryDirectories: Record<SkillRepository, string> = {
+const repositoryDirectories: Record<Exclude<SkillRepository, "local">, string> = {
   "claude-seo": "claude-seo-main",
   "openclaw-marketing-skills": "openclaw-marketing-skills-main",
   "social-media-skills": "skills-main",
 };
 
 function repositoryRoot(repository: SkillRepository): string {
-  // Skills are packaged inside the application for production deployments.
-  // Keeping the root relative to process.cwd() also works in the local
-  // development server and inside the Linux Docker image.
+  if (repository === "local") {
+    return path.resolve(/* turbopackIgnore: true */ process.cwd(), "skills");
+  }
   return path.resolve(/* turbopackIgnore: true */ process.cwd(), "vendor", "skill-repositories", repositoryDirectories[repository]);
 }
 
@@ -31,7 +31,9 @@ function referencedMarkdown(markdown: string): string[] {
 }
 
 async function loadOneSkill(ref: SkillRef, budget: number, index: number): Promise<{ content: string; step: SkillExecutionStep }> {
-  const skillDirectory = path.join(repositoryRoot(ref.repository), "skills", ref.skill);
+  const skillDirectory = ref.repository === "local"
+    ? path.join(repositoryRoot(ref.repository), ref.skill)
+    : path.join(repositoryRoot(ref.repository), "skills", ref.skill);
   const skillPath = path.join(skillDirectory, "SKILL.md");
   try {
     const main = await readFile(skillPath, "utf8");

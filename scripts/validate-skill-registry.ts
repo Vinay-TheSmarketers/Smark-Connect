@@ -3,7 +3,7 @@ import path from "node:path";
 import { AgentType, DocumentType } from "@prisma/client";
 import { AGENT_DEFINITIONS, ALL_DOCUMENTS, INTERNAL_OPERATIONS, type SkillRepository } from "../src/lib/skills/registry";
 
-const roots: Record<SkillRepository, string> = {
+const roots: Record<Exclude<SkillRepository, "local">, string> = {
   "claude-seo": "claude-seo-main",
   "openclaw-marketing-skills": "openclaw-marketing-skills-main",
   "social-media-skills": "skills-main",
@@ -20,7 +20,9 @@ async function main() {
     .filter((ref, index, values) => values.findIndex((candidate) => candidate.repository === ref.repository && candidate.skill === ref.skill) === index);
   const missing: string[] = [];
   for (const ref of refs) {
-    const source = path.resolve(process.cwd(), "vendor", "skill-repositories", roots[ref.repository], "skills", ref.skill, "SKILL.md");
+    const source = ref.repository === "local"
+      ? path.resolve(process.cwd(), "skills", ref.skill, "SKILL.md")
+      : path.resolve(process.cwd(), "vendor", "skill-repositories", roots[ref.repository], "skills", ref.skill, "SKILL.md");
     try { await access(source); } catch { missing.push(`${ref.repository}/${ref.skill}`); }
   }
   if (missing.length) throw new Error(`Missing embedded skill files:\n${missing.join("\n")}`);

@@ -13,7 +13,7 @@ describe("skill operation registry", () => {
     for (const operation of operations) {
       expect(operation.skills.length).toBeGreaterThan(0);
       for (const step of operation.skills) {
-        expect(["claude-seo", "openclaw-marketing-skills", "social-media-skills"]).toContain(step.repository);
+        expect(["claude-seo", "openclaw-marketing-skills", "social-media-skills", "local"]).toContain(step.repository);
         expect(step.phase.length).toBeGreaterThan(0);
         expect(step.reason.length).toBeGreaterThan(10);
       }
