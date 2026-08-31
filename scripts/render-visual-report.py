@@ -20,7 +20,12 @@ except Exception as error:
     HTML = None
     WEASYPRINT_ERROR = str(error)
 
-ACRONYMS = ("SEO", "GEO", "ICP", "PESTEL", "SWOT", "ROI", "KPI", "CTR", "CTA", "AI", "API", "URL", "B2B", "B2C", "GSC", "LLM", "CRO", "PSEO", "JTBD", "LIC", "IRDAI", "ULIP", "AUM", "CSR", "STP", "KYC")
+ACRONYMS = (
+    "SEO", "GEO", "ICP", "PESTEL", "SWOT", "ROI", "KPI", "CTR", "CTA",
+    "AI", "API", "URL", "B2B", "B2C", "GSC", "LLM", "CRO", "PSEO",
+    "JTBD", "LIC", "IRDAI", "ULIP", "AUM", "CSR", "STP", "KYC", "CAC", "LTV"
+)
+
 
 def normalize_acronyms(value: str) -> str:
     value = re.sub(r"[\ud800-\udfff]", "?", value)
@@ -72,7 +77,7 @@ def clean_inline(value: str) -> str:
         value = value.replace(broken, repaired)
     value = re.sub(r"(?:â[^\w\s]{1,4})+", " · ", value)
     value = re.sub(r"!\[([^]]*)\]\([^)]*\)", r"\1", value)
-    value = re.sub(r"\[([^]]+)\]\((https?://[^)]+)\)", r'<a href="\2">\1</a>', value)
+    value = re.sub(r"\[([^]]+)\]\((https?://[^)]+)\)", r'<span class="smark-cite-link" title="\2">\1</span>', value)
     value = re.sub(r"[\u2500-\u259f\ufffd]+", " · ", value)
     value = re.sub(r"(?:\s*·\s*){2,}", " · ", value)
     value = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", value)

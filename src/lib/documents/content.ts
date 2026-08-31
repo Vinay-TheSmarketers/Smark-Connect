@@ -3,7 +3,7 @@ export type DocumentBlock = { type: "h1" | "h2" | "h3" | "paragraph" | "bullet" 
 export function cleanInlineMarkdown(value: string): string {
   return value
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")

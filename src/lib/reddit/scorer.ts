@@ -79,22 +79,21 @@ function classifyIntent(title: string, excerpt: string): { intent: OpportunityIn
   }
 
   if (
-    /too expensive|hate|broken|clunky|pricing increased|switched from|alternative to|unhappy with|leaving/i.test(text) &&
-    /semrush|ahrefs|screaming frog|brightlocal|moz|hubspot|agencyanalytics/i.test(text)
+    /alternative to|leaving|cancelled|terrible support|too expensive|buggy|slow|switching from|hate/i.test(text)
   ) {
     return { intent: "COMPETITOR_DISSATISFACTION", label: "Competitor Dissatisfaction" };
   }
 
   if (
-    /vs|compared to|difference between|versus|alternative/i.test(text)
+    /vs|compare|or|difference between|pros and cons/i.test(title.toLowerCase())
   ) {
-    return { intent: "COMPARISON", label: "Comparison / Evaluation" };
+    return { intent: "COMPARISON", label: "Tool / Approach Comparison" };
   }
 
   if (
-    /takes too long|manual|frustrated|struggling|headache|bottleneck|waste of time|slow|impossible/i.test(text)
+    /struggling with|problem with|how do you solve|bottleneck|takes too long|manual|frustrated|failing/i.test(text)
   ) {
-    return { intent: "PAIN_POINT", label: "Customer Pain Point" };
+    return { intent: "PAIN_POINT", label: "Specific Pain Point" };
   }
 
   if (
@@ -104,7 +103,7 @@ function classifyIntent(title: string, excerpt: string): { intent: OpportunityIn
   }
 
   if (
-    /discussion|future of|ai in seo|trends|opinion|hot take|state of/i.test(text)
+    /discussion|future of|trends|opinion|hot take|state of/i.test(text)
   ) {
     return { intent: "INDUSTRY_DISCUSSION", label: "Industry Discussion" };
   }
@@ -123,32 +122,30 @@ export function evaluateRedditOpportunity(
   const text = `${candidate.title} ${candidate.excerpt} ${candidate.subreddit}`.toLowerCase();
   const { intent, label: intentLabel } = classifyIntent(candidate.title, candidate.excerpt);
 
-  // 1. ICP Matching
-  const isAgency = /agency|agencies|client|freelance|consultant|multi-account|whitelabel|white-label/i.test(text);
-  const isSaasMarketer = /b2b|saas|demand gen|growth|pipeline|abm|product marketing/i.test(text);
-  const isTechSeo = /technical seo|crawl|schema|core web vitals|rendering|indexation|lighthouse|site speed/i.test(text);
+  // 1. ICP Matching from Company Memory
+  let matchedIcp = memory.icpsAndPersonas[0]?.title || `${memory.category || "Target"} Decision Maker`;
+  for (const icp of memory.icpsAndPersonas) {
+    const roleWords = `${icp.title} ${icp.role} ${icp.description}`.toLowerCase().split(/\s+/);
+    if (roleWords.some((w) => w.length > 3 && text.includes(w))) {
+      matchedIcp = icp.title;
+      break;
+    }
+  }
 
-  let matchedIcp = memory.icpsAndPersonas[0]?.title || "B2B Marketing Agency Owner";
-  if (isAgency) matchedIcp = "B2B Marketing Agency Owner";
-  else if (isSaasMarketer) matchedIcp = "In-House Demand Gen / Growth Lead";
-  else if (isTechSeo) matchedIcp = "Technical SEO & RevOps Lead";
-
-  // 2. Problem Matching
-  let matchedProblem = memory.painPoints[0] || "Manual client SEO reporting takes too much time";
-  if (/report|reporting|dashboard|client presentation|hours/i.test(text)) {
-    matchedProblem = "Manual client SEO reporting takes 5+ hours per client every month";
-  } else if (/crawl|audit|slow|broken|architecture/i.test(text)) {
-    matchedProblem = "Slow and limited multi-domain technical audits and crawl diagnostics";
-  } else if (/expensive|price|cost|billing|tier/i.test(text)) {
-    matchedProblem = "Legacy SEO tooling locking essential multi-client features behind high prices";
-  } else if (/geo|ai search|perplexity|chatgpt|citations/i.test(text)) {
-    matchedProblem = "Lack of visibility and readiness for AI answer engines (GEO)";
+  // 2. Problem Matching from Company Memory
+  let matchedProblem = memory.painPoints[0] || `Managing ${memory.category || "core"} workflows takes too much time`;
+  for (const pain of memory.painPoints) {
+    const painWords = pain.toLowerCase().split(/\s+/).filter((w) => w.length > 4);
+    if (painWords.some((w) => text.includes(w))) {
+      matchedProblem = pain;
+      break;
+    }
   }
 
   // 3. Product Match
-  const matchedProduct = memory.productsAndServices[0] || `${memory.companyName} Automated Intelligence Platform`;
+  const matchedProduct = memory.productsAndServices[0] || `${memory.companyName} ${memory.category || "Platform"}`;
 
-  // 4. Competitor Detection
+  // 4. Competitor Detection from Company Memory
   let detectedCompetitor: string | null = null;
   for (const comp of memory.competitors) {
     if (comp.name && new RegExp(`\\b${comp.name.toLowerCase()}\\b`, "i").test(text)) {
@@ -156,48 +153,61 @@ export function evaluateRedditOpportunity(
       break;
     }
   }
-  if (!detectedCompetitor) {
-    const commonComps = ["Screaming Frog", "Semrush", "Ahrefs", "BrightLocal", "Moz", "AgencyAnalytics"];
-    for (const comp of commonComps) {
-      if (new RegExp(`\\b${comp.toLowerCase()}\\b`, "i").test(text)) {
-        detectedCompetitor = comp;
-        break;
-      }
-    }
-  }
 
-  // 5. Calculate 8-Factor Score (0-100)
-  // Factor 1: Intent (0 - 25)
-  let intentScore = 14;
+  // -------------------------------------------------------------
+  // Factor 1: Intent Score (0 - 25)
+  // -------------------------------------------------------------
+  let intentScore = 10;
   if (intent === "BUYING_INTENT") intentScore = 25;
   else if (intent === "RECOMMENDATION_REQUEST") intentScore = 24;
   else if (intent === "COMPETITOR_DISSATISFACTION") intentScore = 22;
-  else if (intent === "PAIN_POINT") intentScore = 20;
-  else if (intent === "HOW_TO_QUESTION") intentScore = 16;
-  else if (intent === "COMPARISON") intentScore = 18;
-  else if (intent === "INDUSTRY_DISCUSSION") intentScore = 12;
+  else if (intent === "COMPARISON") intentScore = 19;
+  else if (intent === "PAIN_POINT") intentScore = 18;
+  else if (intent === "HOW_TO_QUESTION") intentScore = 14;
+  else if (intent === "INDUSTRY_DISCUSSION") intentScore = 11;
+  else intentScore = 8;
 
-  // Factor 2: Product / Problem Fit (0 - 20)
-  let productFitScore = 12;
-  if (
-    /audit|report|automated|crawl|demand gen|abm|white-label/i.test(text)
-  ) {
-    productFitScore = 19;
-  } else if (/seo|marketing|tools|software/i.test(text)) {
-    productFitScore = 16;
+  // -------------------------------------------------------------
+  // Factor 2: Product Fit (0 - 20)
+  // -------------------------------------------------------------
+  let productFitScore = 10;
+  const productTerms = [
+    memory.companyName,
+    memory.category,
+    ...memory.productsAndServices,
+    ...memory.featuresAndCapabilities,
+    ...(memory.primaryKeywords || []),
+    ...(memory.painPoints || []),
+  ].flatMap((t) => t.toLowerCase().split(/[\s,&/]+/)).filter((w) => w.length > 3 && !["with", "that", "this", "from", "your", "more", "most", "about", "into"].includes(w));
+
+  let matchesCount = 0;
+  for (const term of new Set(productTerms)) {
+    if (text.includes(term)) matchesCount += 1;
   }
 
+  if (matchesCount >= 3) productFitScore = 20;
+  else if (matchesCount >= 2) productFitScore = 18;
+  else if (matchesCount === 1) productFitScore = 14;
+  else productFitScore = 10;
+
+  // -------------------------------------------------------------
   // Factor 3: ICP Fit (0 - 15)
+  // -------------------------------------------------------------
   let icpFitScore = 10;
-  if (isAgency) icpFitScore = 15;
-  else if (isSaasMarketer || isTechSeo) icpFitScore = 14;
-  else if (/founder|owner|marketer|growth/i.test(text)) icpFitScore = 12;
+  if (matchedIcp) icpFitScore = 14;
 
+  // -------------------------------------------------------------
   // Factor 4: Relevance (0 - 15)
-  const relevanceTermsCount = memory.primaryKeywords.filter((kw) => text.includes(kw.toLowerCase())).length;
-  const relevanceScore = Math.min(15, 10 + relevanceTermsCount * 2);
+  // -------------------------------------------------------------
+  let relevanceScore = 8;
+  const painTerms = memory.painPoints.map((p) => p.toLowerCase());
+  if (painTerms.some((p) => text.includes(p))) relevanceScore += 4;
+  if (detectedCompetitor) relevanceScore += 3;
+  relevanceScore = Math.min(15, relevanceScore);
 
+  // -------------------------------------------------------------
   // Factor 5: Recency (0 - 10)
+  // -------------------------------------------------------------
   let recencyScore = 8;
   if (candidate.publishedAt) {
     const ageDays = (Date.now() - new Date(candidate.publishedAt).getTime()) / (1000 * 60 * 60 * 24);
@@ -208,12 +218,16 @@ export function evaluateRedditOpportunity(
     else recencyScore = 4;
   }
 
+  // -------------------------------------------------------------
   // Factor 6: Conversation & Engagement Potential (0 - 5)
+  // -------------------------------------------------------------
   let engagementScore = 3;
   if (candidate.numComments > 10 || candidate.score > 20) engagementScore = 5;
   else if (candidate.numComments >= 3 || candidate.score >= 5) engagementScore = 4;
 
+  // -------------------------------------------------------------
   // Factor 7: Actionability (0 - 5)
+  // -------------------------------------------------------------
   let actionabilityScore = 3;
   if (["BUYING_INTENT", "RECOMMENDATION_REQUEST", "COMPETITOR_DISSATISFACTION"].includes(intent)) {
     actionabilityScore = 5;
@@ -221,7 +235,9 @@ export function evaluateRedditOpportunity(
     actionabilityScore = 4;
   }
 
+  // -------------------------------------------------------------
   // Factor 8: Confidence (0 - 5)
+  // -------------------------------------------------------------
   const confidenceScore = candidate.url && candidate.title.length > 20 ? 5 : 4;
 
   // Adaptive feedback weighting boost
@@ -288,12 +304,12 @@ export function evaluateRedditOpportunity(
 
   // 8. Evidence Checklist
   const evidence: string[] = [
-    isAgency ? "✓ Matches Agency ICP (High Commercial Fit)" : "✓ Matches Target B2B Marketer Profile",
+    `✓ Aligns with target ICP: ${matchedIcp}`,
     intent === "RECOMMENDATION_REQUEST" ? "✓ User explicitly requesting tool recommendations" :
     intent === "BUYING_INTENT" ? "✓ Explicit commercial / buying intent detected" :
     intent === "COMPETITOR_DISSATISFACTION" ? `✓ Competitor dissatisfaction detected (${detectedCompetitor || "Legacy tool"})` :
     "✓ Stated problem aligns with core platform capability",
-    `✓ Product directly automates: ${matchedProblem.slice(0, 50)}…`,
+    `✓ Product addresses: ${matchedProblem.slice(0, 50)}…`,
     candidate.publishedAt ? `✓ Fresh discussion active within monitoring window` : "✓ Discovered through live search index",
   ];
 
@@ -302,7 +318,7 @@ export function evaluateRedditOpportunity(
     intent === "RECOMMENDATION_REQUEST"
       ? `The author is actively evaluating solutions in ${candidate.subreddit}. Recommending ${memory.companyName} with helpful context will establish authority and capture high-intent demand.`
       : intent === "COMPETITOR_DISSATISFACTION"
-      ? `Frustration with ${detectedCompetitor || "current tooling"} creates an ideal opportunity to highlight your automated workflow and transparent pricing.`
+      ? `Frustration with ${detectedCompetitor || "current tooling"} creates an ideal opportunity to highlight your automated workflow and transparent capabilities.`
       : intent === "PAIN_POINT"
       ? `Addresses the exact operational bottleneck (${matchedProblem}) that ${memory.companyName} solves, offering high value without being overly promotional.`
       : `Relevant discussion in ${candidate.subreddit} touching core domain capabilities. Replying with actionable advice builds brand trust.`;
