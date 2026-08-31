@@ -58,18 +58,18 @@ const coreDocumentOrder = ["COMPETITOR_ANALYSIS", "COMPANY_INTELLIGENCE", "SEO_A
 const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Company Intelligence", SEO_AUDIT: "SEO Audit", GEO_AUDIT: "GEO and AI Visibility", COMPETITOR_ANALYSIS: "Competitor Analysis", AUDIENCE_ANALYSIS: "Audience Analysis", CONTENT_AUDIT: "Content Audit and Strategy" };
 const queuedDocumentTypes = [...coreDocumentOrder, ...EXTENDED_DOCUMENTS.map((definition) => definition.type)];
 const primaryAgents = [
-  ["REDDIT", "REDDIT OPPORTUNITIES", "r/", "Discovered discussions ready"],
-  ["INSTAGRAM", "INSTAGRAM OPPORTUNITIES", "IG", "Visual discovery, Carousels & Reels ready"],
-  ["SEO", "SEO & GEO RECOMMENDATIONS", "SEO", "Recommendations and search fixes"],
-  ["PROGRAMMATIC_SEO", "PROGRAMMATIC SEO", "P", "Template uniqueness & index bloat safeguards"],
-  ["X", "X WRITER", "X", "Publish-ready angles"],
-  ["ARTICLES", "ARTICLES", "A", "Authority topics ready"],
-  ["LINKEDIN", "LINKEDIN WRITER", "in", "Thought-leadership posts"],
-  ["AI_CMO", "AI CMO DIRECTOR", "CMO", "Strategic executive synthesis"],
-  ["TECHNICAL_SEO", "TECHNICAL SEO AGENT", "T", "Technical diagnostic and crawlability"],
-  ["COMPETITOR", "COMPETITOR AGENT", "C", "Verified competitor analysis"],
-  ["AUDIENCE", "AUDIENCE AGENT", "ICP", "ICP, jobs and voice-of-customer"],
-  ["CONTENT_AUDIT", "CONTENT STRATEGY AGENT", "M", "Content gaps and editorial briefs"],
+  ["REDDIT", "Reddit", "r/", "Discovered discussions ready"],
+  ["INSTAGRAM", "Instagram", "IG", "Visual opportunities ready"],
+  ["X", "X", "X", "Publish-ready angles"],
+  ["LINKEDIN", "LinkedIn", "in", "Thought-leadership posts"],
+  ["SEO", "SEO Audit Agent", "SEO", "Recommendations and search fixes"],
+  ["ARTICLES", "Articles", "A", "Authority topics ready"],
+  ["TECHNICAL_SEO", "Technical SEO", "T", "Technical diagnostic and crawlability"],
+  ["AUDIENCE", "Audience Agent", "ICP", "ICP, jobs and voice-of-customer"],
+  ["CONTENT_AUDIT", "Content Strategy Agent", "M", "Content gaps and editorial briefs"],
+  ["COMPETITOR", "Competitor Analysis", "C", "Verified competitor intelligence"],
+  ["PROGRAMMATIC_SEO", "Programmatic SEO", "P", "Template uniqueness and index safeguards"],
+  ["AI_CMO", "AI CMO Director", "CMO", "Strategic executive synthesis"],
 ] as const;
 const agentLogoPaths: Record<string, string> = {
   X: "/agent-logos/x.svg",
@@ -84,7 +84,7 @@ type PaneSizes = Record<PaneId, number>;
 const defaultPaneOrder: PaneId[] = ["context", "analytics", "agents", "chat"];
 const defaultPaneSizes: PaneSizes = { context: 23, analytics: 29, agents: 25, chat: 23 };
 const paneMinimums: Record<PaneId, number> = { context: 220, analytics: 330, agents: 300, chat: 300 };
-const paneLabels: Record<PaneId, string> = { context: "Context", analytics: "Analytics", agents: "Agents Feed", chat: "AI CMO" };
+const paneLabels: Record<PaneId, string> = { context: "Context", analytics: "Analytics", agents: "Action Feed", chat: "AI CMO" };
 
 function isPaneId(value: unknown): value is PaneId {
   return typeof value === "string" && defaultPaneOrder.includes(value as PaneId);
@@ -108,7 +108,8 @@ function CompanyLogo({ company, size = 28, eager = false }: { company: { id: str
 
 function AgentLogo({ type, fallback }: { type: string; fallback: string }) {
   const logoPath = agentLogoPaths[type];
-  return <span className={`agent-icon agent-${type.toLowerCase()} ${logoPath ? "has-brand-logo" : ""}`}>
+  const hasModuleIcon = !logoPath && isCoreModule(type);
+  return <span className={`agent-icon agent-${type.toLowerCase()} ${logoPath ? "has-brand-logo" : ""} ${hasModuleIcon ? "has-module-icon" : ""}`}>
     {logoPath ? <Image src={logoPath} alt="" width={28} height={28} /> : isCoreModule(type) ? <ModuleIcon type={type} size={17} /> : fallback}
   </span>;
 }
@@ -161,6 +162,47 @@ function CleanMarkdown({ children }: { children: unknown }) {
   return text ? <div className="clean-markdown"><ReactMarkdown components={{ h1: ({ children: content }) => <p className="markdown-subhead"><strong>{content}</strong></p>, h2: ({ children: content }) => <p className="markdown-subhead"><strong>{content}</strong></p>, h3: ({ children: content }) => <p className="markdown-subhead"><strong>{content}</strong></p> }}>{text}</ReactMarkdown></div> : null;
 }
 
+function paragraphText(value: unknown) {
+  return unwrapStructuredText(value)
+    .replace(/(^|\s)#{1,6}\s+/g, " ")
+    .replace(/[*_`>|\[\]]+/g, " ")
+    .replace(/(^|\s)[-•]\s+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function mergeFindingText(first?: string, second?: string) {
+  return Array.from(new Set([first, second].map(paragraphText).filter(Boolean))).join(" ");
+}
+
+function consolidateCompetitorFindings(items: Finding[]) {
+  const grouped = new Map<string, Finding>();
+  items.forEach((item, index) => {
+    const identity = item.companyName || item.officialWebsite || item.title || `competitor-${index}`;
+    const key = identity.toLowerCase().replace(/https?:\/\//g, "").replace(/^www\./, "").replace(/[^a-z0-9]+/g, "-");
+    const current = grouped.get(key);
+    if (!current) {
+      grouped.set(key, item);
+      return;
+    }
+    grouped.set(key, {
+      ...current,
+      ...item,
+      companyName: current.companyName || item.companyName,
+      officialWebsite: current.officialWebsite || item.officialWebsite,
+      logoUrl: current.logoUrl || item.logoUrl,
+      title: current.title || item.title,
+      evidence: mergeFindingText(current.evidence || current.description, item.evidence || item.description),
+      description: mergeFindingText(current.description, item.description),
+      impact: mergeFindingText(current.impact, item.impact),
+      action: mergeFindingText(current.action, item.action),
+      sourceUrls: Array.from(new Set([...(current.sourceUrls || []), ...(item.sourceUrls || [])])),
+      competitiveAttributes: Array.from(new Set([...(current.competitiveAttributes || []), ...(item.competitiveAttributes || [])])),
+    });
+  });
+  return Array.from(grouped.values());
+}
+
 function OfficialCompetitorLogo({ item }: { item: Finding }) {
   const [useFallback, setUseFallback] = useState(false);
   const [useGoogle, setUseGoogle] = useState(false);
@@ -196,6 +238,11 @@ function ContextCompetitor({ item }: { item: Finding }) {
 
 function CompetitorFindingCard({ item }: { item: Finding }) {
   const competitorName = item.companyName || item.title || "Competitor";
+  const overview = paragraphText(item.evidence || item.description);
+  const positioning = paragraphText(item.impact);
+  const response = paragraphText(item.action);
+  const attributes = item.competitiveAttributes?.map(paragraphText).filter(Boolean) || [];
+  const workflowSteps = AGENT_DEFINITIONS.find((agent) => agent.type === "COMPETITOR")?.skills.length || 0;
   return (
     <article className="competitor-finding-card">
       <div className="competitor-card-head">
@@ -210,28 +257,13 @@ function CompetitorFindingCard({ item }: { item: Finding }) {
           )}
         </div>
       </div>
-      <div className="competitor-evidence-text">
-        <CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>
+      <div className="competitor-summary-paragraphs">
+        {overview && <p>{overview}</p>}
+        {attributes.length > 0 && <p><strong>Known for.</strong> {attributes.join(", ")}.</p>}
+        {positioning && <p><strong>Strategic relevance.</strong> {positioning}</p>}
+        {response && <p><strong>Recommended response.</strong> {response}</p>}
       </div>
-      {item.competitiveAttributes?.length ? (
-        <div className="competitive-attributes">
-          {item.competitiveAttributes.map((attribute) => (
-            <span key={attribute} className="attr-pill">{attribute}</span>
-          ))}
-        </div>
-      ) : null}
-      {item.impact && (
-        <div className="competitor-impact">
-          <strong>How We Differ &amp; Strategic Relevance</strong>
-          <CleanMarkdown>{item.impact}</CleanMarkdown>
-        </div>
-      )}
-      {item.action && (
-        <div className="competitor-action">
-          <strong>Counter-Strategy &amp; Action</strong>
-          <CleanMarkdown>{item.action}</CleanMarkdown>
-        </div>
-      )}
+      <footer className="competitor-skill-synthesis"><Sparkles size={11} /> Synthesized through the {workflowSteps}-step competitor research workflow</footer>
     </article>
   );
 }
@@ -444,16 +476,8 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
 
 function GenericAgentFindingCard({
   item,
-  index,
-  type,
-  onRefresh,
-  refreshing,
 }: {
   item: Finding;
-  index: number;
-  type: string;
-  onRefresh: () => void;
-  refreshing: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -516,12 +540,6 @@ function GenericAgentFindingCard({
             {copied ? <Check size={11} /> : <Copy size={11} />}
             <span>{copied ? "Copied" : "Copy"}</span>
           </button>
-          {AGENT_DEFINITIONS.some((agent) => agent.type === type) && index === 0 && (
-            <button type="button" className="sc-btn sc-btn--secondary sc-btn--sm" disabled={refreshing} onClick={onRefresh}>
-              <RefreshCw size={11} className={refreshing ? "sc-spinning" : ""} />
-              <span>Refresh</span>
-            </button>
-          )}
         </div>
       </div>
     </article>
@@ -538,7 +556,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [documents, setDocuments] = useState(data.documents);
   const [selectedDocument, setSelectedDocument] = useState<WorkspaceDocument | null>(null);
-  const [expandedAgent, setExpandedAgent] = useState<string | null>("X");
+  const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
   const [analysisTab, setAnalysisTab] = useState<"health" | "links" | "technical" | "aigeo" | "checks">("health");
   const lighthouse = useLighthouseAudit(data.company.websiteUrl);
   const [vitalsDevice, setVitalsDevice] = useState<"desktop" | "mobile">("desktop");
@@ -1129,7 +1147,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       </section>
 
       <section className="agents-pane pane" {...paneProps("agents")}>
-        <div className="pane-header"><span><Bot size={15} /><span className="pane-title-text">Agents Feed</span><span className="live-dot" /></span><div className="pane-tool-group"><button type="button" className="pane-tool-btn" title="Grid view"><LayoutGrid size={13} /></button><button type="button" className="pane-tool-btn" title="Settings"><Settings size={13} /></button></div>{paneControls("agents")}</div>
+        <div className="pane-header"><span><Bot size={15} /><span className="pane-title-text">Action Feed</span><span className="live-dot" /></span><div className="pane-tool-group"><button type="button" className="pane-tool-btn" title="Grid view"><LayoutGrid size={13} /></button><button type="button" className="pane-tool-btn" title="Settings"><Settings size={13} /></button></div>{paneControls("agents")}</div>
         <div className="agents-list">{primaryAgents.map(([type, label, icon, defaultSubtitle]) => {
           const run = data.agents.find((item) => item.agentType === type);
           const open = expandedAgent === type;
@@ -1140,16 +1158,23 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               { title: "Operational Insight", description: `Sharing real operational principles builds qualified audience trust.`, kind: "new_post", draftContent: `If you want better results in ${data.company.category || "your industry"}, start with transparency in your process.\n\n${data.company.name}` },
             ];
           }
+          const competitorItems = type === "COMPETITOR" ? consolidateCompetitorFindings(items) : [];
           const running = runningAgent === type;
           const liveConnected = !data.user.demoMode && data.integrations.some((integration) => integration.provider.toLowerCase() === type.toLowerCase() && /connected|active/i.test(integration.status));
           return <div className="agent-row" key={type}>
-            <button className="agent-summary" type="button" onClick={() => setExpandedAgent(open ? null : type)}>
+            <button className="agent-summary" type="button" onClick={() => {
+              if (open) {
+                setExpandedAgent(null);
+                return;
+              }
+              setExpandedAgent(type);
+              if (!run && !runningAgent) void runAgent(type);
+            }}>
               <AgentLogo type={type} fallback={icon} />
               <span><strong>{label}</strong><small>{running ? "Fetching current public sources and building recommendations…" : run ? agentStatusSummary(type, run, items) : defaultSubtitle}</small></span>
               <ChevronDown className={open ? "rotated" : ""} size={15} />
             </button>
             {open && <div className="agent-output">
-              {type === "X" && <div className="agent-voice-banner"><div className="voice-icon-box">𝕏</div><div className="voice-text"><strong>Brand voice</strong><small>Writing guidance for this channel</small></div><button type="button" className="voice-setup-btn" title="Configure brand voice" aria-label="Configure brand voice"><Settings size={13} /></button></div>}
               <div className="agent-output-toolbar">
                 <SkillChainPreview skills={AGENT_DEFINITIONS.find((agent) => agent.type === type)?.skills ?? []} />
                 <button
@@ -1219,24 +1244,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   />
                 ) : type === "COMPETITOR" ? (
                   <div className="competitor-findings-unified-container">
-                    <div className="findings-card-head">
-                      <div className="head-title-wrap">
-                        <div>
-                          <strong>VERIFIED COMPETITOR INTELLIGENCE &amp; LANDSCAPE</strong>
-                          <small>{items.length} real market competitors analyzed directly from company memory &amp; live evidence</small>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="refresh-findings-btn"
-                        disabled={Boolean(runningAgent === "COMPETITOR")}
-                        onClick={() => runAgent("COMPETITOR")}
-                      >
-                        <RefreshCw size={11} className={runningAgent === "COMPETITOR" ? "spin" : ""} /> Refresh
-                      </button>
-                    </div>
+                    <div className="competitor-findings-heading"><strong>Verified competitors</strong><span>{competitorItems.length} companies</span></div>
                     <div className="competitor-findings-grid">
-                      {items.map((item, index) => (
+                      {competitorItems.map((item, index) => (
                         <CompetitorFindingCard key={`${item.companyName || item.title}-${index}`} item={item} />
                       ))}
                     </div>
@@ -1246,24 +1256,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     <GenericAgentFindingCard
                       key={`${item.title}-${index}`}
                       item={item}
-                      index={index}
-                      type={type}
-                      onRefresh={() => runAgent(type)}
-                      refreshing={Boolean(runningAgent === type)}
                     />
                   ))
                 )
-              ) : (
-                <div className="empty-agent">
-                  <Sparkles size={17} />
-                  <p>This agent runs independently from the company website, Lighthouse audit, and current public-web evidence. Generated documents are optional context.</p>
-                  {AGENT_DEFINITIONS.some((agent) => agent.type === type) && (
-                    <button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(type)}>
-                      Run live analysis
-                    </button>
-                  )}
-                </div>
-              )}
+              ) : null}
             </div>}
           </div>;
         })}{agentError && <p className="agent-error">{agentError}</p>}</div>
