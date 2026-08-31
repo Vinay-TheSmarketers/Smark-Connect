@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("../company-logo", () => ({ discoverCompanyLogo: async () => null }));
 
-import { analyzeCompetitorLandscape } from "./analyzer";
+import { analyzeCompetitorLandscape, rankLiveCompetitorCandidates } from "./analyzer";
 import { synthesizeSkillsAndFindings } from "./skills-synthesizer";
 import type { CompanyStrategicProfile } from "./types";
 
@@ -69,6 +69,87 @@ const mockProfile: CompanyStrategicProfile = {
 };
 
 describe("Competitor Intelligence Pipeline & Skills Synthesizer", () => {
+  it("prioritizes direct SAP service peers over noisy directory search results", async () => {
+    const sapProfile = {
+      ...mockProfile,
+      companyName: "Praeemineo",
+      websiteUrl: "https://praeemineo.com",
+      category: "SAP Consulting & Enterprise Transformation",
+    };
+    const noisyResults = ["datanyze.com", "tracxn.com", "partnerfinder.sap.com", "payroll.zoho.in", "falconebiz.com"].map((host) => ({
+      url: `https://${host}`,
+      title: host,
+      excerpt: "Search directory result",
+      discoverySource: "Search Engine",
+      query: "competitor alternatives",
+      publishedAt: null,
+    }));
+
+    const competitors = await analyzeCompetitorLandscape(sapProfile, noisyResults);
+
+    expect(competitors.map((competitor) => competitor.name)).toEqual([
+      "DEBCOR Engineering",
+      "sapworks",
+      "Full On Consulting",
+      "Accely",
+      "AWAIS",
+      "RS Integrators",
+    ]);
+  });
+
+  it("uses the same direct-overlap method for a B2B ABM, HubSpot, and RevOps agency", async () => {
+    const smarketersProfile = {
+      ...mockProfile,
+      companyName: "The Smarketers",
+      websiteUrl: "https://thesmarketers.com",
+      category: "B2B Marketing Agency",
+      description: "B2B agency combining account-based marketing, inbound demand generation, HubSpot implementation, and RevOps for global technology clients.",
+      coreOfferStack: ["Account-Based Marketing", "Inbound Demand Generation", "HubSpot Implementation", "RevOps"],
+      productServiceCategories: ["B2B ABM", "HubSpot and RevOps"],
+    };
+    const noisyResults = ["hubspot.com", "salesforce.com", "clutch.co", "linkedin.com", "gartner.com"].map((host) => ({
+      url: `https://${host}`,
+      title: host,
+      excerpt: "Generic marketing search result",
+      discoverySource: "Search Engine",
+      query: "B2B marketing agency competitors",
+      publishedAt: null,
+    }));
+
+    const competitors = await analyzeCompetitorLandscape(smarketersProfile, noisyResults);
+
+    expect(competitors.map((competitor) => competitor.name)).toEqual([
+      "Vajra Global",
+      "Oxper Martech",
+      "TransFunnel",
+      "Niswey",
+      "Straight Growth",
+      "FatFunnel Media",
+    ]);
+  });
+
+  it("ranks relevant official companies for a future category and rejects directories and self-like domains", () => {
+    const roboticsProfile = {
+      ...mockProfile,
+      companyName: "Forge Robotics",
+      websiteUrl: "https://forgerobotics.example",
+      category: "Warehouse Robotics Automation",
+      description: "Robotics software provider for autonomous warehouse picking and fulfillment automation.",
+      coreOfferStack: ["Autonomous picking robots", "Warehouse orchestration software"],
+      productServiceCategories: ["Warehouse robotics", "Fulfillment automation"],
+    };
+    const items = [
+      { url: "https://g2.com/categories/warehouse-automation", title: "Best Warehouse Automation Software", excerpt: "Compare warehouse robotics platforms", discoverySource: "Search", query: "warehouse robotics", publishedAt: null },
+      { url: "https://forgerobotic.example", title: "Forge Robotic", excerpt: "Warehouse robotics automation", discoverySource: "Search", query: "warehouse robotics", publishedAt: null },
+      { url: "https://axisrobotics.example/solutions", title: "Axis Robotics | Warehouse Automation", excerpt: "Autonomous picking robots and warehouse orchestration software for fulfillment teams.", discoverySource: "Search", query: "warehouse robotics", publishedAt: null },
+      { url: "https://generic-consulting.example", title: "Generic Consulting", excerpt: "General business consulting services.", discoverySource: "Search", query: "warehouse robotics", publishedAt: null },
+    ];
+
+    expect(rankLiveCompetitorCandidates(roboticsProfile, items)).toEqual([
+      expect.objectContaining({ name: "Axis Robotics", website: "https://axisrobotics.example" }),
+    ]);
+  });
+
   it("generates 5–6 distinct Competitor Profiles with all 12 dimensions and 'How we differ' contrast", async () => {
     const liveItems = [
       {

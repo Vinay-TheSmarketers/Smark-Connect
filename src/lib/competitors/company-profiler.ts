@@ -74,17 +74,30 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
 
   const companyName = company.name || "Company";
   const websiteUrl = company.websiteUrl || "";
-  const domain = cleanDomain(websiteUrl);
 
-  const homePage = company.crawlPages[0];
+  const websiteHost = cleanDomain(websiteUrl).toLowerCase();
+  const homePage = company.crawlPages.find((page) => {
+    try {
+      const url = new URL(page.url);
+      return url.hostname.replace(/^www\./i, "").toLowerCase() === websiteHost && url.pathname.replace(/\/+$/, "") === "";
+    } catch {
+      return false;
+    }
+  }) || company.crawlPages[0];
 
   // 1. Category derivation
   let category = company.category?.trim();
-  if (!category || category === "B2B Marketing & Demand Generation") {
+  const categoryIsPlaceholder = !category || /^(?:website-researched company|company|business|organization|b2b marketing & demand generation)$/i.test(category);
+  if (categoryIsPlaceholder) {
+    category = undefined;
+    const categoryEvidence = `${company.description || ""} ${homePage?.title || ""} ${homePage?.description || ""}`;
+    if (/\bSAP(?:®)?\b/i.test(categoryEvidence)) {
+      category = "SAP Consulting & Enterprise Transformation";
+    }
     if (homePage?.title) {
       const parts = homePage.title.split(/[|–—:•]/).map((s) => s.trim());
-      const nonBrand = parts.find((p) => !p.toLowerCase().includes(companyName.toLowerCase()) && p.length > 3);
-      if (nonBrand) category = nonBrand;
+      const nonBrand = parts.find((p) => !/^(?:home|homepage)$/i.test(p) && !p.toLowerCase().includes(companyName.toLowerCase()) && p.length > 3);
+      if (!category && nonBrand) category = nonBrand;
     }
     if (!category && company.crawlPages.length > 1) {
       const p1 = company.crawlPages[1].title?.split(/[|–—:•]/)[0]?.trim();
@@ -92,6 +105,7 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
     }
     if (!category) category = `${companyName} Solutions`;
   }
+  category = category || `${companyName} Solutions`;
 
   // 2. Tagline and Description
   const description =

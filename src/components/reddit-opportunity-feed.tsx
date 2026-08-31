@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   ArrowUp,
   Check,
+  ChevronLeft,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Clock3,
   Copy,
@@ -14,35 +16,50 @@ import {
   MessageSquare,
   RefreshCw,
   Sparkles,
-  Target,
   Trash2,
-  X,
-  AlertCircle,
   CheckCircle2,
-  Filter,
 } from "lucide-react";
 import type { RedditActionFeedOpportunity } from "@/lib/signals/store";
 import type { ReplyVariant } from "@/lib/reddit/writer";
 
-type TabFilter = "all" | "high_intent" | "recommendations" | "competitor" | "pain_points" | "replied" | "dismissed";
+function cleanRedditText(value: string) {
+  return value
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(?:br|\/p|\/div|\/li)\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#(?:39|x27);/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function compactSignal(value: string, fallback: string, maxLength = 46) {
+  const normalized = cleanRedditText(value)
+    .replace(/^website-researched company\s*/i, "")
+    .replace(/[_-]+/g, " ")
+    .trim() || fallback;
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1).trimEnd()}…` : normalized;
+}
 
 export function RedditOpportunityFeed({
   companyId,
-  companyName,
   initialOpportunities,
-  searchMapSummary,
   onOpportunityUpdated,
 }: {
   companyId: string;
-  companyName: string;
   initialOpportunities: RedditActionFeedOpportunity[];
-  searchMapSummary?: { queriesCount: number; prioritySubreddits: string[] } | null;
   onOpportunityUpdated?: () => void;
 }) {
   const [opportunities, setOpportunities] = useState<RedditActionFeedOpportunity[]>(initialOpportunities);
-  const [activeTab, setActiveTab] = useState<TabFilter>("all");
+  const [activePage, setActivePage] = useState(0);
   const [expandedWhy, setExpandedWhy] = useState<Record<string, boolean>>({});
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  const [openVariantPicker, setOpenVariantPicker] = useState<string | null>(null);
   const [draftTexts, setDraftTexts] = useState<Record<string, string>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -54,37 +71,12 @@ export function RedditOpportunityFeed({
     }
   }, [companyId]);
 
-  // Filter calculations
-  const counts = useMemo(() => {
-    return {
-      all: opportunities.filter((o) => o.lifecycleStatus !== "dismissed").length,
-      high_intent: opportunities.filter((o) => o.score.total >= 80 && o.lifecycleStatus !== "dismissed").length,
-      recommendations: opportunities.filter(
-        (o) => (o.intent === "RECOMMENDATION_REQUEST" || o.intent === "BUYING_INTENT") && o.lifecycleStatus !== "dismissed"
-      ).length,
-      competitor: opportunities.filter(
-        (o) => (o.intent === "COMPETITOR_DISSATISFACTION" || o.intent === "COMPARISON") && o.lifecycleStatus !== "dismissed"
-      ).length,
-      pain_points: opportunities.filter((o) => o.intent === "PAIN_POINT" && o.lifecycleStatus !== "dismissed").length,
-      replied: opportunities.filter((o) => o.lifecycleStatus === "replied").length,
-      dismissed: opportunities.filter((o) => o.lifecycleStatus === "dismissed").length,
-    };
-  }, [opportunities]);
+  const pageCount = Math.max(1, opportunities.length);
+  const displayedOpportunities = opportunities.slice(activePage, activePage + 1);
 
-  const displayedOpportunities = useMemo(() => {
-    return opportunities.filter((opp) => {
-      if (activeTab === "all") return opp.lifecycleStatus !== "dismissed";
-      if (activeTab === "high_intent") return opp.score.total >= 80 && opp.lifecycleStatus !== "dismissed";
-      if (activeTab === "recommendations")
-        return (opp.intent === "RECOMMENDATION_REQUEST" || opp.intent === "BUYING_INTENT") && opp.lifecycleStatus !== "dismissed";
-      if (activeTab === "competitor")
-        return (opp.intent === "COMPETITOR_DISSATISFACTION" || opp.intent === "COMPARISON") && opp.lifecycleStatus !== "dismissed";
-      if (activeTab === "pain_points") return opp.intent === "PAIN_POINT" && opp.lifecycleStatus !== "dismissed";
-      if (activeTab === "replied") return opp.lifecycleStatus === "replied";
-      if (activeTab === "dismissed") return opp.lifecycleStatus === "dismissed";
-      return true;
-    });
-  }, [opportunities, activeTab]);
+  useEffect(() => {
+    if (activePage >= opportunities.length) setActivePage(Math.max(0, opportunities.length - 1));
+  }, [activePage, opportunities.length]);
 
   const toggleWhy = (id: string) => {
     setExpandedWhy((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -183,88 +175,37 @@ export function RedditOpportunityFeed({
 
   return (
     <section className="reddit-opportunity-system">
-      {/* Search Map & Live Scan Banner */}
-      <div className="reddit-discovery-bar">
-        <div className="discovery-stats">
-          <div className="stat-item">
-            <span className="live-indicator-dot" />
-            <strong>CONTINUOUS OPPORTUNITY SCANNER</strong>
-          </div>
-          <span className="discovery-meta">
-            {searchMapSummary?.queriesCount || 23} Query Families active across {searchMapSummary?.prioritySubreddits?.length || 10} subreddits
-          </span>
+      <nav className="reddit-page-toggle" aria-label="Opportunity pages">
+        <span>{opportunities.length} opportunities</span>
+        <div>
+          <button
+            type="button"
+            onClick={() => setActivePage((page) => Math.max(0, page - 1))}
+            disabled={activePage === 0}
+            aria-label="Previous opportunity"
+            title="Previous opportunity"
+          >
+            <ChevronLeft size={13} />
+          </button>
+          <span aria-live="polite">{opportunities.length ? activePage + 1 : 0} / {opportunities.length}</span>
+          <button
+            type="button"
+            onClick={() => setActivePage((page) => Math.min(pageCount - 1, page + 1))}
+            disabled={activePage >= pageCount - 1 || opportunities.length === 0}
+            aria-label="Next opportunity"
+            title="Next opportunity"
+          >
+            <ChevronRight size={13} />
+          </button>
         </div>
-        <button
-          type="button"
-          className="scan-trigger-btn"
-          disabled={scanning}
-          onClick={triggerLiveScan}
-          title="Rerun Reddit Search Map"
-        >
-          <RefreshCw size={13} className={scanning ? "animate-spin" : ""} />
-          {scanning ? "Scanning communities…" : "Scan Now"}
-        </button>
-      </div>
-
-      {/* Filter Tabs */}
-      <nav className="reddit-filter-tabs" aria-label="Opportunity filters">
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "all" ? "active" : ""}`}
-          onClick={() => setActiveTab("all")}
-        >
-          All <span className="tab-badge">{counts.all}</span>
-        </button>
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "high_intent" ? "active" : ""}`}
-          onClick={() => setActiveTab("high_intent")}
-        >
-          High Intent <span className="tab-badge high">{counts.high_intent}</span>
-        </button>
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "recommendations" ? "active" : ""}`}
-          onClick={() => setActiveTab("recommendations")}
-        >
-          Recommendations <span className="tab-badge">{counts.recommendations}</span>
-        </button>
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "competitor" ? "active" : ""}`}
-          onClick={() => setActiveTab("competitor")}
-        >
-          Competitor <span className="tab-badge">{counts.competitor}</span>
-        </button>
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "pain_points" ? "active" : ""}`}
-          onClick={() => setActiveTab("pain_points")}
-        >
-          Pain Points <span className="tab-badge">{counts.pain_points}</span>
-        </button>
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "replied" ? "active" : ""}`}
-          onClick={() => setActiveTab("replied")}
-        >
-          Replied <span className="tab-badge replied">{counts.replied}</span>
-        </button>
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "dismissed" ? "active" : ""}`}
-          onClick={() => setActiveTab("dismissed")}
-        >
-          Dismissed <span className="tab-badge">{counts.dismissed}</span>
-        </button>
       </nav>
 
       {/* Opportunity Cards List */}
       <div className="reddit-opportunity-list">
         {displayedOpportunities.length === 0 ? (
           <div className="reddit-empty-state">
-            <Filter size={24} />
-            <p>No opportunities in this category right now.</p>
+            <Sparkles size={20} />
+            <p>No opportunities yet.</p>
             <small>Run a fresh scan to discover newly indexed Reddit discussions.</small>
           </div>
         ) : (
@@ -329,26 +270,22 @@ export function RedditOpportunityFeed({
                 </h3>
 
                 <blockquote className="opportunity-excerpt">
-                  &ldquo;{opp.excerpt.slice(0, 280)}&rdquo;
+                  {cleanRedditText(opp.excerpt).slice(0, 280)}
                 </blockquote>
 
-                {/* Intent & Matched Dimension Chips */}
-                <div className="matched-chips-row">
-                  <span className="intent-chip" title="Classified Conversation Intent">
-                    <Target size={11} /> {opp.intentLabel}
-                  </span>
-                  <span className="icp-chip" title="Target ICP Fit">
-                    👤 {opp.matchedIcp}
-                  </span>
-                  <span className="problem-chip" title="Matched Customer Pain Point">
-                    ⚡ {opp.matchedProblem.slice(0, 42)}…
-                  </span>
-                  {opp.competitor && (
-                    <span className="competitor-chip" title="Detected Competitor Friction">
-                      ⚔️ vs {opp.competitor}
-                    </span>
-                  )}
-                </div>
+                <details className="opportunity-signals">
+                  <summary>
+                    <span>Match details</span>
+                    <small>{opp.competitor ? 4 : 3}</small>
+                    <ChevronDown size={12} />
+                  </summary>
+                  <div className="matched-chips-row">
+                    <span className="intent-chip"><strong>Intent</strong>{compactSignal(opp.intentLabel, "Opportunity")}</span>
+                    <span className="icp-chip"><strong>Audience</strong>{compactSignal(opp.matchedIcp, "Relevant buyer")}</span>
+                    <span className="problem-chip"><strong>Need</strong>{compactSignal(opp.matchedProblem, "Relevant pain point")}</span>
+                    {opp.competitor && <span className="competitor-chip"><strong>Competitor</strong>{compactSignal(opp.competitor, "Mentioned")}</span>}
+                  </div>
+                </details>
 
                 {/* Short AI Explanation: Why this is an opportunity */}
                 <div className="why-opportunity-callout">
@@ -410,19 +347,38 @@ export function RedditOpportunityFeed({
                 {/* Editable AI-Prepared Reply Area with Selectable Variants */}
                 <div className="ai-reply-container">
                   <div className="reply-variant-header">
-                    <div className="variant-pills">
-                      <span className="variant-label-prefix">AI Reply Variant:</span>
-                      {opp.replyVariants.map((variant) => (
-                        <button
-                          key={variant.id}
-                          type="button"
-                          className={`variant-pill-btn ${activeVarId === variant.id ? "active" : ""}`}
-                          onClick={() => handleSelectVariant(opp.id, variant)}
-                          title={variant.reasoning}
-                        >
-                          {variant.label}
-                        </button>
-                      ))}
+                    <div className="reply-variant-picker">
+                      <button
+                        type="button"
+                        className="variant-magic-btn"
+                        aria-label="Choose an AI reply style"
+                        aria-expanded={openVariantPicker === opp.id}
+                        title="Choose an AI reply style"
+                        onClick={() => setOpenVariantPicker((current) => current === opp.id ? null : opp.id)}
+                      >
+                        <Sparkles size={13} />
+                      </button>
+                      {openVariantPicker === opp.id && (
+                        <div className="variant-options-list" role="listbox" aria-label="AI reply styles">
+                          {opp.replyVariants.map((variant) => (
+                            <button
+                              key={variant.id}
+                              type="button"
+                              role="option"
+                              aria-selected={activeVarId === variant.id}
+                              className={`variant-option-btn ${activeVarId === variant.id ? "active" : ""}`}
+                              onClick={() => {
+                                handleSelectVariant(opp.id, variant);
+                                setOpenVariantPicker(null);
+                              }}
+                              title={variant.reasoning}
+                            >
+                              <span>{variant.label}</span>
+                              {activeVarId === variant.id && <Check size={12} />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="reply-quick-actions">

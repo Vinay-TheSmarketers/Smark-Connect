@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Clock3, Copy, ExternalLink, FileText, Globe2, GripVertical, HelpCircle, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Sparkles, XCircle, Zap, X as CloseIcon } from "lucide-react";
+import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Clock3, Copy, ExternalLink, FileText, Globe2, GripVertical, HelpCircle, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, Monitor, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Smartphone, Sparkles, XCircle, Zap, X as CloseIcon } from "lucide-react";
 import { StreamingTerminal, type TerminalLog } from "./streaming-terminal";
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS, getDocumentDefinition } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
@@ -25,6 +25,7 @@ import { AuditSkeleton, LighthouseAuditPanel, useLighthouseAudit } from "./light
 import { AnalyticsGeoView } from "./analytics-geo-view";
 import { AnalyticsLinksView } from "./analytics-links-view";
 import { AnalyticsTechnicalView } from "./analytics-technical-view";
+import { extractContextCompetitorsFromAgentOutput, selectContextCompetitors } from "@/lib/competitors/context-display";
 
 type FindingKind = "current_status" | "previous_post" | "new_post" | "comment_opportunity" | "audience_signal" | "insight";
 type Finding = { title?: string; evidence?: string; impact?: string; action?: string; description?: string; kind?: FindingKind; platform?: string; sourceLabel?: string; publishedAt?: string; draftContent?: string; recommendedResponse?: string; tags?: string[]; priority?: string; confidence?: number; sourceUrls?: string[]; companyName?: string; officialWebsite?: string; logoUrl?: string; competitiveAttributes?: string[] };
@@ -130,7 +131,7 @@ function ConnectionStrip({ data }: { data: DashboardData }) {
 }
 
 function SkillChainPreview({ skills }: { skills: Array<{ repository: string; skill: string; phase?: string; reason?: string }> }) {
-  return <details className="skill-chain-preview"><summary>{skills.length} required skills</summary><ol>{skills.map((skill, index) => <li key={`${skill.repository}-${skill.skill}`}><span>{index + 1}</span><div><strong>{formatSkillName(skill.skill)}</strong><small>{skill.phase ?? skill.repository}{skill.reason ? ` · ${skill.reason}` : ""}</small></div></li>)}</ol></details>;
+  return <details className="skill-chain-preview"><summary aria-label={`${skills.length}-step workflow`}>Workflow <span>{skills.length}</span></summary><ol>{skills.map((skill, index) => <li key={`${skill.repository}-${skill.skill}`}><span>{index + 1}</span><div><strong>{formatSkillName(skill.skill)}</strong><small>{skill.phase ?? skill.repository}{skill.reason ? ` · ${skill.reason}` : ""}</small></div></li>)}</ol></details>;
 }
 
 function findings(output: unknown): Finding[] {
@@ -246,13 +247,10 @@ function agentStatusSummary(type: string, run: AgentItem | undefined, items: Fin
   if (!run) return "Ready to run directly from current source evidence";
   const structured = items.filter((item) => item.kind);
   if (["X", "REDDIT", "LINKEDIN"].includes(type)) {
-    if (structured.length) {
-      const drafts = structured.filter((item) => item.kind === "new_post").length;
-      const comments = structured.filter((item) => item.kind === "comment_opportunity").length;
-      const history = structured.filter((item) => item.kind === "previous_post").length;
-      return `${history} previous posts · ${drafts} new drafts · ${comments} comment opportunities`;
-    }
-    return `${items.length} recommendations ready · rerun for the new status, draft, and comment format`;
+    const output = run.output && typeof run.output === "object" ? run.output as Record<string, unknown> : null;
+    const storedOpportunities = output && Array.isArray(output.opportunities) ? output.opportunities.length : 0;
+    const count = storedOpportunities || structured.length || items.length;
+    return `${count} ${type === "X" ? "posts" : "opportunities"} ready`;
   }
   const summaryCandidate = unwrapStructuredText(run.summary ?? `${items.length} findings ready`).replace(/\s+/g, " ").trim();
   const summary = /(?:^|\s)[{[]\s*"|contentMarkdow|"(?:company|agent|findings)"\s*:/i.test(summaryCandidate) ? `${items.length} findings ready` : summaryCandidate;
@@ -631,7 +629,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [agentTray, setAgentTray] = useState(false);
   const [runningAgent, setRunningAgent] = useState<string | null>(null);
   const [generatingDocument, setGeneratingDocument] = useState<string | null>(null);
-  const [startingAnalysis, setStartingAnalysis] = useState(false);
   const [showReportsCatalog, setShowReportsCatalog] = useState(false);
   const [catalogCategory, setCatalogCategory] = useState<string>("all");
   const [agentError, setAgentError] = useState("");
@@ -641,17 +638,14 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [sessionId, setSessionId] = useState<string | undefined>();
   const geoRun = data.agents.find((item) => item.agentType === "GEO");
   const competitorItems = useMemo(() => {
-    const seen = new Set<string>();
-    const agentCompetitors = findings(data.agents.find((item) => item.agentType === "COMPETITOR")?.output);
-    const docMeta = (data.documents.find((d) => d.type === "COMPETITOR_ANALYSIS")?.metadata as { competitors?: Finding[] } | null)?.competitors ?? [];
-    const all = [...agentCompetitors, ...docMeta];
-    return all.filter((item) => {
-      const key = (item.companyName || item.title || "").trim().toLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0, 8);
-  }, [data.agents, data.documents]);
+    const agentCompetitors = extractContextCompetitorsFromAgentOutput(data.agents.find((item) => item.agentType === "COMPETITOR")?.output);
+    const documentCompetitors = (documents.find((d) => d.type === "COMPETITOR_ANALYSIS")?.metadata as { competitors?: Finding[] } | null)?.competitors ?? [];
+    return selectContextCompetitors({
+      agentItems: agentCompetitors,
+      documentItems: documentCompetitors,
+      company: data.company,
+    });
+  }, [data.agents, data.company, documents]);
   const analysisRunning = data.analysis && ["QUEUED", "RUNNING"].includes(data.analysis.status);
   const queuedDocumentsReady = documents.filter((document) => queuedDocumentTypes.includes(document.type)).length;
 
@@ -903,21 +897,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     await generateDocument(documentType);
   }
 
-  async function startAnalysis() {
-    setStartingAnalysis(true);
-    setAgentError("");
-    appendLog("info", "AUDIT_START", `Initializing full background intelligence pipeline for ${data.company.name}...`);
-    try {
-      const response = await fetch(`/api/companies/${data.company.id}/audit`, { method: "POST" });
-      const result = await response.json() as { jobId?: string; error?: string };
-      if (!response.ok || !result.jobId) throw new Error(result.error ?? "The research run could not start.");
-      router.push(`/onboarding/audit/${result.jobId}`);
-    } catch (error) {
-      setAgentError(error instanceof Error ? error.message : "The research run could not start.");
-      setStartingAnalysis(false);
-    }
-  }
-
   function updateDocument(updated: WorkspaceDocument) {
     setDocuments((items) => items.map((item) => item.id === updated.id ? updated : item));
     setSelectedDocument(updated);
@@ -961,13 +940,11 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         <div className="pane-header"><span><Globe2 size={15} /><span className="pane-title-text">Context</span></span><span className="account-count">{data.companies.length} account{data.companies.length === 1 ? "" : "s"}</span>{paneControls("context")}</div>
         <div className="company-content">
           <div className="company-title-row"><CompanyLogo company={data.company} size={34} eager /><h1>{data.company.name}</h1></div>
-          <span className="category-pill">{data.company.category ?? "Company"}</span>
           <a className="company-url" href={data.company.websiteUrl} target="_blank" rel="noreferrer"><Link2 size={12} />{safeHostname(data.company.websiteUrl)}</a>
           <div className="company-context">
             <p className="company-description">{data.company.companyContext.overview}</p>
             <small className="company-context-evidence"><Sparkles size={11} />Grounded in {data.company.companyContext.evidenceLabel}</small>
           </div>
-          {(analysisRunning || queuedDocumentsReady < queuedDocumentTypes.length) && <div className="analysis-resume"><Sparkles size={15} /><div><strong>{analysisRunning ? `${data.analysis?.progress ?? 0}% · background report queue` : `${queuedDocumentTypes.length - queuedDocumentsReady} reports need generation`}</strong><small>{analysisRunning ? data.analysis?.step : "Generate the priority intelligence first, then complete every remaining report sequentially."}</small></div>{analysisRunning ? <Link href={`/onboarding/audit/${data.analysis!.jobId}`}>View processing</Link> : <button type="button" disabled={startingAnalysis} onClick={startAnalysis}>{startingAnalysis ? "Starting…" : "Generate now"}</button>}</div>}
         </div>
         <section className="pane-section"><div className="section-label-row"><p className="section-label">CORE DOCUMENTS</p><span>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length}/6</span></div><div className="document-list">{coreDocumentOrder.map((type) => { const document = documents.find((item) => item.type === type); return document ? <button type="button" key={type} onClick={() => setSelectedDocument(document)}><ModuleIcon type={type} size={14} /><span className="document-row-title">{document.title}</span><small>v{document.version}</small><ChevronRight size={13} /><span className="document-hover-detail" role="tooltip"><strong>{document.title}</strong><span>{documentPreview(document) || "Open this document to review its complete evidence and recommendations."}{document.contentMarkdown.length > 190 ? "…" : ""}</span><em>{document.tokenEstimate.toLocaleString()} tokens · Updated {new Date(document.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em></span></button> : <button className="pending-document p0-triggerable" type="button" key={type} disabled={Boolean(generatingDocument)} onClick={() => prioritizeDocument(type, coreDocumentLabels[type])} title="Click to elevate to P0 and compile immediately"><ModuleIcon type={type} size={14} /><span>{coreDocumentLabels[type]}</span><small className="p0-action-tag">{generatingDocument === type ? <RefreshCw className="spin" size={10} /> : <Zap size={10} />}{generatingDocument === type ? "Compiling" : "⚡ P0"}</small></button>; })}</div></section>
         <section className="pane-section extended-documents">
@@ -981,19 +958,18 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               const pending = generatingDocument === definition.type;
               const queued = Boolean(analysisRunning) && !document;
               return (
-                <article key={definition.type}>
+                <article key={definition.type} className={pending || queued ? "is-generating" : document ? "is-complete" : ""}>
                   <ModuleIcon type={definition.type} size={15} />
                   <div>
                     <strong>{definition.title}</strong>
-                    <small>{queued ? "Queued in background (Click P0 to prioritize)" : "Generated only through its ordered local skill chain"}</small>
+                    <small>{queued ? "Queued · select + to prioritize" : document ? "Complete" : "Awaiting generation"}</small>
                     <SkillChainPreview skills={definition.skills} />
                   </div>
                   {document ? (
-                    <button type="button" onClick={() => setSelectedDocument(document)}>Open v{document.version}</button>
+                    <button type="button" className="document-open-btn" onClick={() => setSelectedDocument(document)}>Open</button>
                   ) : (
-                    <button type="button" className="p0-action-btn" disabled={Boolean(generatingDocument)} onClick={() => prioritizeDocument(definition.type, definition.title)} title="Elevate to P0 priority and compile now">
-                      {pending ? <RefreshCw className="spin" size={12} /> : <Zap size={12} />}
-                      {pending ? "Compiling" : "⚡ Prioritize (P0)"}
+                    <button type="button" className="p0-action-btn" disabled={Boolean(generatingDocument)} onClick={() => prioritizeDocument(definition.type, definition.title)} title="Prioritize report generation" aria-label="Prioritize report generation">
+                      {pending ? <RefreshCw className="spin" size={13} /> : <Plus size={14} />}
                     </button>
                   )}
                 </article>
@@ -1005,29 +981,31 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               onClick={() => setShowReportsCatalog(true)}
             >
               <Plus size={13} />
-              <span>More Reports ({Math.max(0, EXTENDED_DOCUMENTS.length - visibleExtendedDocuments.length)} available)</span>
+              <span>View all reports · {Math.max(0, EXTENDED_DOCUMENTS.length - visibleExtendedDocuments.length)}</span>
             </button>
           </div>
         </section>
-        <section className="pane-section context-competitors"><div className="section-label-row"><p className="section-label">COMPETITORS</p><span>{competitorItems.length ? `${competitorItems.length} verified` : "Discovery pending"}</span></div>{competitorItems.length ? <div className="context-competitor-grid">{competitorItems.map((item, index) => <ContextCompetitor item={item} key={`${item.companyName || item.title}-${index}`} />)}</div> : <div className="context-competitor-empty"><ModuleIcon type="COMPETITOR" size={15} /><div><strong>Build the competitor set</strong><small>Run the competitor agent to discover six real companies and their official logos.</small></div><button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent("COMPETITOR")}>{runningAgent === "COMPETITOR" ? "Finding…" : "Find competitors"}</button></div>}</section>
+        <section className="pane-section context-competitors">
+          <div className="section-label-row"><p className="section-label">COMPETITORS</p><span>{competitorItems.length ? `${competitorItems.length} verified` : "Discovery pending"}</span><button type="button" className="competitors-refresh" disabled={Boolean(runningAgent)} onClick={() => runAgent("COMPETITOR")} title="Refresh competitor research" aria-label="Refresh competitor research"><RefreshCw className={runningAgent === "COMPETITOR" ? "spin" : ""} size={12} /></button></div>
+          {competitorItems.length ? <div className="context-competitor-grid">{competitorItems.map((item, index) => <ContextCompetitor item={item} key={`${item.companyName || item.title}-${index}`} />)}</div> : <div className="context-competitor-empty"><ModuleIcon type="COMPETITOR" size={15} /><div><strong>Build the competitor set</strong><small>Run the competitor agent to discover six real companies and their official logos.</small></div><button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent("COMPETITOR")}>{runningAgent === "COMPETITOR" ? "Finding…" : "Find competitors"}</button></div>}
+        </section>
         {paneResizer("context")}
       </aside>
 
       <section className="analytics-pane pane" {...paneProps("analytics")}>
         <div className="pane-header"><span><Activity size={15} /><span className="pane-title-text">Analytics</span></span><span className="live-dot" />{paneControls("analytics")}</div>
         <div className="analytics-content">
+          {analysisTab === "health" && <div className="health-toolbar-row">
+            <div className="vitals-device-toggle">
+              <button type="button" className={lighthouse.strategy === "mobile" ? "active" : ""} onClick={() => lighthouse.selectStrategy("mobile")} disabled={lighthouse.status === "queued" || lighthouse.status === "running"} aria-label="Mobile audit" title="Mobile"><Smartphone size={13} /></button>
+              <button type="button" className={lighthouse.strategy === "desktop" ? "active" : ""} onClick={() => lighthouse.selectStrategy("desktop")} disabled={lighthouse.status === "queued" || lighthouse.status === "running"} aria-label="Desktop audit" title="Desktop"><Monitor size={13} /></button>
+            </div>
+            <button type="button" className="run-fresh-btn" onClick={() => void lighthouse.startAudit(true)} disabled={lighthouse.status === "queued" || lighthouse.status === "running"} aria-label="Run a fresh audit" title="Run a fresh audit"><RotateCcw size={12} /></button>
+          </div>}
           <div className="analytics-tabs">
-            {(["health", "links", "technical", "aigeo", "checks"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "aigeo" ? "AI/GEO" : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
+            {(["health", "links", "technical", "aigeo"] as const).map((tabName) => <button key={tabName} className={analysisTab === tabName ? "active" : ""} onClick={() => setAnalysisTab(tabName)}>{tabName === "aigeo" ? "AI/GEO" : tabName.slice(0, 1).toUpperCase() + tabName.slice(1)}</button>)}
           </div>
           {analysisTab === "health" && <div className="analytics-health-section">
-            <div className="health-toolbar-row">
-              <div className="vitals-device-toggle">
-                <button type="button" className={lighthouse.strategy === "mobile" ? "active" : ""} onClick={() => lighthouse.selectStrategy("mobile")} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}>Mobile</button>
-                <button type="button" className={lighthouse.strategy === "desktop" ? "active" : ""} onClick={() => lighthouse.selectStrategy("desktop")} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}>Desktop</button>
-              </div>
-              <button type="button" className="run-fresh-btn" onClick={() => void lighthouse.startAudit(true)} disabled={lighthouse.status === "queued" || lighthouse.status === "running"}><RotateCcw size={11} /> Refresh</button>
-            </div>
-
             {(lighthouse.status === "queued" || lighthouse.status === "running") && <AuditSkeleton status={lighthouse.status} />}
 
             {lighthouse.status === "failed" && <div className="lighthouse-error" role="alert"><AlertTriangle size={17} /><div><strong>Lighthouse audit not completed</strong><span>{lighthouse.error}</span></div><button type="button" onClick={() => void lighthouse.startAudit(true)}><RotateCcw size={12} /> Try again</button></div>}
@@ -1143,8 +1121,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               geoSummary={geoRun?.summary}
             />
           )}
-          {analysisTab === "checks" && (
-            <div className="analytics-checks-section">
+          {analysisTab === "health" && (
+            <details className="health-checks-disclosure">
+              <summary><span>Site checks</span><span>6 verified signals</span></summary>
+              <div className="analytics-checks-section">
               <div className="source-banner aeo-banner">
                 <div>
                   <Sparkles size={18} />
@@ -1223,7 +1203,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   <span className="check-status-tag pass">Secure</span>
                 </div>
               </div>
-            </div>
+              </div>
+            </details>
           )}
         </div>
         {paneResizer("analytics")}
@@ -1250,8 +1231,20 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               <ChevronDown className={open ? "rotated" : ""} size={15} />
             </button>
             {open && <div className="agent-output">
-              {type === "X" && <div className="agent-voice-banner"><div className="voice-icon-box">𝕏</div><div className="voice-text"><strong>Post in your voice, daily</strong><small>Teach it your voice.</small></div><button type="button" className="voice-setup-btn">Set up &rarr;</button></div>}
-              <SkillChainPreview skills={AGENT_DEFINITIONS.find((agent) => agent.type === type)?.skills ?? []} />
+              {type === "X" && <div className="agent-voice-banner"><div className="voice-icon-box">𝕏</div><div className="voice-text"><strong>Brand voice</strong><small>Writing guidance for this channel</small></div><button type="button" className="voice-setup-btn" title="Configure brand voice" aria-label="Configure brand voice"><Settings size={13} /></button></div>}
+              <div className="agent-output-toolbar">
+                <SkillChainPreview skills={AGENT_DEFINITIONS.find((agent) => agent.type === type)?.skills ?? []} />
+                <button
+                  type="button"
+                  className="agent-refresh-btn"
+                  aria-label={`Refresh ${label}`}
+                  title={`Refresh ${label}`}
+                  disabled={Boolean(runningAgent)}
+                  onClick={() => runAgent(type)}
+                >
+                  <RefreshCw size={12} className={running ? "spin" : ""} />
+                </button>
+              </div>
               {running ? (
                 <div className="agent-run-outline">
                   <div><span /><strong>Scanning Reddit search map across 7 query families</strong></div>
@@ -1261,19 +1254,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               ) : type === "REDDIT" ? (
                 <RedditOpportunityFeed
                   companyId={data.company.id}
-                  companyName={data.company.name}
                   initialOpportunities={
                     (run?.output && typeof run.output === "object" && Array.isArray((run.output as Record<string, unknown>).opportunities)
                       ? (run.output as Record<string, unknown>).opportunities
                       : []) as RedditActionFeedOpportunity[]
-                  }
-                  searchMapSummary={
-                    run?.output && typeof run.output === "object" && (run.output as Record<string, unknown>).searchMap
-                      ? {
-                          queriesCount: ((run.output as Record<string, unknown>).searchMap as { allQueries?: unknown[] }).allQueries?.length || 23,
-                          prioritySubreddits: ((run.output as Record<string, unknown>).searchMap as { prioritySubreddits?: string[] }).prioritySubreddits || [],
-                        }
-                      : null
                   }
                   onOpportunityUpdated={() => router.refresh()}
                 />

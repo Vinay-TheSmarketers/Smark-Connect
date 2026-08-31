@@ -31,6 +31,10 @@ function tag(item: string, name: string): string {
 
 export function buildResearchQueries(agentType: AgentType, companyName: string, domain: string, topics: string[]): string[] {
   const topic = topics.slice(0, 4).join(" ") || companyName;
+  const focusedTopics = Array.from(new Set(topics.map((item) => item.trim()).filter(Boolean))).slice(0, 4);
+  const category = focusedTopics[0] || companyName;
+  const primaryOffer = focusedTopics[1] || category;
+  const secondaryOffer = focusedTopics[2] || primaryOffer;
   const brand = `"${companyName}" OR "${domain}"`;
   const redditCustomerQueries = (topics.length ? topics : [companyName]).slice(0, 4).flatMap((item) => [
     `"${item}" help recommend`,
@@ -46,11 +50,11 @@ export function buildResearchQueries(agentType: AgentType, companyName: string, 
     ARTICLES: [`${topic} guide OR analysis`, `${brand} insights`],
     COMPETITOR: [
       `"${companyName}" competitors alternatives`,
-      `${topic} top competitors platforms software companies`,
-      `${topic} alternatives best tools`,
-      `${brand} market competitors`,
-      `${topic} direct competitors`,
-      `${topic} software solutions companies`,
+      `"${category}" "${primaryOffer}" companies`,
+      `"${category}" providers similar services`,
+      `"${primaryOffer}" "${secondaryOffer}" companies`,
+      `"${category}" direct competitors`,
+      `best "${category}" providers "${primaryOffer}"`,
     ],
     AUDIENCE: [`${topic} questions challenges`, `site:reddit.com ${topic} help`],
     CONTENT_AUDIT: [`${topic} latest research`, `${brand} content`],

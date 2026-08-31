@@ -34,7 +34,11 @@ export async function runCompetitorIntelligencePipeline(args: {
   const companyProfile = await buildCompanyStrategicProfile(company.id);
 
   // 2. Discover live competitor signals across public web index
-  const topics = deriveResearchTopics(company.crawlPages, company.name);
+  const topics = Array.from(new Set([
+    companyProfile.category,
+    ...companyProfile.coreOfferStack.slice(0, 3),
+    ...deriveResearchTopics(company.crawlPages, company.name).slice(0, 3),
+  ].map((topic) => topic.trim()).filter(Boolean)));
   const liveItems = await discoverLiveResearch({
     agentType: "COMPETITOR",
     companyName: company.name,

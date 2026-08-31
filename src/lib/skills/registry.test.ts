@@ -55,3 +55,18 @@ describe("Reddit target-customer discovery", () => {
     expect(queries.every((query) => query.includes("revenue operations") || query.includes("account based marketing"))).toBe(true);
   });
 });
+
+describe("Competitor discovery", () => {
+  it("builds focused category and offer queries instead of one oversized topic string", () => {
+    const queries = buildResearchQueries("COMPETITOR", "Acme", "acme.example", [
+      "Warehouse Robotics Automation",
+      "Autonomous Picking Robots",
+      "Warehouse Orchestration Software",
+    ]);
+
+    expect(queries).toHaveLength(6);
+    expect(queries).toContain('"Warehouse Robotics Automation" "Autonomous Picking Robots" companies');
+    expect(queries).toContain('"Autonomous Picking Robots" "Warehouse Orchestration Software" companies');
+    expect(queries.every((query) => query.length < 180)).toBe(true);
+  });
+});

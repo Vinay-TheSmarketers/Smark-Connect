@@ -74,7 +74,7 @@ export function StreamingTerminal({
           <div className={`terminal-beacon ${beaconColor}`} />
           <div className="terminal-header-title">
             <TerminalIcon size={14} className="terminal-icon" />
-            <span className="terminal-title-text">ORCHESTRATOR</span>
+            <span className="terminal-title-text">Activity</span>
           </div>
 
           <div className="terminal-ticker-wrap">

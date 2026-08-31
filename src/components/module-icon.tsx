@@ -20,6 +20,7 @@ const moduleKinds: Record<string, { Icon: LucideIcon; className: string; label: 
   SEO_AUDIT: { Icon: Search, className: "seo", label: "SEO Audit" },
   SEO: { Icon: Search, className: "seo", label: "SEO Audit" },
   TECHNICAL_SEO: { Icon: Search, className: "seo", label: "SEO Audit" },
+  PROGRAMMATIC_SEO: { Icon: Globe2, className: "geo", label: "Programmatic SEO" },
   GEO_AUDIT: { Icon: Globe2, className: "geo", label: "GEO and AI Visibility" },
   GEO: { Icon: Globe2, className: "geo", label: "GEO and AI Visibility" },
   COMPETITOR_ANALYSIS: { Icon: Swords, className: "competitor", label: "Competitor Analysis" },

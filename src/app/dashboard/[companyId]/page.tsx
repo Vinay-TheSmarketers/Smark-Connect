@@ -3,6 +3,7 @@ import { DashboardClient } from "@/components/dashboard-client";
 import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { createCompanyContext } from "@/lib/company-brief";
+import { newestRunPerAgent } from "@/lib/agents/latest-runs";
 
 export default async function DashboardPage({ params }: PageProps<"/dashboard/[companyId]">) {
   const user = await requireUser();
@@ -27,7 +28,7 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
     select: { id: true, name: true, websiteUrl: true, logoUrl: true, status: true },
     orderBy: { createdAt: "asc" },
   });
-  const latestAgents = Array.from(new Map(company.agentRuns.map((run) => [run.agentType, run])).values());
+  const latestAgents = newestRunPerAgent(company.agentRuns);
   const companyContext = createCompanyContext({ ...company, intelligenceMarkdown: company.documents.find((document) => document.type === "COMPANY_INTELLIGENCE")?.contentMarkdown, crawlPages: company.crawlPages });
   return <DashboardClient data={{
     company: { id: company.id, name: company.name, websiteUrl: company.websiteUrl, logoUrl: company.logoUrl, category: company.category, description: company.description, companyContext, lastAuditedAt: company.lastAuditedAt?.toISOString() ?? null },

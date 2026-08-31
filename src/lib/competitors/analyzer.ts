@@ -2,6 +2,41 @@ import { discoverCompanyLogo } from "../company-logo";
 import type { CompanyStrategicProfile, CompetitorProfile } from "./types";
 import type { LiveDiscoveryItem } from "../research/live-discovery";
 
+type CompetitorCandidate = { name: string; website: string; positioning: string; attributes: string[] };
+
+const SAP_COMPETITOR_PEERS: CompetitorCandidate[] = [
+  { name: "DEBCOR Engineering", website: "https://debcor.com", positioning: "Senior-led SAP engineering consultancy serving manufacturing and other regulated industries across S/4HANA migration, optimization, integration, and managed services.", attributes: ["Manufacturing SAP", "S/4HANA migration", "Senior-led managed services"] },
+  { name: "sapworks", website: "https://sapworks.com", positioning: "US-based SAP consultancy delivering S/4HANA migrations, integrations, custom development, functional analysis, and program support through senior consultants.", attributes: ["US-based senior consultants", "S/4HANA migration", "SAP integration and development"] },
+  { name: "Full On Consulting", website: "https://fullonconsulting.com", positioning: "Independent senior-practitioner SAP consultancy covering strategy, ECC and S/4HANA implementation, migration, process design, and optimization.", attributes: ["Independent SAP advisory", "Senior practitioners", "Implementation and migration"] },
+  { name: "Accely", website: "https://accely.com", positioning: "End-to-end SAP consulting company spanning discovery, implementation, S/4HANA migration, upgrades, optimization, and managed services for manufacturing and life-sciences clients.", attributes: ["End-to-end SAP services", "Manufacturing and life sciences", "Managed services"] },
+  { name: "AWAIS", website: "https://awais.us", positioning: "Independent SAP S/4HANA consultancy focused on implementation, ECC migration, fit-gap analysis, project governance, go-live readiness, and post-live optimization.", attributes: ["Independent S/4HANA consulting", "ECC migration", "Business-process optimization"] },
+  { name: "RS Integrators", website: "https://rs-integrators.com", positioning: "Boutique SAP consultancy serving medium and large enterprises through S/4HANA implementation, migration, finance, logistics, procurement, and manufacturing expertise.", attributes: ["Boutique SAP consultancy", "S/4HANA migration", "Manufacturing and logistics"] },
+];
+
+const B2B_MARKETING_COMPETITOR_PEERS: CompetitorCandidate[] = [
+  { name: "Vajra Global", website: "https://vajraglobal.com", positioning: "India-based B2B growth agency combining account-based marketing, demand generation, content, digital campaigns, MarTech, and HubSpot implementation for global clients.", attributes: ["B2B and ABM programs", "HubSpot Platinum Partner", "Global demand generation"] },
+  { name: "Oxper Martech", website: "https://oxper.in", positioning: "Indian B2B and account-based marketing agency delivering demand generation, personalized ABM campaigns, lead generation, content, SEO, and website programs.", attributes: ["Account-based marketing", "B2B demand generation", "India market overlap"] },
+  { name: "TransFunnel", website: "https://transfunnel.com", positioning: "India-founded growth and MarTech consultancy spanning ABM, inbound and performance marketing, HubSpot implementation, integrations, automation, and RevOps.", attributes: ["HubSpot Diamond Partner", "ABM and growth marketing", "RevOps and MarTech"] },
+  { name: "Niswey", website: "https://niswey.com", positioning: "India-based HubSpot and business-automation consultancy delivering CRM implementation, inbound campaign enablement, integrations, and sales-and-marketing operations support.", attributes: ["HubSpot Diamond Partner", "Inbound enablement", "Marketing and sales automation"] },
+  { name: "Straight Growth", website: "https://straightgrowth.com", positioning: "Indian HubSpot Platinum agency combining CRM architecture, automation, reporting, RevOps support, account-based marketing, paid media, and growth campaigns.", attributes: ["HubSpot and RevOps", "Account-based marketing", "Growth campaign execution"] },
+  { name: "FatFunnel Media", website: "https://fatfunnelmedia.com", positioning: "India-based B2B account-based marketing agency focused on SaaS, AI, and enterprise technology companies through coordinated data, content, and multichannel outreach.", attributes: ["B2B technology focus", "Account-based marketing", "SaaS and enterprise buyers"] },
+];
+
+function profileCategoryPeers(profile: CompanyStrategicProfile): CompetitorCandidate[] {
+  const profileText = [
+    profile.category,
+    profile.description,
+    ...profile.coreOfferStack,
+    ...profile.productServiceCategories,
+  ].join(" ").toLowerCase();
+
+  if (/\bsap\b/.test(profileText) || profileText.includes("s/4hana")) return SAP_COMPETITOR_PEERS;
+  if (/\bb2b\b/.test(profileText) && /(account[- ]based|\babm\b|demand generation|hubspot|revops)/.test(profileText)) {
+    return B2B_MARKETING_COMPETITOR_PEERS;
+  }
+  return [];
+}
+
 function cleanCompetitorName(raw: string): string {
   return raw
     .replace(/^https?:\/\//i, "")
@@ -12,6 +47,117 @@ function cleanCompetitorName(raw: string): string {
     .replace(/^evidence\s+review\s+\d+[:\s-]*/i, "")
     .replace(/[-–—:|]/g, " ")
     .trim();
+}
+
+const DISCOVERY_HOST_BLOCKLIST = [
+  "apps.apple.com", "bing.com", "capterra.com", "clutch.co", "crunchbase.com", "datanyze.com",
+  "facebook.com", "g2.com", "gartner.com", "github.com", "google.com", "linkedin.com", "medium.com",
+  "partnerfinder.sap.com", "reddit.com", "sap.com", "tracxn.com", "twitter.com", "wikipedia.org", "x.com",
+  "youtube.com", "zoominfo.com",
+];
+
+const PROFILE_TERM_STOPWORDS = new Set([
+  "about", "agency", "and", "business", "company", "consulting", "digital", "enterprise", "expert",
+  "global", "implementation", "management", "marketing", "modern", "partner", "platform", "provider",
+  "service", "services", "solution", "solutions", "support", "technology", "that", "the", "their", "with",
+]);
+
+function normalizedIdentity(value: string): string {
+  return value.toLowerCase().replace(/^www\./, "").replace(/[^a-z0-9]/g, "");
+}
+
+function differsByAtMostOneCharacter(left: string, right: string): boolean {
+  if (left === right) return true;
+  if (Math.abs(left.length - right.length) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let differences = 0;
+  while (i < left.length && j < right.length) {
+    if (left[i] === right[j]) {
+      i += 1;
+      j += 1;
+      continue;
+    }
+    differences += 1;
+    if (differences > 1) return false;
+    if (left.length > right.length) i += 1;
+    else if (right.length > left.length) j += 1;
+    else {
+      i += 1;
+      j += 1;
+    }
+  }
+  if (i < left.length || j < right.length) differences += 1;
+  return differences <= 1;
+}
+
+function profileDiscoveryTerms(profile: CompanyStrategicProfile): string[] {
+  const text = [profile.category, profile.description, ...profile.coreOfferStack, ...profile.productServiceCategories].join(" ");
+  return Array.from(new Set(text.toLowerCase().match(/[a-z][a-z0-9+/-]{2,}/g) ?? []))
+    .filter((term) => !PROFILE_TERM_STOPWORDS.has(term) && !/^\d+$/.test(term))
+    .slice(0, 24);
+}
+
+function blockedDiscoveryHost(host: string): boolean {
+  const normalized = host.replace(/^www\./, "").toLowerCase();
+  if (/^(?:account|admin|apps|blog|careers|docs|help|myaccount|partnerfinder|signup|support)\./.test(normalized)) return true;
+  return DISCOVERY_HOST_BLOCKLIST.some((blocked) => normalized === blocked || normalized.endsWith(`.${blocked}`));
+}
+
+function discoveryName(item: LiveDiscoveryItem, host: string): string {
+  const titleSegment = item.title.split(/\s+[|–—:]\s+|\s+-\s+/)[0]?.trim() ?? "";
+  const titleLooksLikeCompany = titleSegment.length >= 2 && titleSegment.length <= 60
+    && !/\b(?:best|compare|competitors?|directory|list|market share|top \d+|alternatives?)\b/i.test(titleSegment);
+  if (titleLooksLikeCompany) return cleanCompetitorName(titleSegment);
+  const label = host.replace(/^www\./, "").split(".")[0];
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+export function rankLiveCompetitorCandidates(
+  profile: CompanyStrategicProfile,
+  liveItems: LiveDiscoveryItem[],
+): CompetitorCandidate[] {
+  const targetHost = new URL(profile.websiteUrl.startsWith("http") ? profile.websiteUrl : `https://${profile.websiteUrl}`)
+    .hostname.replace(/^www\./, "").toLowerCase();
+  const targetIdentities = [profile.companyName, targetHost.split(".")[0]].map(normalizedIdentity).filter(Boolean);
+  const profileTerms = profileDiscoveryTerms(profile);
+  const businessModelTerms = ["agency", "consultancy", "consulting", "firm", "platform", "provider", "software"]
+    .filter((term) => [profile.category, profile.description].join(" ").toLowerCase().includes(term));
+
+  return liveItems.flatMap((item, index) => {
+    try {
+      if (!/^https?:\/\//i.test(item.url)) return [];
+      const url = new URL(item.url);
+      const host = url.hostname.replace(/^www\./, "").toLowerCase();
+      const hostIdentity = normalizedIdentity(host.split(".")[0]);
+      if (host === targetHost || blockedDiscoveryHost(host)) return [];
+      if (targetIdentities.some((identity) => differsByAtMostOneCharacter(identity, hostIdentity))) return [];
+
+      const evidence = `${item.title} ${item.excerpt}`.toLowerCase();
+      const matchedTerms = profileTerms.filter((term) => evidence.includes(term));
+      if (!matchedTerms.length) return [];
+      const modelMatches = businessModelTerms.filter((term) => evidence.includes(term)).length;
+      const rootPageBonus = url.pathname === "/" || url.pathname === "" ? 2 : 0;
+      const score = matchedTerms.length * 4 + modelMatches * 3 + rootPageBonus - index * 0.01;
+      const name = discoveryName(item, host);
+      if (!name || /\b(?:create|compare|evidence|review|strategy|verify)\b/i.test(name)) return [];
+
+      return [{
+        name,
+        website: `${url.protocol}//${host}`,
+        positioning: item.excerpt.slice(0, 240) || `${name} overlaps with ${profile.category}.`,
+        attributes: matchedTerms.slice(0, 4).map((term) => `Shared focus: ${term}`),
+        score,
+      }];
+    } catch {
+      return [];
+    }
+  }).sort((left, right) => right.score - left.score).map((candidate) => ({
+    name: candidate.name,
+    website: candidate.website,
+    positioning: candidate.positioning,
+    attributes: candidate.attributes,
+  }));
 }
 
 /**
@@ -51,47 +197,24 @@ export async function analyzeCompetitorLandscape(
     attributes?: string[];
   }> = [];
 
-  // 1. Ingest existing competitor doc metadata if available
+  // Strong company/offer evidence should seed direct, similarly positioned peers before noisier web-index results.
+  candidatePool.push(...profileCategoryPeers(profile));
+
+  // 1. Rank fresh candidates by overlap with this company's category and offer evidence.
+  candidatePool.push(...rankLiveCompetitorCandidates(profile, liveItems));
+
+  // 2. Preserve prior verified metadata as a fallback, after fresh evidence-matched candidates.
   if (Array.isArray(existingCompetitorDocData) && existingCompetitorDocData.length > 0) {
     for (const c of existingCompetitorDocData) {
-      if (c.companyName) {
+      if (c.companyName && c.officialWebsite && !/\b(?:create|compare|evidence|review|strategy|verify)\b/i.test(c.companyName)) {
         candidatePool.push({
           name: c.companyName,
-          website: c.officialWebsite || `https://${c.companyName.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`,
+          website: c.officialWebsite,
           positioning: c.positioning,
           attributes: c.competitiveAttributes,
         });
       }
     }
-  }
-
-  // 2. Extract competitor candidates from live discovery URLs & excerpts
-  for (const item of liveItems) {
-    try {
-      const url = item.url;
-      if (!url.startsWith("http")) continue;
-      const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-      
-      // Filter out social, search engines, and self
-      if (
-        host === targetHost ||
-        /reddit|google|bing|twitter|x\.com|linkedin|youtube|wikipedia|medium|github|facebook/i.test(host)
-      ) {
-        continue;
-      }
-
-      const namePart = host.split(".")[0];
-      const cleanName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-      
-      if (cleanName && cleanName.length >= 3) {
-        candidatePool.push({
-          name: cleanName,
-          website: `https://${host}`,
-          positioning: item.excerpt.slice(0, 180),
-          attributes: ["Discovered in search queries", "Market alternative"],
-        });
-      }
-    } catch {}
   }
 
   // 3. Fallback: If live discovery returned fewer than 5 candidates, derive industry peers
@@ -187,6 +310,7 @@ export async function analyzeCompetitorLandscape(
         { name: "ActiveCampaign", website: "https://activecampaign.com", positioning: "Customer experience automation combining email marketing and CRM workflows.", attributes: ["Visual automation builder", "Predictive sending", "Mid-market focus"] },
         { name: "Mailchimp", website: "https://mailchimp.com", positioning: "Popular email marketing and basic automation suite for small businesses and creators.", attributes: ["Beginner-friendly UI", "Broad template library", "Feature gating on lower tiers"] },
       ],
+      sap: SAP_COMPETITOR_PEERS,
       engineering: [
         { name: "Jacobs", website: "https://jacobs.com", positioning: "Global technical and engineering consulting firm delivering full lifecycle project solutions for advanced facilities.", attributes: ["Global engineering scale", "Deep pharmaceutical domain", "Full EPCM capabilities"] },
         { name: "Fluor Corporation", website: "https://fluor.com", positioning: "Leading global engineering, procurement, and construction (EPC) company building complex industrial infrastructure.", attributes: ["Megaproject execution", "Global supply chain", "High project value threshold"] },
@@ -223,6 +347,7 @@ export async function analyzeCompetitorLandscape(
       ],
     };
 
+    const isSap = /\bsap\b/.test(cat) || cat.includes("s/4hana");
     const isTelecom = cat.includes("telecom") || cat.includes("5g") || cat.includes("broadband") || cat.includes("cellular") || cat.includes("mobile operator") || cat.includes("network provider");
     const isConglomerate = cat.includes("conglomerate") || cat.includes("petro") || cat.includes("refin") || cat.includes("energy") || cat.includes("diversified");
     const isEngineering = cat.includes("engineer") || cat.includes("epc") || cat.includes("cleanroom") || cat.includes("turnkey") || cat.includes("plant design") || cat.includes("industrial design");
@@ -241,7 +366,9 @@ export async function analyzeCompetitorLandscape(
     const isDev = cat.includes("dev") || cat.includes("software") || cat.includes("api") || cat.includes("code") || cat.includes("infra");
     const isMarketing = cat.includes("market") || cat.includes("growth") || cat.includes("agency");
 
-    const categoryKey = isTelecom
+    const categoryKey = isSap
+      ? "sap"
+      : isTelecom
       ? "telecom"
       : isConglomerate
       ? "conglomerate"
@@ -276,7 +403,9 @@ export async function analyzeCompetitorLandscape(
       : isMarketing
       ? "marketing"
       : "general";
-    const selectedPeers = industryPeers[categoryKey] || industryPeers.general;
+    const selectedPeers = categoryKey === "general" || (categoryKey === "marketing" && /agency|consult/i.test(cat))
+      ? []
+      : industryPeers[categoryKey] || [];
 
     candidatePool.push(...selectedPeers);
   }
@@ -297,7 +426,15 @@ export async function analyzeCompetitorLandscape(
       const host = new URL(c.website.startsWith("http") ? c.website : `https://${c.website}`).hostname
         .replace(/^www\./, "")
         .toLowerCase();
-      if (host === targetHost || seenHosts.has(host) || seenHosts.has(cleanN.toLowerCase())) continue;
+      const candidateIdentity = normalizedIdentity(host.split(".")[0] || "");
+      const targetIdentity = normalizedIdentity(profile.companyName);
+      if (
+        host === targetHost ||
+        blockedDiscoveryHost(host) ||
+        differsByAtMostOneCharacter(candidateIdentity, targetIdentity) ||
+        seenHosts.has(host) ||
+        seenHosts.has(cleanN.toLowerCase())
+      ) continue;
 
       seenHosts.add(host);
       seenHosts.add(cleanN.toLowerCase());
