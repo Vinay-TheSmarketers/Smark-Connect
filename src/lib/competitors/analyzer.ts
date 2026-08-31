@@ -381,6 +381,14 @@ export async function analyzeCompetitorLandscape(
         { name: "Clean Harbors", website: "https://cleanharbors.com", positioning: "Specialized environmental and industrial services company handling hazardous waste management and emergency response.", attributes: ["Hazardous waste leadership", "Emergency response readiness", "Industrial cleaning services"] },
         { name: "Veolia", website: "https://veolia.com", positioning: "Global ecological transformation leader delivering water, waste, and energy management solutions.", attributes: ["Circular economy focus", "Global municipal & industrial footprint", "Comprehensive sustainability"] },
       ],
+      research_compliance: [
+        { name: "Cayuse", website: "https://cayuse.com", positioning: "Comprehensive research administration and compliance platform spanning pre-award, post-award, IRB, IACUC, and IBC.", attributes: ["Full research lifecycle", "Deep federal integration", "Broad university market share"] },
+        { name: "Huron Research Suite", website: "https://huronconsultinggroup.com", positioning: "Enterprise research management, compliance, and grants software for major academic medical centers and universities.", attributes: ["Enterprise scale", "Deep compliance workflows", "High implementation overhead"] },
+        { name: "Kuali Research", website: "https://kuali.co", positioning: "Cloud-native research administration suite delivering modular IRB, IACUC, conflict of interest, and proposal management.", attributes: ["Cloud-native architecture", "Higher education community", "Configurable workflows"] },
+        { name: "InfoEd Global", website: "https://infoedglobal.com", positioning: "Long-standing electronic research administration (eRA) suite with deep human and animal protocol compliance.", attributes: ["Established legacy market presence", "Comprehensive compliance modules", "Complex UI"] },
+        { name: "Streamlyne", website: "https://streamlyne.com", positioning: "Modern, cost-effective electronic research administration and compliance platform built for agility.", attributes: ["Fast implementation", "Integrated eRA and compliance", "Transparent pricing"] },
+        { name: "A-Tune (tick@lab)", website: "https://a-tune.com", positioning: "Specialized research compliance, IACUC, and biosafety oversight platform for biomedical institutions.", attributes: ["Animal and biosafety compliance", "Strict audit trails", "Life sciences focus"] },
+      ],
       telecom: [
         { name: "Bharti Airtel", website: "https://airtel.in", positioning: "Leading telecommunications provider with premium 5G networks, enterprise cloud connectivity, and digital payments.", attributes: ["High ARPU user base", "Extensive 5G coverage", "Strong enterprise Airtel Business portfolio"] },
         { name: "Tata Communications", website: "https://tatacommunications.com", positioning: "Global digital ecosystem enabler powering enterprise connectivity, subsea cables, and cloud security.", attributes: ["Global Tier-1 network infrastructure", "Enterprise cloud & cyber focus", "Subsea cable dominance"] },
@@ -404,6 +412,7 @@ export async function analyzeCompetitorLandscape(
       ],
     };
 
+    const isResearchCompliance = cat.includes("research") || cat.includes("compliance") || cat.includes("protocol") || cat.includes("irb") || cat.includes("iacuc") || cat.includes("eprotocol") || cat.includes("era") || cat.includes("biosafety");
     const isSap = /\bsap\b/.test(cat) || cat.includes("s/4hana");
     const isTelecom = cat.includes("telecom") || cat.includes("5g") || cat.includes("broadband") || cat.includes("cellular") || cat.includes("mobile operator") || cat.includes("network provider");
     const isConglomerate = cat.includes("conglomerate") || cat.includes("petro") || cat.includes("refin") || cat.includes("energy") || cat.includes("diversified");
@@ -423,7 +432,9 @@ export async function analyzeCompetitorLandscape(
     const isDev = cat.includes("dev") || cat.includes("software") || cat.includes("api") || cat.includes("code") || cat.includes("infra");
     const isMarketing = cat.includes("market") || cat.includes("growth") || cat.includes("agency");
 
-    const categoryKey = isSap
+    const categoryKey = isResearchCompliance
+      ? "research_compliance"
+      : isSap
       ? "sap"
       : isTelecom
       ? "telecom"
