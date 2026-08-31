@@ -26,7 +26,24 @@ export async function GET(request: Request) {
 
   const output = latestRun?.output && typeof latestRun.output === "object" ? (latestRun.output as Record<string, unknown>) : null;
 
-  if (output && output.competitors && output.companyProfile) {
+  const hasInvalidCompetitors = Array.isArray(output?.competitors) && (output.competitors as Array<Record<string, unknown>>).some((c) => {
+    const site = String(c.officialWebsite || c.website || "").toLowerCase();
+    const name = String(c.name || c.companyName || "").toLowerCase();
+    return (
+      site.includes("merriam-webster") ||
+      site.includes("key-test") ||
+      site.includes("keyboard-tester") ||
+      site.includes("dictionary") ||
+      site === "key.com" ||
+      site.includes("ibx.key.com") ||
+      name.includes("definition") ||
+      name.includes("tester") ||
+      name.includes("keybank") ||
+      name.includes("meaning")
+    );
+  });
+
+  if (output && output.competitors && output.companyProfile && !hasInvalidCompetitors) {
     return Response.json({
       payload: output as unknown as CompetitorIntelligencePayload,
       runId: latestRun?.id ?? null,

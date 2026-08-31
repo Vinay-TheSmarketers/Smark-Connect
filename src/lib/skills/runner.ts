@@ -302,6 +302,15 @@ async function enrichCompetitorAnalysis(analysis: SkillAnalysis, targetWebsite: 
   const seen = new Set<string>();
   const distinctCompetitors: Finding[] = [];
 
+  const isBlockedOrUtility = (name: string, host: string) => {
+    const combinedText = `${name} ${host}`.toLowerCase();
+    if (/\b(?:definition|meaning|dictionary|thesaurus|etymology|keyboard tester|key test|speed test|online tester|hardware tester|login|sign in|online & mobile banking|keybank|privacy policy|terms of service|wikipedia|quora|reddit)\b/i.test(combinedText)) {
+      return true;
+    }
+    const blockedHosts = ["merriam-webster.com", "key-test.ru", "keyboard-tester.com", "speedtest.net", "dictionary.com", "key.com", "ibx.key.com"];
+    return blockedHosts.some((b) => host === b || host.endsWith(`.${b}`));
+  };
+
   for (const item of combined) {
     const nameKey = item.companyName.toLowerCase().trim();
     if (!nameKey || nameKey === "company" || /^finding\s+\d+/i.test(nameKey) || /^evidence\s+review/i.test(nameKey)) {
@@ -315,7 +324,7 @@ async function enrichCompetitorAnalysis(analysis: SkillAnalysis, targetWebsite: 
       } catch {}
     }
 
-    if (hostKey === targetHost) continue;
+    if (hostKey === targetHost || isBlockedOrUtility(nameKey, hostKey)) continue;
     if (seen.has(nameKey) || (hostKey && seen.has(hostKey))) continue;
 
     seen.add(nameKey);
