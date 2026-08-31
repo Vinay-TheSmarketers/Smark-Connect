@@ -25,6 +25,7 @@ import {
   Hash,
   Type,
   AlertTriangle,
+  Music,
 } from "lucide-react";
 import type {
   InstagramOpportunity,
@@ -470,7 +471,9 @@ export function InstagramOpportunityFeed({
                                   {step.phase.replace(/_/g, " ")}
                                 </span>
                                 {step.audioTrackSuggestion && (
-                                  <span className="ig-timeline-step__audio">🎵 {step.audioTrackSuggestion}</span>
+                                  <span className="ig-timeline-step__audio" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                    <Music size={11} /> {step.audioTrackSuggestion}
+                                  </span>
                                 )}
                                 <div className="ig-timeline-step__detail">
                                   <strong>Spoken:</strong> {step.spokenAudio}

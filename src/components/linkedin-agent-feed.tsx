@@ -145,7 +145,7 @@ export function LinkedInAgentFeed({
           >
             <Type size={11} />
             <span>Post Draft</span>
-            {isPostCompleted && <span className="sc-filter-chip__count">✓</span>}
+            {isPostCompleted && <span className="sc-filter-chip__count" style={{ display: "inline-flex", alignItems: "center" }}><Check size={9} /></span>}
           </button>
         )}
         <button

@@ -1,4 +1,4 @@
-﻿import type { CompanyMemory } from "@/lib/reddit/company-memory";
+import type { CompanyMemory } from "@/lib/reddit/company-memory";
 import type {
   ContentAngle,
   InstagramExecutionPackage,
@@ -89,10 +89,10 @@ export function buildCarouselSequence(
       slideNumber: 1,
       type: "hook",
       headline: hook,
-      bodyContent: `Swipe to see the complete step-by-step breakdown ➔`,
+      bodyContent: `Swipe to see the complete step-by-step breakdown.`,
       visualDirection: `Bold high-contrast background with oversized serif/sans headline, brand logo top right, swipe indicator arrow.`,
       onScreenText: hook,
-      swipePrompt: "Swipe to see step 1 ➔",
+      swipePrompt: "Swipe to see step 1",
     },
     {
       slideNumber: 2,
@@ -101,7 +101,7 @@ export function buildCarouselSequence(
       bodyContent: `Most teams waste hours struggling with ${pain.toLowerCase()}. The root issue isn't effort—it is using outdated tools built for a different era.`,
       visualDirection: `Split diagram showing the broken legacy loop with red exclamation markers.`,
       onScreenText: `The Root Problem: Outdated legacy workflows create friction.`,
-      swipePrompt: "Here's the shift ➔",
+      swipePrompt: "Here's the shift",
     },
     {
       slideNumber: 3,
@@ -110,7 +110,7 @@ export function buildCarouselSequence(
       bodyContent: `Instead of manual stitching, centralize data and logic in one continuous system. This eliminates duplicated effort and sync lag.`,
       visualDirection: `Clean architecture flowchart illustrating a streamlined centralized pipeline.`,
       onScreenText: `Shift 1: Unify your operational source of truth.`,
-      swipePrompt: "Step 2 ➔",
+      swipePrompt: "Step 2",
     },
     {
       slideNumber: 4,
@@ -119,7 +119,7 @@ export function buildCarouselSequence(
       bodyContent: `Leverage ${feature.toLowerCase()} to automate repetitive checkpoints while keeping full human verification at decision gates.`,
       visualDirection: `Clean UI card mockup showing precision controls and automated checkpoints.`,
       onScreenText: `Shift 2: Automated precision with complete control.`,
-      swipePrompt: "The Evidence ➔",
+      swipePrompt: "The Evidence",
     },
     {
       slideNumber: 5,
@@ -128,15 +128,15 @@ export function buildCarouselSequence(
       bodyContent: `Teams implementing this shift achieve faster turnaround, higher consistency, and zero wasted hours on repetitive busywork.`,
       visualDirection: `Metrics highlight card showing verifiable transformation badges without fabricated statistics.`,
       onScreenText: `Before vs After: Predictable, scalable results.`,
-      swipePrompt: "Summary & Action ➔",
+      swipePrompt: "Summary & Action",
     },
     {
       slideNumber: 6,
       type: "cta",
       headline: `Ready to upgrade your workflow?`,
-      bodyContent: `Save this post for your next planning session 📌\n\nVisit the link in our bio to explore ${company} today.`,
+      bodyContent: `Save this post for your next planning session.\n\nVisit the link in our bio to explore ${company} today.`,
       visualDirection: `Minimalist brand slide with clear Save / Share icons and official website URL badge.`,
-      onScreenText: `Save this post 📌 | Link in bio to learn more.`,
+      onScreenText: `Save this post | Link in bio to learn more.`,
     },
   ];
 }
@@ -194,7 +194,7 @@ export function buildReelStoryboard(
       phase: "cta",
       spokenAudio: `"Comment 'GUIDE' below and we'll send you the full breakdown, or check the link in bio!"`,
       visualAction: "Host points down to comment area, on-screen sticker animation pop-in.",
-      onScreenText: "Comment 'GUIDE' below or check link in bio 👆",
+      onScreenText: "Comment 'GUIDE' below or check link in bio",
       audioTrackSuggestion: "Upbeat fade out",
       cameraAngleOrFraming: "Eye-level direct address",
     },
@@ -218,7 +218,7 @@ export function buildStorySequence(
       interactiveElement: {
         type: "poll",
         prompt: "Do you struggle with this?",
-        options: ["Yes, constantly 😩", "We have it figured out 😎"],
+        options: ["Yes, constantly", "We have it figured out"],
       },
     },
     {
@@ -233,7 +233,7 @@ export function buildStorySequence(
     {
       frameNumber: 3,
       visualPrompt: "Visual product proof card with direct link sticker.",
-      textOverlay: `Swipe up or tap the sticker below to see how ${company} solves this automatically 👇`,
+      textOverlay: `Swipe up or tap the sticker below to see how ${company} solves this automatically`,
       interactiveElement: {
         type: "link_sticker",
         prompt: `Explore ${company}`,
@@ -288,18 +288,18 @@ Most teams approach ${category.toLowerCase()} by guessing what works or copying 
 
 Here is the strategic shift you need:
 
-1️⃣ Anchor in verified customer signals rather than assumptions.
-2️⃣ Focus on high-intent problems your ICP experiences every day.
-3️⃣ Eliminate manual bottlenecks with automated intelligent workflows.
+1. Anchor in verified customer signals rather than assumptions.
+2. Focus on high-intent problems your ICP experiences every day.
+3. Eliminate manual bottlenecks with automated intelligent workflows.
 
 When you replace guesswork with evidence, execution becomes 10x faster and results become predictable.
 
-💬 What is your biggest challenge with ${topic.toLowerCase()}? Drop your thoughts below!
+What is your biggest challenge with ${topic.toLowerCase()}? Drop your thoughts below.
 
-📌 Save this post to reference during your next team sprint.
-🔗 Link in bio to see how ${company} streamlines this end-to-end.`;
+Save this post to reference during your next team sprint.
+Link in bio to see how ${company} streamlines this end-to-end.`;
 
-  const cta = "Save this post for later 📌 and check the link in bio to learn more.";
+  const cta = "Save this post for later and check the link in bio to learn more.";
 
   // 4. Discoverability & SEO
   const cleanCategory = category.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
@@ -351,7 +351,7 @@ When you replace guesswork with evidence, execution becomes 10x faster and resul
   const repurposingPlan: RepurposingPlan = {
     storiesAngle: `Break down the main hook into a 3-part interactive poll and direct link sticker story.`,
     linkedInDraft: `The biggest mistake I see in ${category.toLowerCase()} is treating ${topic.toLowerCase()} as an afterthought.\n\nHere is how leading teams solve it:\n\n• Step 1: Centralize customer signals\n• Step 2: Automate repetitive validation\n• Step 3: Execute with verified proof\n\nWhat is your team's approach?`,
-    xPostOrThread: `Most advice on ${topic.toLowerCase()} is outdated.\n\nHere is the 2026 playbook in 3 tweets 🧵👇\n\n1/ Stop manual guesswork.\n2/ Use evidence-anchored systems.\n3/ Scale with precision.`,
+    xPostOrThread: `Most advice on ${topic.toLowerCase()} is outdated.\n\nHere is the 2026 playbook in 3 tweets:\n\n1/ Stop manual guesswork.\n2/ Use evidence-anchored systems.\n3/ Scale with precision.`,
     newsletterSnippet: `In this week's breakdown: Why ${topic.toLowerCase()} is the highest-leverage lever in ${category.toLowerCase()}.`,
   };
 

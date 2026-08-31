@@ -82,7 +82,7 @@ export function buildXThread(
   return [
     {
       tweetNumber: 1,
-      content: `${hook}\n\nA breakdown of why the traditional approach breaks down (and what to do instead) 🧵👇`,
+      content: `${hook}\n\nA breakdown of why the traditional approach breaks down (and what to do instead):`,
       callToAction: "Open thread",
     },
     {
@@ -190,7 +190,7 @@ export function generateXExecutionPackage(args: {
   // 5. Native Repurposing Plan across other channels
   const repurposingPlan = {
     linkedInPost: `The biggest mistake I see in ${category.toLowerCase()} is treating ${topic.toLowerCase()} as an isolated afterthought.\n\nHere is the 3-step operational framework leading teams use to fix it:\n\n1. Centralize the signals\n2. Automate repetitive validation\n3. Protect human decision gates\n\nHow we streamline this at ${company}: single source of truth and continuous verification.\n\nWhat is your team's approach?`,
-    instagramCarouselHook: `The 5-slide breakdown of why ${topic.toLowerCase()} fails in legacy workflows ➔`,
+    instagramCarouselHook: `The 5-slide breakdown of why ${topic.toLowerCase()} fails in legacy workflows`,
     newsletterSnippet: `Deep dive: Why fixing ${topic.toLowerCase()} is the highest-leverage lever in your 2026 stack.`,
   };
 

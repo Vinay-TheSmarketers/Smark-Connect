@@ -26,6 +26,7 @@ import {
   Type,
   Hash,
   AlertTriangle,
+  Zap,
 } from "lucide-react";
 import type {
   XOpportunity,
@@ -537,7 +538,9 @@ export function XOpportunityFeed({
                             onClick={() => handleSelectVariant(opp.id, opp.executionPackage.threeVariants.punchy)}
                           >
                             <div className="x-variant-card__header">
-                              <span className="x-variant-card__label">⚡ Punchy</span>
+                              <span className="x-variant-card__label" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                <Zap size={11} /> Punchy
+                              </span>
                               <span className="x-variant-card__chars">{opp.executionPackage.threeVariants.punchy.length} chars</span>
                             </div>
                             <p className="x-variant-card__text">{opp.executionPackage.threeVariants.punchy}</p>
@@ -548,7 +551,9 @@ export function XOpportunityFeed({
                             onClick={() => handleSelectVariant(opp.id, opp.executionPackage.threeVariants.observation)}
                           >
                             <div className="x-variant-card__header">
-                              <span className="x-variant-card__label">🔍 Observation</span>
+                              <span className="x-variant-card__label" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                <Eye size={11} /> Observation
+                              </span>
                               <span className="x-variant-card__chars">{opp.executionPackage.threeVariants.observation.length} chars</span>
                             </div>
                             <p className="x-variant-card__text">{opp.executionPackage.threeVariants.observation}</p>
@@ -559,7 +564,9 @@ export function XOpportunityFeed({
                             onClick={() => handleSelectVariant(opp.id, opp.executionPackage.threeVariants.contrarian)}
                           >
                             <div className="x-variant-card__header">
-                              <span className="x-variant-card__label">🔥 Contrarian</span>
+                              <span className="x-variant-card__label" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                <Flame size={11} /> Contrarian
+                              </span>
                               <span className="x-variant-card__chars">{opp.executionPackage.threeVariants.contrarian.length} chars</span>
                             </div>
                             <p className="x-variant-card__text">{opp.executionPackage.threeVariants.contrarian}</p>

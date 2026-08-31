@@ -58,18 +58,18 @@ const coreDocumentOrder = ["COMPETITOR_ANALYSIS", "COMPANY_INTELLIGENCE", "SEO_A
 const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Company Intelligence", SEO_AUDIT: "SEO Audit", GEO_AUDIT: "GEO and AI Visibility", COMPETITOR_ANALYSIS: "Competitor Analysis", AUDIENCE_ANALYSIS: "Audience Analysis", CONTENT_AUDIT: "Content Audit and Strategy" };
 const queuedDocumentTypes = [...coreDocumentOrder, ...EXTENDED_DOCUMENTS.map((definition) => definition.type)];
 const primaryAgents = [
-  ["REDDIT", "REDDIT OPPORTUNITIES", "●", "Discovered discussions ready"],
-  ["INSTAGRAM", "INSTAGRAM OPPORTUNITIES", "📷", "Visual discovery, Carousels & Reels ready"],
-  ["SEO", "SEO & GEO RECOMMENDATIONS", "🌐", "Recommendations and search fixes"],
-  ["PROGRAMMATIC_SEO", "PROGRAMMATIC SEO", "⚡", "Template uniqueness & index bloat safeguards"],
-  ["X", "X WRITER", "𝕏", "Publish-ready angles"],
-  ["ARTICLES", "ARTICLES", "✎", "Authority topics ready"],
+  ["REDDIT", "REDDIT OPPORTUNITIES", "r/", "Discovered discussions ready"],
+  ["INSTAGRAM", "INSTAGRAM OPPORTUNITIES", "IG", "Visual discovery, Carousels & Reels ready"],
+  ["SEO", "SEO & GEO RECOMMENDATIONS", "SEO", "Recommendations and search fixes"],
+  ["PROGRAMMATIC_SEO", "PROGRAMMATIC SEO", "P", "Template uniqueness & index bloat safeguards"],
+  ["X", "X WRITER", "X", "Publish-ready angles"],
+  ["ARTICLES", "ARTICLES", "A", "Authority topics ready"],
   ["LINKEDIN", "LINKEDIN WRITER", "in", "Thought-leadership posts"],
-  ["AI_CMO", "AI CMO DIRECTOR", "✦", "Strategic executive synthesis"],
-  ["TECHNICAL_SEO", "TECHNICAL SEO AGENT", "⚙", "Technical diagnostic and crawlability"],
-  ["COMPETITOR", "COMPETITOR AGENT", "◫", "Verified competitor analysis"],
-  ["AUDIENCE", "AUDIENCE AGENT", "◉", "ICP, jobs and voice-of-customer"],
-  ["CONTENT_AUDIT", "CONTENT STRATEGY AGENT", "≡", "Content gaps and editorial briefs"],
+  ["AI_CMO", "AI CMO DIRECTOR", "CMO", "Strategic executive synthesis"],
+  ["TECHNICAL_SEO", "TECHNICAL SEO AGENT", "T", "Technical diagnostic and crawlability"],
+  ["COMPETITOR", "COMPETITOR AGENT", "C", "Verified competitor analysis"],
+  ["AUDIENCE", "AUDIENCE AGENT", "ICP", "ICP, jobs and voice-of-customer"],
+  ["CONTENT_AUDIT", "CONTENT STRATEGY AGENT", "M", "Content gaps and editorial briefs"],
 ] as const;
 const agentLogoPaths: Record<string, string> = {
   X: "/agent-logos/x.svg",
@@ -863,7 +863,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             <small className="company-context-evidence"><Sparkles size={11} />Grounded in {data.company.companyContext.evidenceLabel}</small>
           </div>
         </div>
-        <section className="pane-section"><div className="section-label-row"><p className="section-label">CORE DOCUMENTS</p><span>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length}/6</span></div><div className="document-list">{coreDocumentOrder.map((type) => { const document = documents.find((item) => item.type === type); return document ? <button type="button" key={type} onClick={() => setSelectedDocument(document)}><ModuleIcon type={type} size={14} /><span className="document-row-title">{document.title}</span><small>v{document.version}</small><ChevronRight size={13} /><span className="document-hover-detail" role="tooltip"><strong>{document.title}</strong><span>{documentPreview(document) || "Open this document to review its complete evidence and recommendations."}{document.contentMarkdown.length > 190 ? "…" : ""}</span><em>{document.tokenEstimate.toLocaleString()} tokens · Updated {new Date(document.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em></span></button> : <button className="pending-document p0-triggerable" type="button" key={type} disabled={Boolean(generatingDocument)} onClick={() => prioritizeDocument(type, coreDocumentLabels[type])} title="Click to elevate to P0 and compile immediately"><ModuleIcon type={type} size={14} /><span>{coreDocumentLabels[type]}</span><small className="p0-action-tag">{generatingDocument === type ? <RefreshCw className="spin" size={10} /> : <Zap size={10} />}{generatingDocument === type ? "Compiling" : "⚡ P0"}</small></button>; })}</div></section>
+        <section className="pane-section"><div className="section-label-row"><p className="section-label">CORE DOCUMENTS</p><span>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length}/6</span></div><div className="document-list">{coreDocumentOrder.map((type) => { const document = documents.find((item) => item.type === type); return document ? <button type="button" key={type} onClick={() => setSelectedDocument(document)}><ModuleIcon type={type} size={14} /><span className="document-row-title">{document.title}</span><small>v{document.version}</small><ChevronRight size={13} /><span className="document-hover-detail" role="tooltip"><strong>{document.title}</strong><span>{documentPreview(document) || "Open this document to review its complete evidence and recommendations."}{document.contentMarkdown.length > 190 ? "…" : ""}</span><em>{document.tokenEstimate.toLocaleString()} tokens · Updated {new Date(document.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em></span></button> : <button className="pending-document p0-triggerable" type="button" key={type} disabled={Boolean(generatingDocument)} onClick={() => prioritizeDocument(type, coreDocumentLabels[type])} title="Click to elevate to P0 and compile immediately"><ModuleIcon type={type} size={14} /><span>{coreDocumentLabels[type]}</span><small className="p0-action-tag">{generatingDocument === type ? <RefreshCw className="spin" size={10} /> : <Zap size={10} />}{generatingDocument === type ? "Compiling" : "P0"}</small></button>; })}</div></section>
         <section className="pane-section extended-documents">
           <div className="section-label-row">
             <p className="section-label">SKILL-GENERATED DOCUMENTS</p>

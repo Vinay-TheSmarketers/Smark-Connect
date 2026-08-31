@@ -229,8 +229,8 @@ export function InstagramPreview({
       </div>
       
       {/* Simulation Label */}
-      <div className="ig-preview-simulation-banner">
-        ⚠ Preview simulation · Not affiliated with Instagram
+      <div className="ig-preview-footer">
+        Simulation · Not affiliated with Instagram
       </div>
     </div>
   );
