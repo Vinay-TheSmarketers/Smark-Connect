@@ -4,6 +4,15 @@ import type { LiveDiscoveryItem } from "../research/live-discovery";
 
 type CompetitorCandidate = { name: string; website: string; positioning: string; attributes: string[] };
 
+const FINOPS_COMPETITOR_PEERS: CompetitorCandidate[] = [
+  { name: "CloudZero", website: "https://cloudzero.com", positioning: "Cloud cost intelligence platform delivering unit economics and automated cost allocation for engineering teams.", attributes: ["Unit cost metrics", "Engineering-led FinOps", "Automated anomaly alerts"] },
+  { name: "Kubecost", website: "https://kubecost.com", positioning: "Real-time Kubernetes cost monitoring and container-level chargeback visibility.", attributes: ["Native Kubernetes metrics", "Open-source core", "Multi-cluster allocation"] },
+  { name: "Cast AI", website: "https://cast.ai", positioning: "All-in-one Kubernetes automation platform for automated cloud cost reduction and rightsizing.", attributes: ["Autonomous autoscaling", "Real-time spot automation", "Zero-downtime rebalancing"] },
+  { name: "ProsperOps", website: "https://prosperops.com", positioning: "Autonomous cloud rate optimization and commitment management for AWS discount instruments.", attributes: ["Automated Savings Plans", "Effective Savings Rate optimization", "Financial engineering focus"] },
+  { name: "Spot by NetApp", website: "https://spot.io", positioning: "Continuous infrastructure optimization using machine learning to maximize cloud compute efficiency.", attributes: ["Enterprise scale", "Broad cloud support", "Workload elasticity"] },
+  { name: "Vantage", website: "https://vantage.sh", positioning: "Modern developer-centric cloud cost transparency, reporting, and financial tracking.", attributes: ["Multi-cloud unified view", "Virtual tagging", "Fast self-serve setup"] },
+];
+
 const RESEARCH_COMPLIANCE_PEERS: CompetitorCandidate[] = [
   { name: "Cayuse", website: "https://cayuse.com", positioning: "Comprehensive research administration and compliance platform spanning pre-award, post-award, IRB, IACUC, and IBC for universities and research hospitals.", attributes: ["Full research lifecycle", "Deep federal integration", "Broad university market share"] },
   { name: "Huron Research Suite", website: "https://huronconsultinggroup.com", positioning: "Enterprise research management, compliance, and grants software for major academic medical centers and universities.", attributes: ["Enterprise scale", "Deep compliance workflows", "High implementation overhead"] },
@@ -33,18 +42,23 @@ const B2B_MARKETING_COMPETITOR_PEERS: CompetitorCandidate[] = [
 
 function profileCategoryPeers(profile: CompanyStrategicProfile): CompetitorCandidate[] {
   const profileText = [
+    profile.companyName,
     profile.category,
     profile.description,
     profile.tagline,
+    profile.websiteUrl,
     ...profile.coreOfferStack,
     ...profile.productServiceCategories,
   ].join(" ").toLowerCase();
 
+  if (/\b(?:finops|cloud cost|cost optim|aws cost|azure cost|gcp cost|kubernetes cost|cloud financial)\b/i.test(profileText) || /finops/i.test(profile.companyName) || /finops/i.test(profile.websiteUrl)) {
+    return FINOPS_COMPETITOR_PEERS;
+  }
   if (/\b(?:research|compliance|eprotocol|protocol|irb|iacuc|biosafety|ibc|grants management|era|clinical trial|life science)\b/i.test(profileText) || /keyusa\.com/i.test(profile.websiteUrl)) {
     return RESEARCH_COMPLIANCE_PEERS;
   }
   if (/\bsap\b/.test(profileText) || profileText.includes("s/4hana")) return SAP_COMPETITOR_PEERS;
-  if (/\bb2b\b/.test(profileText) && /(account[- ]based|\babm\b|demand generation|hubspot|revops)/.test(profileText)) {
+  if (/\b(?:agency|consultancy|services firm)\b/i.test(profileText) && /(account[- ]based|\babm\b|demand generation|hubspot|revops)/i.test(profileText)) {
     return B2B_MARKETING_COMPETITOR_PEERS;
   }
   return [];

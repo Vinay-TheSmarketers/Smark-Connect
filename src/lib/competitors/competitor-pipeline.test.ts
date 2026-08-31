@@ -291,4 +291,25 @@ describe("Competitor Intelligence Pipeline & Skills Synthesizer", () => {
       "A Tune (tick@lab)",
     ]);
   });
+
+  it("resolves exact FinOps and cloud cost management peers for Finopsly (finopsly.com)", async () => {
+    const finopslyProfile = {
+      ...mockProfile,
+      companyName: "Finopsly",
+      websiteUrl: "https://finopsly.com",
+      category: "Cloud Cost Management & FinOps Platform",
+      description: "Automated multi-cloud cost optimization, anomaly detection, and Kubernetes resource allocation.",
+      coreOfferStack: ["Multi-Cloud Cost Intelligence", "Kubernetes Allocation", "Autonomous Rate Optimization"],
+    };
+
+    const competitors = await analyzeCompetitorLandscape(finopslyProfile, []);
+    expect(competitors.map((c) => c.name)).toEqual([
+      "CloudZero",
+      "Kubecost",
+      "Cast AI",
+      "ProsperOps",
+      "Spot by NetApp",
+      "Vantage",
+    ]);
+  });
 });

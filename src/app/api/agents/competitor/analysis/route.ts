@@ -89,6 +89,18 @@ export async function POST(request: Request) {
       userId: user.id,
     });
 
+    // Persist the run so subsequent queries return the verified fresh payload
+    await db.agentRun.create({
+      data: {
+        companyId: company.id,
+        agentType: "COMPETITOR",
+        status: "DONE",
+        output: payload as any,
+        startedAt: new Date(),
+        completedAt: new Date(),
+      },
+    });
+
     return Response.json({
       success: true,
       payload,
