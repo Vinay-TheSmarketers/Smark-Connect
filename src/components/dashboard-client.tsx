@@ -870,7 +870,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </section>
         <section className="pane-section extended-documents">
           <div className="section-label-row">
-            <p className="section-label">SKILL-GENERATED DOCUMENTS</p>
+            <p className="section-label">ADDITIONAL DOCUMENTS</p>
             <span>{documents.filter((item) => EXTENDED_DOCUMENTS.some((definition) => definition.type === item.type)).length}/{visibleExtendedDocuments.length}{analysisRunning ? " background" : " ready"}</span>
           </div>
           <div>
@@ -1026,6 +1026,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               company={data.company}
               crawlPages={data.crawlPages.map((page) => ({ url: page.url, title: page.title, description: page.description, content: page.content || "" }))}
               pagesRead={data.pagesRead}
+              lighthouseReport={lighthouse.report}
             />
           )}
           {analysisTab === "aigeo" && (

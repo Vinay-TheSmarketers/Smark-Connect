@@ -13,6 +13,8 @@ import {
   Compass,
   Layers,
   ArrowUpRight,
+  ChevronRight,
+  GitBranch,
 } from "lucide-react";
 import { analyzeLinkStructure, type BacklinksIntelligence } from "@/lib/seo/backlinks";
 
@@ -22,7 +24,6 @@ interface AnalyticsLinksViewProps {
 }
 
 export function AnalyticsLinksView({ companyUrl, crawlPages = [] }: AnalyticsLinksViewProps) {
-  const [selectedAnchorTab, setSelectedAnchorTab] = useState<string>("all");
   const data: BacklinksIntelligence = analyzeLinkStructure(companyUrl, crawlPages);
 
   const cleanHost = (() => {
@@ -33,76 +34,94 @@ export function AnalyticsLinksView({ companyUrl, crawlPages = [] }: AnalyticsLin
     }
   })();
 
+  const hubCount = data.internalLinkGraph.filter((p) => p.isHub).length;
+  const orphanCount = data.internalLinkGraph.filter((p) => p.isOrphan).length;
+
   return (
     <div className="analytics-links-container">
-      {/* 1. Top Header Banner */}
-      <div className="source-banner aeo-banner">
-        <div>
-          <Sparkles size={18} />
-          <span>
-            <strong>Common Crawl &amp; Internal Link Graph</strong>
-            <small>{data.inspectedPages} pages analyzed · {data.totalInternalLinks} internal link edges</small>
-          </span>
+      {/* 1. Header Banner */}
+      <div className="links-header-panel">
+        <div className="links-header-info">
+          <div className="links-header-icon">
+            <Network size={16} />
+          </div>
+          <div>
+            <strong>Internal Link Graph &amp; Backlink Intelligence</strong>
+            <small>{data.inspectedPages} pages inspected · {data.totalInternalLinks} internal link edges</small>
+          </div>
         </div>
-        <span className="source-status evidence-badge">Evidence-Led (0.85)</span>
+        <span className="links-header-badge">
+          <Sparkles size={11} /> Evidence-Led
+        </span>
       </div>
 
-      {/* 2. Top Summary Cards */}
-      <div className="link-summary-cards-grid margin-top">
-        <div className="link-stat-card">
-          <div className="stat-head">
-            <span>Link Health Score</span>
-            <ShieldCheck size={14} className="text-emerald-400" />
+      {/* 2. 2x2 Metric Matrix */}
+      <div className="links-metrics-matrix">
+        <div className="links-metric-cell">
+          <div className="metric-cell-head">
+            <span>Link Health</span>
+            <ShieldCheck size={13} className="text-emerald-500" />
           </div>
-          <strong className="stat-value">{data.healthScore}/100</strong>
-          <small className="stat-sub">Based on internal topology &amp; graph safety</small>
+          <strong className="metric-cell-val">{data.healthScore}<span>/100</span></strong>
+          <small className="metric-cell-hint">Graph integrity &amp; safety</small>
         </div>
 
-        <div className="link-stat-card">
-          <div className="stat-head">
-            <span>Common Crawl Rank</span>
-            <Compass size={14} className="text-blue-400" />
+        <div className="links-metric-cell">
+          <div className="metric-cell-head">
+            <span>Common Crawl PR</span>
+            <Compass size={13} className="text-blue-500" />
           </div>
-          <strong className="stat-value">PR ~{data.commonCrawl.estimatedPageRank ?? "—"}</strong>
-          <small className="stat-sub">{data.commonCrawl.inboundDomainRange}</small>
+          <strong className="metric-cell-val">~{data.commonCrawl.estimatedPageRank ?? "—"}</strong>
+          <small className="metric-cell-hint">{data.commonCrawl.inboundDomainRange}</small>
         </div>
 
-        <div className="link-stat-card">
-          <div className="stat-head">
+        <div className="links-metric-cell">
+          <div className="metric-cell-head">
             <span>Harmonic Centrality</span>
-            <Network size={14} className="text-purple-400" />
+            <GitBranch size={13} className="text-purple-500" />
           </div>
-          <strong className="stat-value">{data.commonCrawl.harmonicCentrality ?? "—"}</strong>
-          <small className="stat-sub">Domain web-graph connectivity</small>
+          <strong className="metric-cell-val">{data.commonCrawl.harmonicCentrality ?? "—"}</strong>
+          <small className="metric-cell-hint">Web-graph connectivity</small>
+        </div>
+
+        <div className="links-metric-cell">
+          <div className="metric-cell-head">
+            <span>Topology Status</span>
+            <Layers size={13} className="text-amber-500" />
+          </div>
+          <strong className="metric-cell-val">{hubCount} Hubs</strong>
+          <small className="metric-cell-hint">{orphanCount} orphan pages detected</small>
         </div>
       </div>
 
-      {/* 3. Anchor Text Distribution Breakdown */}
-      <div className="anchor-distribution-card margin-top">
-        <div className="card-section-head">
-          <span className="flex items-center gap-1.5 font-semibold text-xs tracking-wider uppercase">
+      {/* 3. Anchor Text Naturalness Profile */}
+      <div className="links-section-card">
+        <div className="links-section-head">
+          <span className="links-section-title">
             <Share2 size={13} /> Anchor Text Naturalness Profile
           </span>
-          <span className="text-[10px] text-slate-400">Target: Branded &gt; 35%</span>
+          <span className="links-section-sub">Target: Branded &gt; 35%</span>
         </div>
 
-        <div className="anchor-progress-bars">
+        <div className="anchor-breakdown-list">
           {data.anchorDistribution.map((item) => (
-            <div key={item.type} className="anchor-bar-row">
-              <div className="anchor-bar-label">
-                <span className="capitalize">{item.type}</span>
-                <strong>{item.percentage}% ({item.count})</strong>
+            <div key={item.type} className="anchor-breakdown-row">
+              <div className="anchor-row-labels">
+                <span className="anchor-type-name">{item.type}</span>
+                <span className="anchor-type-stat">
+                  <strong>{item.percentage}%</strong> ({item.count})
+                </span>
               </div>
-              <div className="anchor-track">
+              <div className="anchor-bar-track">
                 <div
-                  className={`anchor-fill ${item.type === "branded" ? "bg-emerald-500" : item.type === "exact" ? "bg-amber-500" : item.type === "generic" ? "bg-blue-500" : "bg-slate-500"}`}
+                  className={`anchor-bar-fill anchor-bar-fill--${item.type}`}
                   style={{ width: `${Math.max(4, item.percentage)}%` }}
                 />
               </div>
               {item.examples.length > 0 && (
-                <div className="anchor-examples">
-                  <small>Examples: {item.examples.join(", ")}</small>
-                </div>
+                <p className="anchor-examples-text">
+                  <span>Samples:</span> {item.examples.join(", ")}
+                </p>
               )}
             </div>
           ))}
@@ -110,31 +129,43 @@ export function AnalyticsLinksView({ companyUrl, crawlPages = [] }: AnalyticsLin
       </div>
 
       {/* 4. Internal Link Architecture (Hubs & Orphans) */}
-      <div className="internal-topology-card margin-top">
-        <div className="card-section-head">
-          <span className="flex items-center gap-1.5 font-semibold text-xs tracking-wider uppercase">
-            <Layers size={13} /> Crawled Page Linking Distribution
+      <div className="links-section-card">
+        <div className="links-section-head">
+          <span className="links-section-title">
+            <Layers size={13} /> Internal Linking Topology
           </span>
-          <span className="text-[10px] text-slate-400">{data.internalLinkGraph.length} pages mapped</span>
+          <span className="links-section-sub">{data.internalLinkGraph.length} pages mapped</span>
         </div>
 
-        <div className="topology-list">
-          {data.internalLinkGraph.slice(0, 8).map((page) => {
+        <div className="topology-table">
+          {data.internalLinkGraph.slice(0, 10).map((page) => {
             let path = "/";
             try {
               path = new URL(page.url).pathname || "/";
-            } catch {}
+            } catch {
+              path = page.url;
+            }
             return (
-              <div key={page.url} className="topology-row">
-                <div className="page-path-col">
-                  <span className="font-mono text-xs text-slate-200">{path}</span>
-                  {page.title && <small className="text-[10px] text-slate-400 truncate block">{page.title}</small>}
+              <div key={page.url} className="topology-item-row">
+                <div className="topology-path-block">
+                  <span className="topology-path">{path}</span>
+                  {page.title && <span className="topology-title">{page.title}</span>}
                 </div>
-                <div className="page-tags-col">
-                  {page.isHub && <span className="tag-hub">Hub ({page.outboundCount} out)</span>}
-                  {page.isOrphan && <span className="tag-orphan">Orphan (0 in)</span>}
+                <div className="topology-badges">
+                  {page.isHub && (
+                    <span className="sc-badge sc-badge--success">
+                      Hub ({page.outboundCount} out)
+                    </span>
+                  )}
+                  {page.isOrphan && (
+                    <span className="sc-badge sc-badge--danger">
+                      Orphan (0 in)
+                    </span>
+                  )}
                   {!page.isHub && !page.isOrphan && (
-                    <span className="tag-normal">{page.inboundCount} in · {page.outboundCount} out</span>
+                    <span className="sc-badge sc-badge--neutral">
+                      {page.inboundCount} in · {page.outboundCount} out
+                    </span>
                   )}
                 </div>
               </div>
@@ -143,39 +174,42 @@ export function AnalyticsLinksView({ companyUrl, crawlPages = [] }: AnalyticsLin
         </div>
       </div>
 
-      {/* 5. Warnings & Opportunities */}
+      {/* 5. Warnings & Recommendations */}
       {(data.warnings.length > 0 || data.recommendations.length > 0) && (
-        <div className="link-recommendations-card margin-top">
-          <div className="card-section-head">
-            <span className="flex items-center gap-1.5 font-semibold text-xs tracking-wider uppercase">
-              <AlertTriangle size={13} className="text-amber-400" /> Link Profile Recommendations
+        <div className="links-section-card">
+          <div className="links-section-head">
+            <span className="links-section-title">
+              <AlertTriangle size={13} className="text-amber-500" /> Link Profile Recommendations
+            </span>
+            <span className="links-section-sub">
+              {data.warnings.length + data.recommendations.length} action items
             </span>
           </div>
-          <ul className="rec-list">
+          <div className="links-recs-list">
             {data.warnings.map((w, idx) => (
-              <li key={`w-${idx}`} className="rec-item warn">
-                <AlertTriangle size={12} className="shrink-0 text-amber-400 mt-0.5" />
+              <div key={`w-${idx}`} className="link-rec-item link-rec-item--warn">
+                <AlertTriangle size={13} className="shrink-0 text-amber-500 mt-0.5" />
                 <span>{w}</span>
-              </li>
+              </div>
             ))}
             {data.recommendations.map((r, idx) => (
-              <li key={`r-${idx}`} className="rec-item rec">
-                <CheckCircle2 size={12} className="shrink-0 text-emerald-400 mt-0.5" />
+              <div key={`r-${idx}`} className="link-rec-item link-rec-item--good">
+                <CheckCircle2 size={13} className="shrink-0 text-emerald-500 mt-0.5" />
                 <span>{r}</span>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       )}
 
       {/* 6. Honest Verification Notice */}
-      <div className="evidence-note margin-top">
-        <strong>Common Crawl Open-Graph Standards</strong>
+      <div className="links-evidence-footer">
+        <ShieldCheck size={13} className="shrink-0 text-purple-400" />
         <p>
-          Domain ranking signals and link counts are derived from Common Crawl hyperlink graphs and on-page DOM crawling.
-          External backlink referring domains and anchor distributions are grounded in open datasets and are never fabricated.
+          Internal link graph and anchor distributions are derived from live DOM crawling and Common Crawl open web data. No synthetic metrics or fabricated backlink estimates.
         </p>
       </div>
     </div>
   );
 }
+
