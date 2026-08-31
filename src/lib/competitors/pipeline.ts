@@ -18,6 +18,7 @@ export async function runCompetitorIntelligencePipeline(args: {
   const company = await db.company.findFirst({
     where: { id: args.companyId, userId: args.userId },
     include: {
+      user: true,
       crawlPages: { orderBy: { wordCount: "desc" }, take: 24 },
       documents: {
         where: { type: "COMPETITOR_ANALYSIS" },
@@ -52,11 +53,20 @@ export async function runCompetitorIntelligencePipeline(args: {
     competitors?: Array<{ companyName?: string; officialWebsite?: string; positioning?: string; competitiveAttributes?: string[] }>;
   } | undefined;
 
-  // 4. Analyze and build 5-6 distinct Competitor Profiles
+  const llmConfig = company.user?.llmProvider && company.user?.llmApiKeyEnc && company.user?.llmModel
+    ? {
+        providerName: company.user.llmProvider,
+        apiKeyEnc: company.user.llmApiKeyEnc,
+        model: company.user.llmModel,
+      }
+    : undefined;
+
+  // 4. Analyze and build 5-6 distinct Competitor Profiles using the competitor-alternatives skill
   const competitors = await analyzeCompetitorLandscape(
     companyProfile,
     liveItems,
-    docMeta?.competitors
+    docMeta?.competitors,
+    llmConfig
   );
 
   // 5. Run Skills Synthesis across installed skills into normalized findings and merged action items

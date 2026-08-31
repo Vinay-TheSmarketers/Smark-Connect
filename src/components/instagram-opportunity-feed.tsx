@@ -1,24 +1,15 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import Image from "next/image";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
-  ArrowUp,
   Check,
   ChevronDown,
   ChevronUp,
-  Clock3,
   Copy,
-  ExternalLink,
-  HelpCircle,
-  MessageSquare,
   RefreshCw,
   Sparkles,
-  Target,
   Trash2,
   X,
-  AlertCircle,
-  CheckCircle2,
   Filter,
   Film,
   Layers,
@@ -26,20 +17,28 @@ import {
   Calendar,
   Share2,
   Lightbulb,
+  MessageSquare,
+  CheckCircle2,
   Eye,
-  Sliders,
-  CheckCheck,
-  Zap,
+  Clock,
+  ArrowRight,
+  Hash,
+  Type,
+  AlertTriangle,
 } from "lucide-react";
 import type {
   InstagramOpportunity,
   InstagramOpportunityMap,
   InstagramFormat,
-  InstagramOpportunityType,
   CarouselSlide,
   ReelStoryboardStep,
   StoryFrame,
 } from "@/lib/instagram/types";
+import { InstagramPreview } from "./previews/instagram-preview";
+
+/* ─────────────────────────────────────────────────────────────
+   Types
+   ───────────────────────────────────────────────────────────── */
 
 type TabFilter =
   | "all"
@@ -54,6 +53,40 @@ type TabFilter =
   | "ready"
   | "published"
   | "dismissed";
+
+type ViewerMode = "carousel" | "reel" | "story" | "caption" | "preview" | null;
+
+/* ─────────────────────────────────────────────────────────────
+   Helpers
+   ───────────────────────────────────────────────────────────── */
+
+function scoreTierClass(total: number) {
+  if (total >= 90) return "sc-score--exceptional";
+  if (total >= 70) return "sc-score--high";
+  if (total >= 50) return "sc-score--medium";
+  return "sc-score--low";
+}
+
+function formatLabel(format: InstagramFormat): string {
+  const map: Record<InstagramFormat, string> = {
+    CAROUSEL: "Carousel",
+    REEL: "Reel",
+    STORY: "Story",
+    SINGLE_IMAGE: "Image",
+    INFOGRAPHIC: "Infographic",
+  };
+  return map[format] || format;
+}
+
+function formatIcon(format: InstagramFormat) {
+  if (format === "REEL") return <Film size={12} />;
+  if (format === "CAROUSEL") return <Layers size={12} />;
+  return <Smartphone size={12} />;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Component
+   ───────────────────────────────────────────────────────────── */
 
 export function InstagramOpportunityFeed({
   companyId,
@@ -71,8 +104,8 @@ export function InstagramOpportunityFeed({
   const [opportunities, setOpportunities] = useState<InstagramOpportunity[]>(initialOpportunities);
   const [opportunityMap, setOpportunityMap] = useState<InstagramOpportunityMap | null>(opportunityMapSummary || null);
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
-  const [expandedWhy, setExpandedWhy] = useState<Record<string, boolean>>({});
-  const [expandedViewer, setExpandedViewer] = useState<Record<string, "carousel" | "reel" | "story" | "caption" | "repurpose" | null>>({});
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [activeViewer, setActiveViewer] = useState<Record<string, ViewerMode>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -80,12 +113,14 @@ export function InstagramOpportunityFeed({
   const [draftCaptions, setDraftCaptions] = useState<Record<string, string>>({});
   const [repurposeModalOpp, setRepurposeModalOpp] = useState<InstagramOpportunity | null>(null);
 
+  // Auto-scan on mount if empty
   useEffect(() => {
     if (opportunities.length === 0 && !scanning) {
       void triggerLiveScan();
     }
   }, [companyId]);
 
+  /* ── Counts ── */
   const counts = useMemo(() => {
     const nonDismissed = opportunities.filter((o) => o.lifecycleStatus !== "dismissed");
     return {
@@ -104,6 +139,7 @@ export function InstagramOpportunityFeed({
     };
   }, [opportunities]);
 
+  /* ── Filtered list ── */
   const displayedOpportunities = useMemo(() => {
     return opportunities.filter((opp) => {
       if (activeTab === "all") return opp.lifecycleStatus !== "dismissed";
@@ -123,16 +159,14 @@ export function InstagramOpportunityFeed({
     });
   }, [opportunities, activeTab]);
 
-  const toggleWhy = (id: string) => {
-    setExpandedWhy((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  /* ── Handlers ── */
+  const toggleCard = useCallback((id: string) => {
+    setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
 
-  const toggleViewer = (id: string, mode: "carousel" | "reel" | "story" | "caption" | "repurpose") => {
-    setExpandedViewer((prev) => ({
-      ...prev,
-      [id]: prev[id] === mode ? null : mode,
-    }));
-  };
+  const setViewer = useCallback((id: string, mode: ViewerMode) => {
+    setActiveViewer((prev) => ({ ...prev, [id]: prev[id] === mode ? null : mode }));
+  }, []);
 
   const triggerLiveScan = async () => {
     setScanning(true);
@@ -144,12 +178,8 @@ export function InstagramOpportunityFeed({
       });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data.opportunities)) {
-          setOpportunities(data.opportunities);
-        }
-        if (data.opportunityMap) {
-          setOpportunityMap(data.opportunityMap);
-        }
+        if (Array.isArray(data.opportunities)) setOpportunities(data.opportunities);
+        if (data.opportunityMap) setOpportunityMap(data.opportunityMap);
         if (onOpportunityUpdated) onOpportunityUpdated();
       }
     } catch (err) {
@@ -165,27 +195,13 @@ export function InstagramOpportunityFeed({
       const res = await fetch("/api/agents/instagram/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyId,
-          opportunityId: oppId,
-          action: actionType,
-        }),
+        body: JSON.stringify({ companyId, opportunityId: oppId, action: actionType }),
       });
-
       if (res.ok) {
         setOpportunities((prev) =>
           prev.map((o) => {
             if (o.id === oppId) {
-              const newStatus =
-                actionType === "approve"
-                  ? "ready"
-                  : actionType === "schedule"
-                  ? "scheduled"
-                  : actionType === "publish"
-                  ? "published"
-                  : actionType === "dismiss"
-                  ? "dismissed"
-                  : o.lifecycleStatus;
+              const newStatus = actionType === "approve" ? "ready" : actionType === "schedule" ? "scheduled" : actionType === "publish" ? "published" : actionType === "dismiss" ? "dismissed" : o.lifecycleStatus;
               return { ...o, lifecycleStatus: newStatus as any };
             }
             return o;
@@ -207,600 +223,566 @@ export function InstagramOpportunityFeed({
     window.setTimeout(() => setCopiedId(null), 2000);
   };
 
-  return (
-    <div className="instagram-opportunity-feed">
-      {/* Header bar */}
-      <div className="feed-header-panel">
-        <div className="feed-title-block">
-          <div className="platform-tag-ig">
-            <span className="ig-dot" />
-            <strong>INSTAGRAM OPPORTUNITY &amp; CONTENT INTELLIGENCE</strong>
-          </div>
-          <p className="feed-subtitle">
-            Continuous opportunity discovery, multi-format planning, and evidence-verified storyboards grounded in <strong>{companyName}</strong> memory.
-          </p>
-        </div>
+  const handleCopyText = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    window.setTimeout(() => setCopiedId(null), 2000);
+  };
 
-        <div className="feed-actions-top">
+  /* ─── Tab config ─── */
+  const tabs: { key: TabFilter; label: string; icon?: React.ReactNode; count: number }[] = [
+    { key: "all", label: "All", count: counts.all },
+    { key: "high_priority", label: "Priority", icon: <Sparkles size={11} />, count: counts.high_priority },
+    { key: "reels", label: "Reels", icon: <Film size={11} />, count: counts.reels },
+    { key: "carousels", label: "Carousels", icon: <Layers size={11} />, count: counts.carousels },
+    { key: "stories", label: "Stories", icon: <Smartphone size={11} />, count: counts.stories },
+    { key: "ready", label: "Ready", count: counts.ready },
+    { key: "published", label: "Published", count: counts.published },
+    { key: "dismissed", label: "Dismissed", count: counts.dismissed },
+  ];
+
+  return (
+    <div className="ig-feed">
+      {/* ── Header ── */}
+      <div className="ig-feed__header">
+        <div className="ig-feed__header-left">
+          <div className="ig-feed__platform-badge">
+            <span className="ig-feed__platform-dot" />
+            <strong>Instagram</strong>
+          </div>
+          <span className="ig-feed__subtitle">
+            Content intelligence for <strong>{companyName}</strong>
+          </span>
+        </div>
+        <div className="ig-feed__header-actions">
           {opportunityMap && (
             <button
               type="button"
-              className="map-overview-btn"
+              className="sc-btn sc-btn--ghost sc-btn--sm"
               onClick={() => setShowMapModal(true)}
-              title="View the generated Instagram Opportunity Map"
+              title="View opportunity map"
             >
               <Lightbulb size={14} />
-              <span>Opportunity Map ({opportunityMap.themes.length} Themes)</span>
             </button>
           )}
           <button
             type="button"
-            className={`scan-btn ${scanning ? "scanning" : ""}`}
+            className="sc-btn sc-btn--secondary sc-btn--sm"
             onClick={triggerLiveScan}
             disabled={scanning}
           >
-            <RefreshCw size={14} className={scanning ? "spin" : ""} />
-            <span>{scanning ? "Discovering Opportunities…" : "Scan Opportunities"}</span>
+            <RefreshCw size={13} className={scanning ? "sc-spinning" : ""} />
+            <span>{scanning ? "Scanning…" : "Scan"}</span>
           </button>
         </div>
       </div>
 
-      {/* Tabs Filter Bar */}
-      <div className="feed-tabs-scroller">
-        <div className="feed-tabs-bar">
+      {/* ── Filter Chips ── */}
+      <div className="ig-feed__filters">
+        {tabs.map((tab) => (
           <button
+            key={tab.key}
             type="button"
-            className={`feed-tab ${activeTab === "all" ? "active" : ""}`}
-            onClick={() => setActiveTab("all")}
+            className={`sc-filter-chip ${activeTab === tab.key ? "sc-filter-chip--active" : ""}`}
+            onClick={() => setActiveTab(tab.key)}
           >
-            All <em>{counts.all}</em>
+            {tab.icon}
+            <span>{tab.label}</span>
+            {tab.count > 0 && <span className="sc-filter-chip__count">{tab.count}</span>}
           </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "high_priority" ? "active" : ""}`}
-            onClick={() => setActiveTab("high_priority")}
-          >
-            <Sparkles size={13} className="tab-icon" />
-            High Priority <em>{counts.high_priority}</em>
-          </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "reels" ? "active" : ""}`}
-            onClick={() => setActiveTab("reels")}
-          >
-            <Film size={13} className="tab-icon" />
-            Reels <em>{counts.reels}</em>
-          </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "carousels" ? "active" : ""}`}
-            onClick={() => setActiveTab("carousels")}
-          >
-            <Layers size={13} className="tab-icon" />
-            Carousels <em>{counts.carousels}</em>
-          </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "stories" ? "active" : ""}`}
-            onClick={() => setActiveTab("stories")}
-          >
-            <Smartphone size={13} className="tab-icon" />
-            Stories <em>{counts.stories}</em>
-          </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "product" ? "active" : ""}`}
-            onClick={() => setActiveTab("product")}
-          >
-            Product <em>{counts.product}</em>
-          </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "educational" ? "active" : ""}`}
-            onClick={() => setActiveTab("educational")}
-          >
-            Educational <em>{counts.educational}</em>
-          </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "proof" ? "active" : ""}`}
-            onClick={() => setActiveTab("proof")}
-          >
-            Proof <em>{counts.proof}</em>
-          </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "competitor" ? "active" : ""}`}
-            onClick={() => setActiveTab("competitor")}
-          >
-            Competitor / Whitespace <em>{counts.competitor}</em>
-          </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "ready" ? "active" : ""}`}
-            onClick={() => setActiveTab("ready")}
-          >
-            Ready <em>{counts.ready}</em>
-          </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "published" ? "active" : ""}`}
-            onClick={() => setActiveTab("published")}
-          >
-            Published <em>{counts.published}</em>
-          </button>
-          <button
-            type="button"
-            className={`feed-tab ${activeTab === "dismissed" ? "active" : ""}`}
-            onClick={() => setActiveTab("dismissed")}
-          >
-            Dismissed <em>{counts.dismissed}</em>
-          </button>
-        </div>
+        ))}
       </div>
 
-      {/* Main Opportunities Feed */}
-      <div className="opportunities-stream">
+      {/* ── Opportunities Stream ── */}
+      <div className="ig-feed__stream">
         {displayedOpportunities.length === 0 ? (
-          <div className="feed-empty-state">
-            <Filter size={24} />
-            <p>No Instagram opportunities match this filter.</p>
-            <button type="button" onClick={() => setActiveTab("all")}>
-              View all opportunities
-            </button>
+          <div className="sc-empty-state" style={{ padding: "32px 16px" }}>
+            <div className="sc-empty-state__icon">
+              <Filter size={20} />
+            </div>
+            <p className="sc-empty-state__title" style={{ fontSize: "var(--text-md)" }}>No opportunities found</p>
+            <p className="sc-empty-state__desc" style={{ fontSize: "var(--text-sm)" }}>
+              {activeTab !== "all" ? "Try a different filter or " : ""}Run a scan to discover Instagram content opportunities.
+            </p>
+            {activeTab !== "all" && (
+              <button type="button" className="sc-btn sc-btn--ghost sc-btn--sm" onClick={() => setActiveTab("all")}>
+                View all
+              </button>
+            )}
           </div>
         ) : (
           displayedOpportunities.map((opp) => {
-            const isExpandedWhy = expandedWhy[opp.id];
-            const activeViewer = expandedViewer[opp.id];
-            const scoreClass =
-              opp.score.total >= 90
-                ? "score-exceptional"
-                : opp.score.total >= 80
-                ? "score-high"
-                : "score-medium";
+            const isExpanded = expandedCards[opp.id];
+            const viewer = activeViewer[opp.id];
+            const captionText = draftCaptions[opp.id] ?? opp.executionPackage.caption;
+            const captionLength = captionText.length;
 
             return (
               <div
                 key={opp.id}
-                className={`instagram-opp-card ${opp.lifecycleStatus === "dismissed" ? "is-dismissed" : ""}`}
+                className={`ig-card ${opp.lifecycleStatus === "dismissed" ? "ig-card--dismissed" : ""}`}
               >
-                {/* Card Header */}
-                <div className="opp-header-row">
-                  <div className="opp-meta-left">
-                    <span className={`format-pill format-${opp.recommendedFormat.toLowerCase()}`}>
-                      {opp.recommendedFormat === "REEL" ? (
-                        <Film size={12} />
-                      ) : opp.recommendedFormat === "CAROUSEL" ? (
-                        <Layers size={12} />
-                      ) : (
-                        <Smartphone size={12} />
+                {/* ── Card Header (always visible) ── */}
+                <div className="ig-card__header" onClick={() => toggleCard(opp.id)} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && toggleCard(opp.id)}>
+                  <div className="ig-card__header-left">
+                    <span className={`ig-card__format-badge ig-card__format-badge--${opp.recommendedFormat.toLowerCase()}`}>
+                      {formatIcon(opp.recommendedFormat)}
+                      <span>{formatLabel(opp.recommendedFormat)}</span>
+                    </span>
+                    <h4 className="ig-card__title">{opp.title}</h4>
+                  </div>
+                  <div className="ig-card__header-right">
+                    <span className={`sc-score sc-score--pill ${scoreTierClass(opp.score.total)}`}>
+                      <span className="sc-score__value">{opp.score.total}</span>
+                    </span>
+                    {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </div>
+                </div>
+
+                {/* ── Expanded Content ── */}
+                {isExpanded && (
+                  <div className="ig-card__body">
+                    {/* Hook */}
+                    <div className="ig-card__hook">
+                      <span className="ig-card__hook-label">Hook</span>
+                      <p className="ig-card__hook-text">&ldquo;{opp.hookHeadline}&rdquo;</p>
+                    </div>
+
+                    {/* Meta chips */}
+                    <div className="ig-card__meta-row">
+                      <span className="sc-badge sc-badge--sm sc-badge--default">{opp.opportunityType.replace(/_/g, " ")}</span>
+                      <span className="sc-badge sc-badge--sm sc-badge--outline">
+                        {opp.signalOrigin.source.replace(/_/g, " ")}
+                      </span>
+                      <span className="sc-badge sc-badge--sm sc-badge--accent">
+                        {opp.confidence}% conf
+                      </span>
+                    </div>
+
+                    {/* Target grid */}
+                    <div className="ig-card__targets">
+                      <div className="ig-card__target">
+                        <span className="ig-card__target-label">Audience</span>
+                        <span className="ig-card__target-value">{opp.targetAudience}</span>
+                      </div>
+                      <div className="ig-card__target">
+                        <span className="ig-card__target-label">Pain Point</span>
+                        <span className="ig-card__target-value">{opp.targetPainPoint}</span>
+                      </div>
+                      <div className="ig-card__target">
+                        <span className="ig-card__target-label">KPI Impact</span>
+                        <span className="ig-card__target-value ig-card__target-value--accent">{opp.expectedKpiImpact}</span>
+                      </div>
+                    </div>
+
+                    {/* ── Viewer Tabs ── */}
+                    <div className="ig-card__viewer-tabs">
+                      {opp.recommendedFormat === "CAROUSEL" && opp.executionPackage.carouselSlides && (
+                        <button
+                          type="button"
+                          className={`ig-card__viewer-tab ${viewer === "carousel" ? "ig-card__viewer-tab--active" : ""}`}
+                          onClick={() => setViewer(opp.id, "carousel")}
+                        >
+                          <Layers size={12} /> Slides
+                        </button>
                       )}
-                      {opp.recommendedFormat}
-                    </span>
-
-                    <span className="type-tag">{opp.opportunityType.replace(/_/g, " ")}</span>
-
-                    <span className="signal-source-badge">
-                      Origin: <strong>{opp.signalOrigin.source.replace(/_/g, " ")}</strong>
-                    </span>
-                  </div>
-
-                  <div className="opp-meta-right">
-                    <span className={`score-badge ${scoreClass}`} title="11-factor opportunity score">
-                      <strong>{opp.score.total}</strong>/100
-                      <small>{opp.score.tier.toUpperCase()}</small>
-                    </span>
-
-                    <span className="confidence-pill" title="Verification & evidence confidence">
-                      {opp.confidence}% CONF
-                    </span>
-                  </div>
-                </div>
-
-                {/* Main Topic & Hook */}
-                <div className="opp-content-body">
-                  <h4 className="opp-topic-title">{opp.title}</h4>
-                  <div className="opp-hook-quote">
-                    <span className="hook-label">HOOK</span>
-                    <p className="hook-text">&ldquo;{opp.hookHeadline}&rdquo;</p>
-                  </div>
-
-                  <div className="opp-target-grid">
-                    <div>
-                      <span className="target-label">Target Audience</span>
-                      <strong>{opp.targetAudience}</strong>
-                    </div>
-                    <div>
-                      <span className="target-label">Problem / Pain Point</span>
-                      <strong>{opp.targetPainPoint}</strong>
-                    </div>
-                    <div>
-                      <span className="target-label">Expected KPI Impact</span>
-                      <strong className="kpi-text">{opp.expectedKpiImpact}</strong>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expandable Why This Matters / Why Am I Seeing This */}
-                <div className="opp-explanation-wrapper">
-                  <button
-                    type="button"
-                    className="toggle-why-btn"
-                    onClick={() => toggleWhy(opp.id)}
-                  >
-                    <span>Why this matters &amp; Signal breakdown</span>
-                    {isExpandedWhy ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </button>
-
-                  {isExpandedWhy && (
-                    <div className="expanded-why-panel">
-                      <div className="why-grid">
-                        <div className="why-cell">
-                          <strong>Why this matters:</strong>
-                          <p>{opp.whyThisMatters}</p>
-                        </div>
-                        <div className="why-cell">
-                          <strong>Why am I seeing this?</strong>
-                          <p>{opp.whyAmISeeingThis}</p>
-                        </div>
-                      </div>
-
-                      <div className="score-breakdown-subgrid">
-                        <div className="breakdown-item">
-                          <span>Goal Alignment</span>
-                          <strong>{opp.score.strategicGoalAlignment}/15</strong>
-                        </div>
-                        <div className="breakdown-item">
-                          <span>ICP Relevance</span>
-                          <strong>{opp.score.icpRelevance}/15</strong>
-                        </div>
-                        <div className="breakdown-item">
-                          <span>Pain Match</span>
-                          <strong>{opp.score.audiencePainMatch}/15</strong>
-                        </div>
-                        <div className="breakdown-item">
-                          <span>Product Fit</span>
-                          <strong>{opp.score.productFit}/10</strong>
-                        </div>
-                        <div className="breakdown-item">
-                          <span>Evidence Strength</span>
-                          <strong>{opp.score.evidenceStrength}/10</strong>
-                        </div>
-                        <div className="breakdown-item">
-                          <span>Visual Potential</span>
-                          <strong>{opp.score.visualPotential}/10</strong>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Viewers for Carousel / Reel / Storyboard / Caption */}
-                {activeViewer === "carousel" && opp.executionPackage.carouselSlides && (
-                  <div className="active-viewer-container carousel-viewer">
-                    <div className="viewer-header">
-                      <div className="viewer-title">
-                        <Layers size={15} />
-                        <strong>Carousel Slide Sequence ({opp.executionPackage.carouselSlides.length} Slides)</strong>
-                      </div>
-                      <span className="viewer-hint">Slide 1 Hook → Slides 2-5 Value/Evidence → Final Slide CTA</span>
+                      {opp.recommendedFormat === "REEL" && opp.executionPackage.reelStoryboard && (
+                        <button
+                          type="button"
+                          className={`ig-card__viewer-tab ${viewer === "reel" ? "ig-card__viewer-tab--active" : ""}`}
+                          onClick={() => setViewer(opp.id, "reel")}
+                        >
+                          <Film size={12} /> Storyboard
+                        </button>
+                      )}
+                      {opp.recommendedFormat === "STORY" && opp.executionPackage.storySequence && (
+                        <button
+                          type="button"
+                          className={`ig-card__viewer-tab ${viewer === "story" ? "ig-card__viewer-tab--active" : ""}`}
+                          onClick={() => setViewer(opp.id, "story")}
+                        >
+                          <Smartphone size={12} /> Frames
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={`ig-card__viewer-tab ${viewer === "caption" ? "ig-card__viewer-tab--active" : ""}`}
+                        onClick={() => setViewer(opp.id, "caption")}
+                      >
+                        <Type size={12} /> Caption
+                      </button>
+                      <button
+                        type="button"
+                        className={`ig-card__viewer-tab ${viewer === "preview" ? "ig-card__viewer-tab--active" : ""}`}
+                        onClick={() => setViewer(opp.id, "preview")}
+                      >
+                        <Eye size={12} /> Preview
+                      </button>
                     </div>
 
-                    <div className="slides-carousel-grid">
-                      {opp.executionPackage.carouselSlides.map((slide) => (
-                        <div key={slide.slideNumber} className="slide-card-item">
-                          <div className="slide-card-top">
-                            <span className="slide-num">SLIDE {slide.slideNumber}</span>
-                            <span className="slide-type-badge">{slide.type.toUpperCase()}</span>
-                          </div>
-                          <h5 className="slide-headline">{slide.headline}</h5>
-                          <p className="slide-body">{slide.bodyContent}</p>
-                          <div className="slide-visual-hint">
-                            <small><strong>Visual:</strong> {slide.visualDirection}</small>
-                          </div>
-                          {slide.swipePrompt && (
-                            <div className="slide-swipe-prompt">{slide.swipePrompt}</div>
-                          )}
+                    {/* ── Carousel Viewer ── */}
+                    {viewer === "carousel" && opp.executionPackage.carouselSlides && (
+                      <div className="ig-card__viewer">
+                        <div className="ig-card__viewer-title">
+                          <Layers size={13} />
+                          <span>{opp.executionPackage.carouselSlides.length} Slides</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeViewer === "reel" && opp.executionPackage.reelStoryboard && (
-                  <div className="active-viewer-container reel-viewer">
-                    <div className="viewer-header">
-                      <div className="viewer-title">
-                        <Film size={15} />
-                        <strong>Reel Storyboard (0-3s Hook → Problem → Insight → Proof → CTA)</strong>
-                      </div>
-                      <span className="viewer-hint">Vertical 9:16 High-Engagement Structure</span>
-                    </div>
-
-                    <div className="reel-steps-timeline">
-                      {opp.executionPackage.reelStoryboard.map((step, sIdx) => (
-                        <div key={sIdx} className="reel-step-row">
-                          <div className="step-time-pill">{step.timestamp}</div>
-                          <div className="step-content-card">
-                            <div className="step-card-header">
-                              <span className="step-phase-pill">{step.phase.toUpperCase()}</span>
-                              {step.audioTrackSuggestion && (
-                                <span className="audio-hint">Audio: {step.audioTrackSuggestion}</span>
-                              )}
-                            </div>
-                            <div className="step-spoken">
-                              <strong>Spoken Audio:</strong> {step.spokenAudio}
-                            </div>
-                            <div className="step-visual">
-                              <strong>Visual Action:</strong> {step.visualAction}
-                            </div>
-                            <div className="step-text-overlay">
-                              <strong>On-Screen Text:</strong> {step.onScreenText}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeViewer === "story" && opp.executionPackage.storySequence && (
-                  <div className="active-viewer-container story-viewer">
-                    <div className="viewer-header">
-                      <div className="viewer-title">
-                        <Smartphone size={15} />
-                        <strong>Interactive Story Sequence</strong>
-                      </div>
-                      <span className="viewer-hint">Native stickers, polls &amp; conversion links</span>
-                    </div>
-
-                    <div className="story-frames-grid">
-                      {opp.executionPackage.storySequence.map((frame) => (
-                        <div key={frame.frameNumber} className="story-frame-card">
-                          <div className="frame-header">FRAME {frame.frameNumber}</div>
-                          <p className="frame-text-overlay">&ldquo;{frame.textOverlay}&rdquo;</p>
-                          {frame.interactiveElement && (
-                            <div className="frame-sticker-box">
-                              <span className="sticker-badge">{frame.interactiveElement.type.toUpperCase()} STICKER</span>
-                              <div className="sticker-prompt">{frame.interactiveElement.prompt}</div>
-                              {frame.interactiveElement.options && (
-                                <div className="sticker-options">
-                                  {frame.interactiveElement.options.map((opt, oIdx) => (
-                                    <span key={oIdx} className="sticker-opt-pill">{opt}</span>
-                                  ))}
+                        <div className="ig-card__slides">
+                          {opp.executionPackage.carouselSlides.map((slide) => (
+                            <div key={slide.slideNumber} className="ig-slide">
+                              <div className="ig-slide__header">
+                                <span className="ig-slide__num">{String(slide.slideNumber).padStart(2, "0")}</span>
+                                <span className={`ig-slide__type ig-slide__type--${slide.type}`}>{slide.type}</span>
+                              </div>
+                              <h5 className="ig-slide__headline">{slide.headline}</h5>
+                              <p className="ig-slide__body">{slide.bodyContent}</p>
+                              <div className="ig-slide__visual">
+                                <Eye size={10} />
+                                <span>{slide.visualDirection}</span>
+                              </div>
+                              {slide.swipePrompt && (
+                                <div className="ig-slide__swipe">
+                                  <ArrowRight size={10} />
+                                  <span>{slide.swipePrompt}</span>
                                 </div>
                               )}
                             </div>
-                          )}
-                          <div className="frame-visual-desc">
-                            <small>Visual: {frame.visualPrompt}</small>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Reel Storyboard Viewer ── */}
+                    {viewer === "reel" && opp.executionPackage.reelStoryboard && (
+                      <div className="ig-card__viewer">
+                        <div className="ig-card__viewer-title">
+                          <Film size={13} />
+                          <span>Reel Storyboard</span>
+                          <span className="ig-card__viewer-hint">9:16 vertical</span>
+                        </div>
+                        <div className="ig-card__timeline">
+                          {opp.executionPackage.reelStoryboard.map((step, i) => (
+                            <div key={i} className="ig-timeline-step">
+                              <div className="ig-timeline-step__time">{step.timestamp}</div>
+                              <div className="ig-timeline-step__line" />
+                              <div className="ig-timeline-step__content">
+                                <span className={`ig-timeline-step__phase ig-timeline-step__phase--${step.phase}`}>
+                                  {step.phase.replace(/_/g, " ")}
+                                </span>
+                                {step.audioTrackSuggestion && (
+                                  <span className="ig-timeline-step__audio">🎵 {step.audioTrackSuggestion}</span>
+                                )}
+                                <div className="ig-timeline-step__detail">
+                                  <strong>Spoken:</strong> {step.spokenAudio}
+                                </div>
+                                <div className="ig-timeline-step__detail">
+                                  <strong>Visual:</strong> {step.visualAction}
+                                </div>
+                                <div className="ig-timeline-step__detail">
+                                  <strong>Text:</strong> {step.onScreenText}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Story Frames Viewer ── */}
+                    {viewer === "story" && opp.executionPackage.storySequence && (
+                      <div className="ig-card__viewer">
+                        <div className="ig-card__viewer-title">
+                          <Smartphone size={13} />
+                          <span>Story Sequence</span>
+                        </div>
+                        <div className="ig-card__frames">
+                          {opp.executionPackage.storySequence.map((frame) => (
+                            <div key={frame.frameNumber} className="ig-frame">
+                              <div className="ig-frame__num">Frame {frame.frameNumber}</div>
+                              <p className="ig-frame__text">&ldquo;{frame.textOverlay}&rdquo;</p>
+                              {frame.interactiveElement && (
+                                <div className="ig-frame__sticker">
+                                  <span className="ig-frame__sticker-type">
+                                    {frame.interactiveElement.type.toUpperCase()}
+                                  </span>
+                                  <span className="ig-frame__sticker-prompt">{frame.interactiveElement.prompt}</span>
+                                  {frame.interactiveElement.options && (
+                                    <div className="ig-frame__sticker-options">
+                                      {frame.interactiveElement.options.map((opt, i) => (
+                                        <span key={i} className="ig-frame__sticker-opt">{opt}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              <div className="ig-frame__visual">
+                                <Eye size={10} />
+                                <span>{frame.visualPrompt}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Caption Editor ── */}
+                    {viewer === "caption" && (
+                      <div className="ig-card__viewer">
+                        <div className="ig-card__viewer-title">
+                          <Type size={13} />
+                          <span>Caption & Hashtags</span>
+                          <button
+                            type="button"
+                            className="sc-copy-btn"
+                            onClick={() => handleCopyCaption(opp)}
+                          >
+                            {copiedId === opp.id ? <Check size={11} /> : <Copy size={11} />}
+                            <span>{copiedId === opp.id ? "Copied" : "Copy"}</span>
+                          </button>
+                        </div>
+                        <textarea
+                          className="ig-card__caption-editor"
+                          rows={6}
+                          value={captionText}
+                          onChange={(e) =>
+                            setDraftCaptions((prev) => ({ ...prev, [opp.id]: e.target.value }))
+                          }
+                        />
+                        <div className="ig-card__caption-footer">
+                          <span className={`ig-card__char-count ${captionLength > 2200 ? "ig-card__char-count--over" : captionLength > 2000 ? "ig-card__char-count--warn" : ""}`}>
+                            {captionLength.toLocaleString()} / 2,200
+                          </span>
+                          <span className="ig-card__hashtag-count">
+                            <Hash size={10} />
+                            {opp.executionPackage.hashtags.length} / 30 hashtags
+                          </span>
+                        </div>
+                        <div className="ig-card__hashtags">
+                          {opp.executionPackage.hashtags.map((ht, i) => (
+                            <span key={i} className="ig-card__hashtag">{ht}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Instagram Preview ── */}
+                    {viewer === "preview" && (
+                      <div className="ig-card__viewer ig-card__viewer--preview">
+                        <InstagramPreview
+                          username={companyName.toLowerCase().replace(/\s+/g, "")}
+                          format={opp.recommendedFormat}
+                          caption={captionText}
+                          hashtags={opp.executionPackage.hashtags}
+                          carouselSlides={opp.executionPackage.carouselSlides}
+                          reelStoryboard={opp.executionPackage.reelStoryboard}
+                          storyFrames={opp.executionPackage.storySequence}
+                        />
+                      </div>
+                    )}
+
+                    {/* ── Score Breakdown (collapsible) ── */}
+                    <details className="ig-card__details">
+                      <summary className="ig-card__details-summary">
+                        <span>Signal breakdown & evidence</span>
+                        <ChevronDown size={12} />
+                      </summary>
+                      <div className="ig-card__details-content">
+                        <div className="ig-card__why-grid">
+                          <div>
+                            <span className="ig-card__why-label">Why this matters</span>
+                            <p className="ig-card__why-text">{opp.whyThisMatters}</p>
+                          </div>
+                          <div>
+                            <span className="ig-card__why-label">Why am I seeing this?</span>
+                            <p className="ig-card__why-text">{opp.whyAmISeeingThis}</p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeViewer === "caption" && (
-                  <div className="active-viewer-container caption-viewer">
-                    <div className="viewer-header">
-                      <div className="viewer-title">
-                        <MessageSquare size={15} />
-                        <strong>Caption, Hashtags &amp; SEO Keywords</strong>
+                        <div className="ig-card__score-grid">
+                          {[
+                            { label: "Goal Alignment", value: opp.score.strategicGoalAlignment, max: 15 },
+                            { label: "ICP Relevance", value: opp.score.icpRelevance, max: 15 },
+                            { label: "Pain Match", value: opp.score.audiencePainMatch, max: 15 },
+                            { label: "Product Fit", value: opp.score.productFit, max: 10 },
+                            { label: "Evidence", value: opp.score.evidenceStrength, max: 10 },
+                            { label: "Visual Potential", value: opp.score.visualPotential, max: 10 },
+                          ].map((item) => (
+                            <div key={item.label} className="ig-card__score-item">
+                              <span className="ig-card__score-item-label">{item.label}</span>
+                              <div className="ig-card__score-bar">
+                                <div className="ig-card__score-bar-fill" style={{ width: `${(item.value / item.max) * 100}%` }} />
+                              </div>
+                              <span className="ig-card__score-item-value">{item.value}/{item.max}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
+                    </details>
+
+                    {/* ── Card Actions ── */}
+                    <div className="ig-card__actions">
                       <button
                         type="button"
-                        className="copy-btn-inner"
-                        onClick={() => handleCopyCaption(opp)}
+                        className="sc-btn sc-btn--ghost sc-btn--sm"
+                        onClick={() => setRepurposeModalOpp(opp)}
                       >
-                        {copiedId === opp.id ? <Check size={13} /> : <Copy size={13} />}
-                        <span>{copiedId === opp.id ? "Copied!" : "Copy Caption"}</span>
+                        <Share2 size={13} />
+                        <span>Repurpose</span>
                       </button>
-                    </div>
 
-                    <textarea
-                      className="caption-textarea"
-                      rows={8}
-                      value={draftCaptions[opp.id] ?? opp.executionPackage.caption}
-                      onChange={(e) =>
-                        setDraftCaptions((prev) => ({ ...prev, [opp.id]: e.target.value }))
-                      }
-                    />
-
-                    <div className="hashtags-list">
-                      <span className="hashtags-label">Hashtags:</span>
-                      {opp.executionPackage.hashtags.map((ht, hIdx) => (
-                        <span key={hIdx} className="hashtag-item">{ht}</span>
-                      ))}
+                      <div className="ig-card__actions-right">
+                        <button
+                          type="button"
+                          className="sc-btn sc-btn--primary sc-btn--sm"
+                          disabled={actionLoading[opp.id] || opp.lifecycleStatus === "ready"}
+                          onClick={() => handleAction(opp.id, "approve")}
+                        >
+                          <CheckCircle2 size={13} />
+                          <span>{opp.lifecycleStatus === "ready" ? "Approved" : "Approve"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="sc-btn sc-btn--secondary sc-btn--sm"
+                          disabled={actionLoading[opp.id]}
+                          onClick={() => handleAction(opp.id, "schedule")}
+                        >
+                          <Calendar size={13} />
+                          <span>Schedule</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="sc-btn sc-btn--ghost sc-btn--sm sc-btn--icon-only"
+                          disabled={actionLoading[opp.id]}
+                          onClick={() => handleAction(opp.id, "dismiss")}
+                          title="Dismiss"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
-
-                {/* Card Action Controls Footer */}
-                <div className="opp-card-actions-bar">
-                  <div className="actions-left-group">
-                    {opp.recommendedFormat === "CAROUSEL" && (
-                      <button
-                        type="button"
-                        className={`action-pill-btn ${activeViewer === "carousel" ? "active" : ""}`}
-                        onClick={() => toggleViewer(opp.id, "carousel")}
-                      >
-                        <Layers size={13} />
-                        <span>{activeViewer === "carousel" ? "Hide Carousel" : "View Carousel Slides"}</span>
-                      </button>
-                    )}
-
-                    {opp.recommendedFormat === "REEL" && (
-                      <button
-                        type="button"
-                        className={`action-pill-btn ${activeViewer === "reel" ? "active" : ""}`}
-                        onClick={() => toggleViewer(opp.id, "reel")}
-                      >
-                        <Film size={13} />
-                        <span>{activeViewer === "reel" ? "Hide Storyboard" : "View Reel Storyboard"}</span>
-                      </button>
-                    )}
-
-                    {opp.recommendedFormat === "STORY" && (
-                      <button
-                        type="button"
-                        className={`action-pill-btn ${activeViewer === "story" ? "active" : ""}`}
-                        onClick={() => toggleViewer(opp.id, "story")}
-                      >
-                        <Smartphone size={13} />
-                        <span>{activeViewer === "story" ? "Hide Story" : "View Story Frames"}</span>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      className={`action-pill-btn ${activeViewer === "caption" ? "active" : ""}`}
-                      onClick={() => toggleViewer(opp.id, "caption")}
-                    >
-                      <MessageSquare size={13} />
-                      <span>{activeViewer === "caption" ? "Hide Caption" : "View / Edit Caption"}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="action-pill-btn"
-                      onClick={() => setRepurposeModalOpp(opp)}
-                    >
-                      <Share2 size={13} />
-                      <span>Repurpose</span>
-                    </button>
-                  </div>
-
-                  <div className="actions-right-group">
-                    <button
-                      type="button"
-                      className="btn-approve"
-                      disabled={actionLoading[opp.id] || opp.lifecycleStatus === "ready"}
-                      onClick={() => handleAction(opp.id, "approve")}
-                    >
-                      <CheckCircle2 size={13} />
-                      <span>{opp.lifecycleStatus === "ready" ? "Approved" : "Approve"}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="btn-schedule"
-                      disabled={actionLoading[opp.id]}
-                      onClick={() => handleAction(opp.id, "schedule")}
-                    >
-                      <Calendar size={13} />
-                      <span>Add to Calendar</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="btn-dismiss"
-                      disabled={actionLoading[opp.id]}
-                      onClick={() => handleAction(opp.id, "dismiss")}
-                      title="Dismiss opportunity"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
               </div>
             );
           })
         )}
       </div>
 
-      {/* Repurpose Modal */}
+      {/* ── Repurpose Modal ── */}
       {repurposeModalOpp && (
-        <div className="ig-modal-overlay" onClick={() => setRepurposeModalOpp(null)}>
-          <div className="ig-modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="ig-modal-header">
-              <div className="ig-modal-title">
-                <Share2 size={16} />
-                <strong>Multi-Platform Repurposing Plan</strong>
+        <div className="sc-modal-overlay" onClick={() => setRepurposeModalOpp(null)}>
+          <div className="sc-modal sc-modal--wide" onClick={(e) => e.stopPropagation()}>
+            <div className="sc-modal__header">
+              <div>
+                <h3 className="sc-modal__title">Repurpose: {repurposeModalOpp.title}</h3>
+                <p className="sc-modal__desc">Transform this content into cross-channel assets</p>
               </div>
-              <button
-                type="button"
-                className="close-modal-btn"
-                onClick={() => setRepurposeModalOpp(null)}
-              >
-                <X size={16} />
+              <button type="button" className="sc-modal__close" onClick={() => setRepurposeModalOpp(null)}>
+                <X size={14} />
               </button>
             </div>
-
-            <div className="ig-modal-body">
-              <p className="repurpose-lead">
-                Transform <strong>&ldquo;{repurposeModalOpp.title}&rdquo;</strong> into cross-channel assets without duplicating manual work:
-              </p>
-
-              <div className="repurpose-channel-card">
-                <div className="channel-title">
-                  <Smartphone size={14} />
-                  <span>Instagram Stories Angle</span>
+            <div className="sc-modal__body">
+              <div className="ig-repurpose-channels">
+                {/* Stories Angle */}
+                <div className="ig-repurpose-channel">
+                  <div className="ig-repurpose-channel__header">
+                    <Smartphone size={14} />
+                    <strong>Instagram Stories</strong>
+                    <button
+                      type="button"
+                      className="sc-copy-btn"
+                      onClick={() => handleCopyText(repurposeModalOpp.executionPackage.repurposingPlan.storiesAngle, "stories-" + repurposeModalOpp.id)}
+                    >
+                      {copiedId === "stories-" + repurposeModalOpp.id ? <Check size={11} /> : <Copy size={11} />}
+                      <span>{copiedId === "stories-" + repurposeModalOpp.id ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                  <p className="ig-repurpose-channel__text">{repurposeModalOpp.executionPackage.repurposingPlan.storiesAngle}</p>
                 </div>
-                <p>{repurposeModalOpp.executionPackage.repurposingPlan.storiesAngle}</p>
-              </div>
 
-              <div className="repurpose-channel-card">
-                <div className="channel-title">
-                  <span>LinkedIn Thought Leadership Post</span>
+                {/* LinkedIn */}
+                <div className="ig-repurpose-channel">
+                  <div className="ig-repurpose-channel__header">
+                    <strong>LinkedIn Post</strong>
+                    <button
+                      type="button"
+                      className="sc-copy-btn"
+                      onClick={() => handleCopyText(repurposeModalOpp.executionPackage.repurposingPlan.linkedInDraft, "linkedin-" + repurposeModalOpp.id)}
+                    >
+                      {copiedId === "linkedin-" + repurposeModalOpp.id ? <Check size={11} /> : <Copy size={11} />}
+                      <span>{copiedId === "linkedin-" + repurposeModalOpp.id ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                  <pre className="ig-repurpose-channel__pre">{repurposeModalOpp.executionPackage.repurposingPlan.linkedInDraft}</pre>
                 </div>
-                <pre>{repurposeModalOpp.executionPackage.repurposingPlan.linkedInDraft}</pre>
-              </div>
 
-              <div className="repurpose-channel-card">
-                <div className="channel-title">
-                  <span>X / Twitter Hook &amp; Thread</span>
+                {/* X */}
+                <div className="ig-repurpose-channel">
+                  <div className="ig-repurpose-channel__header">
+                    <strong>X / Twitter</strong>
+                    <button
+                      type="button"
+                      className="sc-copy-btn"
+                      onClick={() => handleCopyText(repurposeModalOpp.executionPackage.repurposingPlan.xPostOrThread, "x-" + repurposeModalOpp.id)}
+                    >
+                      {copiedId === "x-" + repurposeModalOpp.id ? <Check size={11} /> : <Copy size={11} />}
+                      <span>{copiedId === "x-" + repurposeModalOpp.id ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                  <pre className="ig-repurpose-channel__pre">{repurposeModalOpp.executionPackage.repurposingPlan.xPostOrThread}</pre>
                 </div>
-                <pre>{repurposeModalOpp.executionPackage.repurposingPlan.xPostOrThread}</pre>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Opportunity Map Modal */}
+      {/* ── Opportunity Map Modal ── */}
       {showMapModal && opportunityMap && (
-        <div className="ig-modal-overlay" onClick={() => setShowMapModal(false)}>
-          <div className="ig-modal-box wide-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="ig-modal-header">
-              <div className="ig-modal-title">
-                <Lightbulb size={16} />
-                <strong>Instagram Opportunity Map: {opportunityMap.companyName}</strong>
+        <div className="sc-modal-overlay" onClick={() => setShowMapModal(false)}>
+          <div className="sc-modal sc-modal--full" onClick={(e) => e.stopPropagation()}>
+            <div className="sc-modal__header">
+              <div>
+                <h3 className="sc-modal__title">Opportunity Map</h3>
+                <p className="sc-modal__desc">{opportunityMap.themes.length} strategic themes for {opportunityMap.companyName}</p>
               </div>
-              <button
-                type="button"
-                className="close-modal-btn"
-                onClick={() => setShowMapModal(false)}
-              >
-                <X size={16} />
+              <button type="button" className="sc-modal__close" onClick={() => setShowMapModal(false)}>
+                <X size={14} />
               </button>
             </div>
-
-            <div className="ig-modal-body">
-              <div className="map-pillars-summary">
-                <h5>Content Pillar Target Distribution</h5>
-                <div className="pillar-chips">
+            <div className="sc-modal__body">
+              {/* Pillar distribution */}
+              <div className="ig-map__pillars">
+                <h5 className="ig-map__section-title">Content Pillar Distribution</h5>
+                <div className="ig-map__pillar-bars">
                   {Object.entries(opportunityMap.pillarDistribution).map(([pillar, pct]) => (
-                    <span key={pillar} className="pillar-chip">
-                      <strong>{pillar}</strong>: {pct}%
-                    </span>
+                    <div key={pillar} className="ig-map__pillar-bar">
+                      <span className="ig-map__pillar-label">{pillar}</span>
+                      <div className="ig-map__pillar-track">
+                        <div className="ig-map__pillar-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="ig-map__pillar-pct">{pct}%</span>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              <div className="map-themes-list">
-                <h5>Discovered Strategic Themes ({opportunityMap.themes.length})</h5>
-                <div className="theme-cards-grid">
+              {/* Theme cards */}
+              <div className="ig-map__themes">
+                <h5 className="ig-map__section-title">Strategic Themes</h5>
+                <div className="ig-map__theme-grid">
                   {opportunityMap.themes.map((theme) => (
-                    <div key={theme.id} className="theme-map-card">
-                      <div className="theme-cat-badge">{theme.category.replace(/_/g, " ").toUpperCase()}</div>
-                      <h6>{theme.title}</h6>
-                      <p>{theme.description}</p>
-                      <div className="theme-hooks-preview">
-                        <strong>Suggested Hook:</strong>
-                        <small>&ldquo;{theme.suggestedHooks[0]}&rdquo;</small>
-                      </div>
+                    <div key={theme.id} className="ig-map__theme-card">
+                      <span className="sc-badge sc-badge--sm sc-badge--accent">
+                        {theme.category.replace(/_/g, " ")}
+                      </span>
+                      <h6 className="ig-map__theme-title">{theme.title}</h6>
+                      <p className="ig-map__theme-desc">{theme.description}</p>
+                      {theme.suggestedHooks[0] && (
+                        <div className="ig-map__theme-hook">
+                          <Lightbulb size={10} />
+                          <span>&ldquo;{theme.suggestedHooks[0]}&rdquo;</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

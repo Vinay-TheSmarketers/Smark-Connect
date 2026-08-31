@@ -14,6 +14,7 @@ import { evaluateLinkedInOpportunity, evaluateRedditCandidate, evaluateXOpportun
 import { RedditOpportunityFeed } from "./reddit-opportunity-feed";
 import { InstagramOpportunityFeed } from "./instagram-opportunity-feed";
 import { XOpportunityFeed } from "./x-opportunity-feed";
+import { LinkedInAgentFeed } from "./linkedin-agent-feed";
 import type { XOpportunity } from "@/lib/x/types";
 import type { InstagramOpportunity, InstagramOpportunityMap } from "@/lib/instagram/types";
 import { CompetitorAgentViewer } from "./competitor-agent-viewer";
@@ -441,108 +442,6 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
   return <>{compactCard}{detail}</>;
 }
 
-function LinkedInFindingsCard({ items, onRegenerate, running }: { items: Finding[]; onRegenerate: () => void; running: boolean }) {
-  const displayList = items.filter((item) => item.kind !== "new_post").slice(0, 5);
-  const listToRender = displayList.length ? displayList : items.slice(0, 5);
-
-  return (
-    <article className="linkedin-findings-unified-card">
-      <div className="findings-card-head">
-        <div className="head-title-wrap">
-          <PlatformMark provider="linkedin" />
-          <div>
-            <strong>STRATEGY &amp; OPPORTUNITY FINDINGS</strong>
-            <small>{listToRender.length} signals detected across company memory &amp; live research</small>
-          </div>
-        </div>
-        <button type="button" className="refresh-findings-btn" disabled={running} onClick={onRegenerate}>
-          <RefreshCw size={11} className={running ? "spin" : ""} /> Refresh
-        </button>
-      </div>
-
-      <div className="findings-rows-container">
-        {listToRender.map((item, idx) => (
-          <div key={`${item.title}-${idx}`} className="linkedin-finding-row">
-            <div className="finding-row-top">
-              <span className="finding-index-pill">0{idx + 1}</span>
-              <h4 className="finding-row-title">{item.title}</h4>
-              {item.priority && (
-                <span className={`finding-priority-badge priority-${item.priority}`}>
-                  {item.priority.toUpperCase()}
-                </span>
-              )}
-            </div>
-            <p className="finding-row-evidence">
-              {item.evidence || item.description || "Signal observed across technical and market monitoring."}
-            </p>
-            {item.impact && (
-              <div className="finding-row-impact">
-                <strong>Why it matters:</strong> <span>{unwrapStructuredText(item.impact)}</span>
-              </div>
-            )}
-            {item.action && (
-              <div className="finding-row-action">
-                <strong>Angle / Action:</strong> <span>{unwrapStructuredText(item.action)}</span>
-              </div>
-            )}
-            {item.sourceUrls?.length ? (
-              <div className="finding-row-source">
-                <a href={item.sourceUrls[0]} target="_blank" rel="noreferrer">
-                  <ExternalLink size={10} /> {item.sourceLabel || "Discovered source"}
-                </a>
-              </div>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function LinkedInAgentFeed({
-  items,
-  company,
-  liveConnected,
-  completedOpportunities,
-  completeOpportunity,
-  runAgent,
-  running,
-}: {
-  items: Finding[];
-  company: DashboardData["company"];
-  liveConnected: boolean;
-  completedOpportunities: Set<string>;
-  completeOpportunity: (type: string, key: string) => Promise<void>;
-  runAgent: (type: string) => Promise<void>;
-  running: boolean;
-}) {
-  const postDraftItem = items.find((item) => item.kind === "new_post") || items[0];
-  const postKey = opportunityKey("LINKEDIN", postDraftItem || {}, 0);
-
-  return (
-    <div className="linkedin-agent-feed-layout">
-      {postDraftItem && (
-        <SocialFindingCard
-          key={postKey}
-          type="LINKEDIN"
-          item={postDraftItem}
-          index={0}
-          company={company}
-          liveConnected={liveConnected}
-          completed={completedOpportunities.has(postKey)}
-          onComplete={() => completeOpportunity("LINKEDIN", postKey)}
-          onRegenerate={() => runAgent("LINKEDIN")}
-        />
-      )}
-      <LinkedInFindingsCard
-        items={items}
-        onRegenerate={() => runAgent("LINKEDIN")}
-        running={running}
-      />
-    </div>
-  );
-}
-
 function GenericAgentFindingCard({
   item,
   index,
@@ -556,15 +455,26 @@ function GenericAgentFindingCard({
   onRefresh: () => void;
   refreshing: boolean;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyText = async () => {
+    const text = `${item.title}\n\n${item.evidence ?? item.description ?? ""}\n\nImpact: ${unwrapStructuredText(item.impact)}\nAction: ${unwrapStructuredText(item.action)}`;
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <article className="generic-agent-finding-card">
+    <article className="generic-agent-finding-card sc-card">
       <div className="finding-card-top-bar">
         <div className="finding-badge-group">
-          <span className={`finding-priority-pill priority-${item.priority ?? "medium"}`}>
+          <span className={`sc-badge sc-badge--sm sc-badge--${item.priority === "high" ? "error" : item.priority === "medium" ? "warning" : "default"}`}>
             {item.priority ? item.priority.toUpperCase() : "INSIGHT"}
           </span>
           {item.confidence !== undefined && (
-            <span className="finding-confidence-pill">{item.confidence}% confidence</span>
+            <span className="sc-badge sc-badge--sm sc-badge--accent">
+              {item.confidence}% confidence
+            </span>
           )}
         </div>
         {item.publishedAt && <time className="finding-timestamp">{item.publishedAt}</time>}
@@ -601,11 +511,18 @@ function GenericAgentFindingCard({
           </div>
         ) : <span />}
 
-        {AGENT_DEFINITIONS.some((agent) => agent.type === type) && index === 0 && (
-          <button type="button" className="finding-card-refresh-btn" disabled={refreshing} onClick={onRefresh}>
-            <RefreshCw size={11} className={refreshing ? "spin" : ""} /> Refresh
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <button type="button" className="sc-btn sc-btn--ghost sc-btn--sm" onClick={handleCopyText}>
+            {copied ? <Check size={11} /> : <Copy size={11} />}
+            <span>{copied ? "Copied" : "Copy"}</span>
           </button>
-        )}
+          {AGENT_DEFINITIONS.some((agent) => agent.type === type) && index === 0 && (
+            <button type="button" className="sc-btn sc-btn--secondary sc-btn--sm" disabled={refreshing} onClick={onRefresh}>
+              <RefreshCw size={11} className={refreshing ? "sc-spinning" : ""} />
+              <span>Refresh</span>
+            </button>
+          )}
+        </div>
       </div>
     </article>
   );

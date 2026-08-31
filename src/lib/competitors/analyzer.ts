@@ -1,6 +1,15 @@
 import { discoverCompanyLogo } from "../company-logo";
+import { getProvider } from "../llm";
+import { decryptSecret } from "../crypto";
+import { extractJson } from "../llm/shared";
 import type { CompanyStrategicProfile, CompetitorProfile } from "./types";
 import type { LiveDiscoveryItem } from "../research/live-discovery";
+
+export type LLMConfig = {
+  providerName: string;
+  apiKeyEnc: string;
+  model: string;
+};
 
 type CompetitorCandidate = { name: string; website: string; positioning: string; attributes: string[] };
 
@@ -257,6 +266,186 @@ function deriveHowWeDiffer(
   return `Unlike ${competitorName}, which tends to be ${competitorWeakness.toLowerCase()}, ${profile.companyName} focuses on ${primaryDiff.toLowerCase()}, offering ${ourUsp.toLowerCase()} with faster time-to-value.`;
 }
 
+async function discoverCompetitorsViaLLM(
+  profile: CompanyStrategicProfile,
+  liveItems: LiveDiscoveryItem[],
+  llmConfig: LLMConfig
+): Promise<CompetitorProfile[] | null> {
+  try {
+    const system = `You are an expert market research specialist executing the "competitor-alternatives" and "competitor-analysis" skill methodology.
+Your objective is to identify exactly 5 to 6 REAL, DIRECT, COMMERCIALLY ACTIVE competitor companies operating in the EXACT same market vertical as the target company.
+
+Strict Rules:
+1. Every competitor must be a real commercial company with a valid official root website (e.g. "https://example.com").
+2. DO NOT output review sites (G2, Capterra, Clutch, Tracxn, Crunchbase), news media (TechCrunch, Forbes), dictionaries, speed testers, or portal login links.
+3. DO NOT output generic placeholders (like "Company A" or "Competitor 1").
+4. Ensure the competitor set represents a realistic buyer consideration set (1-2 Market Leaders, 2 Direct Challengers, 1-2 Niche Alternatives).
+5. Ground their strengths, weaknesses, pricing tier, and "how we differ" statements in real commercial facts.`;
+
+    const liveDiscoveryContext = liveItems.length > 0
+      ? `\n\nLIVE SEARCH SIGNALS:\n${liveItems.slice(0, 10).map((i) => `- ${i.title} (${i.url}): ${i.excerpt}`).join("\n")}`
+      : "";
+
+    const userPrompt = `COMPANY TO ANALYZE:
+Name: ${profile.companyName}
+Website: ${profile.websiteUrl}
+Category: ${profile.category}
+Description: ${profile.description}
+Core Offerings: ${profile.coreOfferStack.join(", ")}
+Target ICPs: ${profile.icpsAndPersonas.map((p) => p.role).join(", ")}
+Pain Points Solved: ${profile.painPoints.join(", ")}
+${liveDiscoveryContext}
+
+Apply the "competitor-alternatives" skill to identify the 5-6 exact direct competitor companies that prospects compare against this company. Return the structured JSON.`;
+
+    const raw = await getProvider(llmConfig.providerName).complete({
+      apiKey: decryptSecret(llmConfig.apiKeyEnc),
+      model: llmConfig.model,
+      system,
+      messages: [{ role: "user", content: userPrompt }],
+      maxTokens: 3500,
+      temperature: 0.2,
+      jsonSchema: {
+        name: "competitor_alternatives_output",
+        schema: {
+          type: "object",
+          required: ["competitors"],
+          properties: {
+            competitors: {
+              type: "array",
+              items: {
+                type: "object",
+                required: [
+                  "name",
+                  "officialWebsite",
+                  "category",
+                  "coreOffer",
+                  "pricingMarketPosition",
+                  "primaryUsp",
+                  "strengths",
+                  "weaknesses",
+                  "positioningAngle",
+                  "howWeDiffer",
+                  "marketShareTier",
+                ],
+                properties: {
+                  name: { type: "string" },
+                  officialWebsite: { type: "string" },
+                  category: { type: "string" },
+                  targetAudience: { type: "string" },
+                  coreOffer: { type: "string" },
+                  keyFeatures: { type: "array", items: { type: "string" } },
+                  pricingMarketPosition: { type: "string" },
+                  primaryUsp: { type: "string" },
+                  strengths: { type: "array", items: { type: "string" } },
+                  weaknesses: { type: "array", items: { type: "string" } },
+                  positioningAngle: { type: "string" },
+                  howWeDiffer: { type: "string" },
+                  marketShareTier: {
+                    type: "string",
+                    enum: [
+                      "market_leader",
+                      "established_player",
+                      "direct_challenger",
+                      "niche_alternative",
+                    ],
+                  },
+                  confidenceScore: { type: "number" },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const parsed = extractJson<{
+      competitors: Array<{
+        name: string;
+        officialWebsite: string;
+        category?: string;
+        targetAudience?: string;
+        coreOffer?: string;
+        keyFeatures?: string[];
+        pricingMarketPosition?: string;
+        primaryUsp?: string;
+        strengths?: string[];
+        weaknesses?: string[];
+        positioningAngle?: string;
+        howWeDiffer?: string;
+        marketShareTier?: "market_leader" | "established_player" | "direct_challenger" | "niche_alternative";
+        confidenceScore?: number;
+      }>;
+    }>(raw);
+
+    if (parsed?.competitors && Array.isArray(parsed.competitors) && parsed.competitors.length >= 4) {
+      const targetHost = new URL(
+        profile.websiteUrl.startsWith("http") ? profile.websiteUrl : `https://${profile.websiteUrl}`
+      ).hostname.replace(/^www\./, "").toLowerCase();
+
+      const profiles = await Promise.all(
+        parsed.competitors.slice(0, 6).map(async (c, idx): Promise<CompetitorProfile> => {
+          let officialUrl: URL | null = null;
+          try {
+            officialUrl = new URL(c.officialWebsite.startsWith("http") ? c.officialWebsite : `https://${c.officialWebsite}`);
+          } catch {
+            officialUrl = null;
+          }
+
+          let logoUrl = "";
+          if (officialUrl) {
+            const discovered = await discoverCompanyLogo(officialUrl).catch(() => null);
+            logoUrl =
+              discovered ||
+              `https://www.google.com/s2/favicons?domain=${encodeURIComponent(officialUrl.hostname)}&sz=128`;
+          }
+
+          const name = c.name || (officialUrl ? officialUrl.hostname.replace(/^www\./, "").split(".")[0] : `Competitor ${idx + 1}`);
+          const validSite = officialUrl ? officialUrl.origin : `https://${name.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
+
+          return {
+            id: `comp-${name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
+            name,
+            officialWebsite: validSite,
+            logoUrl,
+            category: c.category || profile.category,
+            targetAudience: c.targetAudience || `Target buyers in ${profile.category}`,
+            coreOffer: c.coreOffer || `${name} Solution Suite`,
+            keyFeatures: c.keyFeatures && c.keyFeatures.length > 0 ? c.keyFeatures.slice(0, 4) : ["Core Workflow Automation", "Diagnostic Insights", "Enterprise Integrations"],
+            pricingMarketPosition: c.pricingMarketPosition || (idx === 0 ? "Enterprise Custom Quote" : "Mid-Market Tiered"),
+            primaryUsp: c.primaryUsp || `${name} specialized market solution`,
+            strengths: c.strengths && c.strengths.length > 0 ? c.strengths.slice(0, 3) : ["Established market authority", "Broad product capabilities"],
+            weaknesses: c.weaknesses && c.weaknesses.length > 0 ? c.weaknesses.slice(0, 3) : ["High enterprise pricing", "Complex implementation"],
+            positioningAngle: c.positioningAngle || `${name} is a direct alternative in ${profile.category}.`,
+            proofSignals: ["Recognized commercial brand presence", "Public customer deployments"],
+            howWeDiffer: c.howWeDiffer || deriveHowWeDiffer(name, (c.weaknesses?.[0] || "legacy complexity"), profile),
+            evidenceSummary: `${name} competes directly in ${profile.category}. ${c.positioningAngle || ""}`,
+            marketShareTier: c.marketShareTier || (idx === 0 ? "market_leader" : idx === 1 ? "established_player" : "direct_challenger"),
+            confidenceScore: typeof c.confidenceScore === "number" && c.confidenceScore >= 70 && c.confidenceScore <= 99 ? c.confidenceScore : 92 - idx,
+          };
+        })
+      );
+
+      // Filter out self-domain
+      const validProfiles = profiles.filter((p) => {
+        try {
+          const host = new URL(p.officialWebsite).hostname.replace(/^www\./, "").toLowerCase();
+          return host !== targetHost && !host.includes(targetHost.split(".")[0]);
+        } catch {
+          return true;
+        }
+      });
+
+      if (validProfiles.length >= 4) {
+        return validProfiles;
+      }
+    }
+  } catch (error) {
+    console.warn("LLM competitor discovery fallback triggered:", error);
+  }
+  return null;
+}
+
 /**
  * Builds 5–6 comprehensive, 12-dimension Competitor Profiles grounded in market discovery.
  */
@@ -268,8 +457,17 @@ export async function analyzeCompetitorLandscape(
     officialWebsite?: string;
     positioning?: string;
     competitiveAttributes?: string[];
-  }>
+  }>,
+  llmConfig?: LLMConfig
 ): Promise<CompetitorProfile[]> {
+  // If LLM config is available, run the "competitor-alternatives" skill via LLM first
+  if (llmConfig) {
+    const llmProfiles = await discoverCompetitorsViaLLM(profile, liveItems, llmConfig);
+    if (llmProfiles && llmProfiles.length >= 4) {
+      return llmProfiles;
+    }
+  }
+
   const targetHost = new URL(
     profile.websiteUrl.startsWith("http") ? profile.websiteUrl : `https://${profile.websiteUrl}`
   ).hostname.replace(/^www\./, "").toLowerCase();
