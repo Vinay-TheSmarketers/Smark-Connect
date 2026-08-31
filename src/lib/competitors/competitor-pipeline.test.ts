@@ -270,4 +270,25 @@ describe("Competitor Intelligence Pipeline & Skills Synthesizer", () => {
     const ranked = rankLiveCompetitorCandidates(keyProfile, garbageResults);
     expect(ranked).toHaveLength(0);
   });
+
+  it("resolves exact research compliance peers for Key Solutions (keyusa.com) and never SEO tools", async () => {
+    const keyUsaProfile = {
+      ...mockProfile,
+      companyName: "Key Solutions",
+      websiteUrl: "https://keyusa.com",
+      category: "Research Administration & Compliance Software",
+      description: "eProtocol management system for IRB, IACUC, and IBC research compliance automation.",
+      coreOfferStack: ["eProtocol IRB Management", "IACUC Protocol Automation", "IBC Biosafety Compliance"],
+    };
+
+    const competitors = await analyzeCompetitorLandscape(keyUsaProfile, []);
+    expect(competitors.map((c) => c.name)).toEqual([
+      "Cayuse",
+      "Huron Research Suite",
+      "Kuali Research",
+      "InfoEd Global",
+      "Streamlyne",
+      "A Tune (tick@lab)",
+    ]);
+  });
 });

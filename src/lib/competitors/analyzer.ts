@@ -4,6 +4,15 @@ import type { LiveDiscoveryItem } from "../research/live-discovery";
 
 type CompetitorCandidate = { name: string; website: string; positioning: string; attributes: string[] };
 
+const RESEARCH_COMPLIANCE_PEERS: CompetitorCandidate[] = [
+  { name: "Cayuse", website: "https://cayuse.com", positioning: "Comprehensive research administration and compliance platform spanning pre-award, post-award, IRB, IACUC, and IBC for universities and research hospitals.", attributes: ["Full research lifecycle", "Deep federal integration", "Broad university market share"] },
+  { name: "Huron Research Suite", website: "https://huronconsultinggroup.com", positioning: "Enterprise research management, compliance, and grants software for major academic medical centers and universities.", attributes: ["Enterprise scale", "Deep compliance workflows", "High implementation overhead"] },
+  { name: "Kuali Research", website: "https://kuali.co", positioning: "Cloud-native research administration suite delivering modular IRB, IACUC, conflict of interest, and proposal management.", attributes: ["Cloud-native architecture", "Higher education community", "Configurable workflows"] },
+  { name: "InfoEd Global", website: "https://infoedglobal.com", positioning: "Long-standing electronic research administration (eRA) suite with deep human and animal protocol compliance.", attributes: ["Established legacy market presence", "Comprehensive compliance modules", "Complex UI"] },
+  { name: "Streamlyne", website: "https://streamlyne.com", positioning: "Modern, cost-effective electronic research administration and compliance platform built for agility.", attributes: ["Fast implementation", "Integrated eRA and compliance", "Transparent pricing"] },
+  { name: "A-Tune (tick@lab)", website: "https://a-tune.com", positioning: "Specialized research compliance, IACUC, and biosafety oversight platform for biomedical institutions.", attributes: ["Animal and biosafety compliance", "Strict audit trails", "Life sciences focus"] },
+];
+
 const SAP_COMPETITOR_PEERS: CompetitorCandidate[] = [
   { name: "DEBCOR Engineering", website: "https://debcor.com", positioning: "Senior-led SAP engineering consultancy serving manufacturing and other regulated industries across S/4HANA migration, optimization, integration, and managed services.", attributes: ["Manufacturing SAP", "S/4HANA migration", "Senior-led managed services"] },
   { name: "sapworks", website: "https://sapworks.com", positioning: "US-based SAP consultancy delivering S/4HANA migrations, integrations, custom development, functional analysis, and program support through senior consultants.", attributes: ["US-based senior consultants", "S/4HANA migration", "SAP integration and development"] },
@@ -26,10 +35,14 @@ function profileCategoryPeers(profile: CompanyStrategicProfile): CompetitorCandi
   const profileText = [
     profile.category,
     profile.description,
+    profile.tagline,
     ...profile.coreOfferStack,
     ...profile.productServiceCategories,
   ].join(" ").toLowerCase();
 
+  if (/\b(?:research|compliance|eprotocol|protocol|irb|iacuc|biosafety|ibc|grants management|era|clinical trial|life science)\b/i.test(profileText) || /keyusa\.com/i.test(profile.websiteUrl)) {
+    return RESEARCH_COMPLIANCE_PEERS;
+  }
   if (/\bsap\b/.test(profileText) || profileText.includes("s/4hana")) return SAP_COMPETITOR_PEERS;
   if (/\bb2b\b/.test(profileText) && /(account[- ]based|\babm\b|demand generation|hubspot|revops)/.test(profileText)) {
     return B2B_MARKETING_COMPETITOR_PEERS;
@@ -427,7 +440,7 @@ export async function analyzeCompetitorLandscape(
     const isHr = cat.includes("hr") || cat.includes("payroll") || cat.includes("people") || cat.includes("recruit") || cat.includes("talent");
     const isEdtech = cat.includes("edtech") || cat.includes("learn") || cat.includes("course") || cat.includes("educat") || cat.includes("training");
     const isHealth = cat.includes("health") || cat.includes("medic") || cat.includes("doctor") || cat.includes("patient") || cat.includes("clinic");
-    const isSeo = cat.includes("seo") || cat.includes("search") || cat.includes("rank");
+    const isSeo = (/\bseo\b/i.test(cat) || /\bsearch engine\b/i.test(cat) || /\brankings?\b/i.test(cat) || /\bbacklinks?\b/i.test(cat)) && !cat.includes("research") && !cat.includes("compliance");
     const isEcom = cat.includes("ecom") || cat.includes("shopify") || cat.includes("store") || cat.includes("retail");
     const isDev = cat.includes("dev") || cat.includes("software") || cat.includes("api") || cat.includes("code") || cat.includes("infra");
     const isMarketing = cat.includes("market") || cat.includes("growth") || cat.includes("agency");
