@@ -312,4 +312,34 @@ describe("Competitor Intelligence Pipeline & Skills Synthesizer", () => {
       "Vantage",
     ]);
   });
+
+  it("dynamically resolves live competitors for any arbitrary new account (e.g. Drone Mapping)", async () => {
+    const droneProfile = {
+      ...mockProfile,
+      companyName: "DroneDeploy",
+      websiteUrl: "https://dronedeploy.com",
+      category: "Enterprise Drone Mapping & Reality Capture Software",
+      description: "Cloud-based aerial drone mapping, 3D photogrammetry, and construction site reality capture.",
+      coreOfferStack: ["3D Photogrammetry", "Construction Site Inspection", "Drone Fleet Management"],
+    };
+
+    const liveDroneResults = [
+      { url: "https://www.pix4d.com/", title: "Pix4D - Professional Drone Photogrammetry and Mapping Software", excerpt: "Pix4D develops photogrammetry software for drone mapping, 3D modeling, and reality capture." },
+      { url: "https://www.propelleraero.com/", title: "Propeller Aero - Drone Surveying and 3D Mapping for Earthwork", excerpt: "Propeller drone mapping platform for earthwork construction and quarry volumetric surveys." },
+      { url: "https://www.skycatch.com/", title: "Skycatch - High Precision Drone Mapping and Autonomous Data Capture", excerpt: "Enterprise high-precision drone photogrammetry and construction analytics software." },
+      { url: "https://wingtra.com/", title: "Wingtra - High Precision Surveying and Mapping VTOL Drones", excerpt: "Commercial VTOL mapping drones and aerial survey reality capture solutions." },
+      { url: "https://www.esri.com/en-us/arcgis/products/site-scan-for-arcgis/", title: "Site Scan for ArcGIS - Drone Flight and Cloud Processing", excerpt: "Complete cloud-based drone mapping and photogrammetry application for construction and AEC." },
+    ].map((item) => ({
+      ...item,
+      discoverySource: "Search Engine",
+      query: "dronedeploy competitors alternatives",
+      publishedAt: null,
+    }));
+
+    const competitors = await analyzeCompetitorLandscape(droneProfile, liveDroneResults);
+    expect(competitors.length).toBeGreaterThanOrEqual(5);
+    expect(competitors.map((c) => c.name)).toContain("Pix4D");
+    expect(competitors.map((c) => c.name)).toContain("Propeller Aero");
+    expect(competitors.map((c) => c.name)).toContain("Skycatch");
+  });
 });

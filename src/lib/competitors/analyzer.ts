@@ -498,10 +498,7 @@ export async function analyzeCompetitorLandscape(
       : isMarketing
       ? "marketing"
       : "general";
-    const selectedPeers = categoryKey === "general" || (categoryKey === "marketing" && /agency|consult/i.test(cat))
-      ? []
-      : industryPeers[categoryKey] || [];
-
+    const selectedPeers = industryPeers[categoryKey] || industryPeers["general"] || [];
     candidatePool.push(...selectedPeers);
   }
 
@@ -541,6 +538,29 @@ export async function analyzeCompetitorLandscape(
 
       if (distinctCandidates.length >= 6) break;
     } catch {}
+  }
+
+  // Guarantee at least 5 candidates for any novel category
+  if (distinctCandidates.length < 5) {
+    const generalPeers = [
+      { name: "HubSpot", website: "https://hubspot.com", positioning: "Integrated customer platform for marketing, sales, and operations.", attributes: ["Unified CRM ecosystem", "Inbound authority", "Modular expansion"] },
+      { name: "Salesforce", website: "https://salesforce.com", positioning: "Global enterprise cloud platform for customer relationship management.", attributes: ["Enterprise market share", "Deep customization", "High total cost of ownership"] },
+      { name: "Zoho", website: "https://zoho.com", positioning: "Comprehensive operating system for business with 50+ integrated applications.", attributes: ["Cost-effective pricing", "Broad application suite", "Functional UI"] },
+      { name: "Monday.com", website: "https://monday.com", positioning: "Work operating system enabling custom workflow apps and project management.", attributes: ["Visual work management", "No-code automations", "Modern collaborative UI"] },
+      { name: "ClickUp", website: "https://clickup.com", positioning: "All-in-one productivity and work management platform.", attributes: ["Dense feature set", "Flexible hierarchy", "Frequent feature iteration"] },
+    ];
+
+    for (const c of generalPeers) {
+      try {
+        const host = new URL(c.website).hostname.replace(/^www\./, "").toLowerCase();
+        if (!seenHosts.has(host) && !seenHosts.has(c.name.toLowerCase()) && host !== targetHost) {
+          seenHosts.add(host);
+          seenHosts.add(c.name.toLowerCase());
+          distinctCandidates.push(c);
+          if (distinctCandidates.length >= 6) break;
+        }
+      } catch {}
+    }
   }
 
   // 5. Build rich 12-dimension profiles for each of the 5-6 competitors
