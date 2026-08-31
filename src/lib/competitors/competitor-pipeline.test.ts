@@ -243,4 +243,31 @@ describe("Competitor Intelligence Pipeline & Skills Synthesizer", () => {
     expect(actionItems[0].priorityTier).toBe("critical");
     expect(actionItems[0].priorityScore).toBeGreaterThanOrEqual(actionItems[actionItems.length - 1].priorityScore);
   });
+
+  it("strictly filters out dictionary definitions, utility testers, and banking portals", () => {
+    const garbageResults = [
+      { url: "https://www.merriam-webster.com/dictionary/key", title: "KEY Definition & Meaning - Merriam-Webster", excerpt: "The meaning of KEY is an instrument by which the bolt of a lock is turned." },
+      { url: "https://en.key-test.ru/", title: "Key Test - keyboard test online", excerpt: "Online keyboard test to check keyboard keys functioning." },
+      { url: "https://keyboard-tester.com/", title: "Keyboard Tester - Test your keys online", excerpt: "Free keyboard testing tool for desktop and laptop." },
+      { url: "https://ibx.key.com/", title: "KeyBank Online Banking - Sign In", excerpt: "Sign in to your KeyBank online banking account." },
+      { url: "https://key.com/", title: "Online & Mobile Banking - KeyBank", excerpt: "Personal banking, loans, mortgages, and commercial accounts." },
+    ].map((item) => ({
+      ...item,
+      discoverySource: "Search Engine",
+      query: "key competitors alternatives",
+      publishedAt: null,
+    }));
+
+    const keyProfile = {
+      ...mockProfile,
+      companyName: "Keyfactor",
+      websiteUrl: "https://keyfactor.com",
+      category: "Machine Identity & Cryptographic Security",
+      description: "Enterprise certificate lifecycle management and PKI automation.",
+      coreOfferStack: ["Certificate Lifecycle Management", "PKI as a Service"],
+    };
+
+    const ranked = rankLiveCompetitorCandidates(keyProfile, garbageResults);
+    expect(ranked).toHaveLength(0);
+  });
 });

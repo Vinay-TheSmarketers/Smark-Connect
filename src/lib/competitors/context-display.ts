@@ -27,6 +27,20 @@ function websiteHost(value: string | undefined): string {
   }
 }
 
+const INVALID_HOSTS = new Set([
+  "merriam-webster.com", "dictionary.com", "thefreedictionary.com", "cambridge.org", "wiktionary.org",
+  "key-test.ru", "key-test.com", "keyboard-tester.com", "keyboardchecker.com", "speedtest.net",
+  "wikipedia.org", "quora.com", "reddit.com", "google.com", "bing.com", "youtube.com", "apple.com", "microsoft.com",
+]);
+
+const NON_COMPETITOR_PATTERNS = [
+  /\b(?:definition|meaning|dictionary|thesaurus|etymology|pronunciation)\b/i,
+  /\b(?:keyboard tester|key test|speed test|mic test|webcam test|online tester|hardware tester)\b/i,
+  /\b(?:login|sign in|signup|sign up|customer service|customer support|my account|portal)\b/i,
+  /\b(?:online & mobile banking|personal banking|commercial banking|mortgage banking|keybank)\b/i,
+  /\b(?:terms of service|privacy policy|disclaimer|cookie policy|user agreement)\b/i,
+];
+
 function verifiedCompetitors<T extends ContextCompetitorItem>(items: T[], company: CompanyIdentity): T[] {
   const ownName = normalizedName(company.name);
   const ownHost = websiteHost(company.websiteUrl);
@@ -36,9 +50,12 @@ function verifiedCompetitors<T extends ContextCompetitorItem>(items: T[], compan
   return items.filter((item) => {
     const name = normalizedName(item.companyName);
     const host = websiteHost(item.officialWebsite);
+    const rawName = item.companyName || item.title || "";
 
-    // Context cards represent verified companies, not agent summaries or strategy findings.
+    // Context cards represent verified companies, not agent summaries, dictionaries, or utilities.
     if (!name || !host || name === ownName || host === ownHost) return false;
+    if (INVALID_HOSTS.has(host) || INVALID_HOSTS.has(host.replace(/^[^.]+\./, ""))) return false;
+    if (NON_COMPETITOR_PATTERNS.some((pattern) => pattern.test(rawName) || pattern.test(host))) return false;
     if (seenNames.has(name) || seenHosts.has(host)) return false;
 
     seenNames.add(name);

@@ -50,11 +50,58 @@ function cleanCompetitorName(raw: string): string {
 }
 
 const DISCOVERY_HOST_BLOCKLIST = [
-  "apps.apple.com", "bing.com", "capterra.com", "clutch.co", "crunchbase.com", "datanyze.com",
-  "facebook.com", "g2.com", "gartner.com", "github.com", "google.com", "linkedin.com", "medium.com",
-  "partnerfinder.sap.com", "reddit.com", "sap.com", "tracxn.com", "twitter.com", "wikipedia.org", "x.com",
-  "youtube.com", "zoominfo.com",
+  // Search engines & Portals
+  "bing.com", "google.com", "yahoo.com", "duckduckgo.com", "baidu.com", "yandex.com",
+  // Social, Forums & Communities
+  "facebook.com", "instagram.com", "linkedin.com", "medium.com", "pinterest.com",
+  "quora.com", "reddit.com", "stackoverflow.com", "stackexchange.com", "tiktok.com",
+  "twitter.com", "x.com", "youtube.com", "threads.net", "github.com", "gitlab.com",
+  // Dictionaries, Encyclopedias & Reference
+  "merriam-webster.com", "dictionary.com", "thefreedictionary.com", "cambridge.org",
+  "wiktionary.org", "collinsdictionary.com", "oxfordlearnersdictionaries.com",
+  "britannica.com", "vocabulary.com", "thesaurus.com", "wordreference.com",
+  "urbandictionary.com", "macmillandictionary.com", "yourdictionary.com",
+  "wikipedia.org", "wikimedia.org", "investopedia.com", "healthline.com", "webmd.com",
+  // Utilities, Keyboard/Hardware/Speed Testers
+  "key-test.ru", "key-test.com", "keyboard-tester.com", "keyboardchecker.com",
+  "speedtest.net", "whatsmyip.org", "fast.com", "ping-test.net", "onlinemic-test.com",
+  "webcamtests.com", "mouse-test.com", "cpuid.com", "testufo.com", "hardware-tester.com",
+  // Big Tech, App Stores & Consumer Marketplaces
+  "apps.apple.com", "play.google.com", "apple.com", "microsoft.com",
+  "amazon.com", "amazon.co.uk", "amazon.in", "ebay.com", "walmart.com", "target.com",
+  "etsy.com", "alibaba.com", "aliexpress.com",
+  // B2B Aggregators, Directories & Review Sites (we analyze direct competitors, not review directories)
+  "capterra.com", "clutch.co", "crunchbase.com", "datanyze.com", "g2.com", "gartner.com",
+  "tracxn.com", "trustradius.com", "zoominfo.com", "partnerfinder.sap.com", "sap.com",
+  // Generic Media & News
+  "nytimes.com", "wsj.com", "forbes.com", "bloomberg.com", "reuters.com", "techcrunch.com",
+  "businessinsider.com", "theverge.com", "wired.com", "cnet.com", "zdnet.com",
+  "usatoday.com", "cnn.com", "bbc.com", "theguardian.com",
 ];
+
+const NON_COMPETITOR_PATTERNS = [
+  /\b(?:definition|meaning|dictionary|thesaurus|etymology|pronunciation|synonyms?|antonyms?)\b/i,
+  /\b(?:keyboard tester|key test|speed test|mic test|webcam test|online tester|hardware tester|test online)\b/i,
+  /\b(?:login|sign in|signup|sign up|customer service|customer support|contact us|my account|portal)\b/i,
+  /\b(?:online & mobile banking|personal banking|commercial banking|mortgage banking|keybank)\b/i,
+  /\b(?:terms of (?:service|use)|privacy policy|disclaimer|cookie policy|user agreement)\b/i,
+  /\b(?:wikipedia|free encyclopedia|reference guide|user manual|documentation guide)\b/i,
+  /\b(?:compare|comparison|versus|\bvs\b|alternatives? to|best \d+|top \d+|review \d+)\b/i,
+];
+
+function isCommercialCompetitorUrl(url: URL): boolean {
+  const pathname = url.pathname.toLowerCase();
+  if (/^\/(?:dictionary|define|definition|thesaurus|wiki|words|search|lookup|terms|privacy|signin|login|tag|category|archive|apps|mobile|support|help)\b/.test(pathname)) {
+    return false;
+  }
+  return true;
+}
+
+function isDisallowedCompetitorName(name: string, host: string): boolean {
+  if (!name || name.length < 2) return true;
+  const combined = `${name} ${host}`.toLowerCase();
+  return NON_COMPETITOR_PATTERNS.some((pattern) => pattern.test(combined));
+}
 
 const PROFILE_TERM_STOPWORDS = new Set([
   "about", "agency", "and", "business", "company", "consulting", "digital", "enterprise", "expert",
@@ -120,8 +167,8 @@ export function rankLiveCompetitorCandidates(
   const targetHost = new URL(profile.websiteUrl.startsWith("http") ? profile.websiteUrl : `https://${profile.websiteUrl}`)
     .hostname.replace(/^www\./, "").toLowerCase();
   const targetIdentities = [profile.companyName, targetHost.split(".")[0]].map(normalizedIdentity).filter(Boolean);
-  const profileTerms = profileDiscoveryTerms(profile);
-  const businessModelTerms = ["agency", "consultancy", "consulting", "firm", "platform", "provider", "software"]
+  const profileTerms = profileDiscoveryTerms(profile).filter((term) => term.length >= 4);
+  const businessModelTerms = ["agency", "consultancy", "consulting", "firm", "platform", "provider", "software", "saas", "solutions", "enterprise"]
     .filter((term) => [profile.category, profile.description].join(" ").toLowerCase().includes(term));
 
   return liveItems.flatMap((item, index) => {
@@ -130,17 +177,27 @@ export function rankLiveCompetitorCandidates(
       const url = new URL(item.url);
       const host = url.hostname.replace(/^www\./, "").toLowerCase();
       const hostIdentity = normalizedIdentity(host.split(".")[0]);
-      if (host === targetHost || blockedDiscoveryHost(host)) return [];
+      if (host === targetHost || blockedDiscoveryHost(host) || !isCommercialCompetitorUrl(url)) return [];
       if (targetIdentities.some((identity) => differsByAtMostOneCharacter(identity, hostIdentity))) return [];
 
       const evidence = `${item.title} ${item.excerpt}`.toLowerCase();
+      
+      // Prevent dictionary / tester / non-commercial matches
+      if (NON_COMPETITOR_PATTERNS.some((pattern) => pattern.test(evidence) || pattern.test(item.title))) {
+        return [];
+      }
+
       const matchedTerms = profileTerms.filter((term) => evidence.includes(term));
-      if (!matchedTerms.length) return [];
+      // Require at least 2 distinct strategic domain terms to prevent generic keyword false positives
+      if (matchedTerms.length < 2 && !businessModelTerms.some((term) => evidence.includes(term) && matchedTerms.length >= 1)) {
+        return [];
+      }
+
       const modelMatches = businessModelTerms.filter((term) => evidence.includes(term)).length;
       const rootPageBonus = url.pathname === "/" || url.pathname === "" ? 2 : 0;
       const score = matchedTerms.length * 4 + modelMatches * 3 + rootPageBonus - index * 0.01;
       const name = discoveryName(item, host);
-      if (!name || /\b(?:create|compare|evidence|review|strategy|verify)\b/i.test(name)) return [];
+      if (!name || isDisallowedCompetitorName(name, host) || /\b(?:create|compare|evidence|review|strategy|verify)\b/i.test(name)) return [];
 
       return [{
         name,
