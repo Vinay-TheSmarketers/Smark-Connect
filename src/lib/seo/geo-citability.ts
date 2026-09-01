@@ -42,6 +42,7 @@ export type GeoCitabilityReport = {
     clearValueProp: boolean;
     structuredListsCount: number;
     tablesCount: number;
+    externalReferenceDomains: number;
     totalAuditedPages: number;
     totalAuditedWords: number;
   };
@@ -143,9 +144,6 @@ export function analyzeGeoCitability(
         let query = heading.replace(/^[#0-9.\s]+/, "").trim();
         if (!query.includes("?") && type === "faq") query = `${query}?`;
 
-        const volumeSeeds = ["8,100 /mo", "5,400 /mo", "4,400 /mo", "3,600 /mo", "2,900 /mo", "2,100 /mo", "1,800 /mo"];
-        const monthlyAiVolume = volumeSeeds[passages.length % volumeSeeds.length];
-
         passages.push({
           heading,
           passage: nextP,
@@ -154,46 +152,10 @@ export function analyzeGeoCitability(
           sourceUrl: page.url,
           path: pagePath,
           query: query.toLowerCase(),
-          monthlyAiVolume,
+          monthlyAiVolume: "Not measured",
         });
       }
     });
-  }
-
-  // Fallback realistic passages if site has minimal HTML structure
-  if (passages.length === 0) {
-    passages.push(
-      {
-        heading: `What is ${company.name}?`,
-        passage: `${company.name} is a specialized ${categoryName} provider ${company.description ? `delivering ${company.description.slice(0, 180)}` : "helping teams scale efficient go-to-market operations and customer acquisition"}.`,
-        type: "definition",
-        citabilityScore: 92,
-        sourceUrl: company.websiteUrl,
-        path: "/ (homepage)",
-        query: `what is ${cleanHost}`,
-        monthlyAiVolume: "8,100 /mo",
-      },
-      {
-        heading: `${company.name} Core Solutions & Methodology`,
-        passage: `Key capabilities include integrated ${categoryName.toLowerCase()} execution, full-funnel customer targeting, and evidence-backed account strategy.`,
-        type: "procedure",
-        citabilityScore: 86,
-        sourceUrl: `${company.websiteUrl}/solutions`,
-        path: "/solutions",
-        query: `${categoryName.toLowerCase()} solutions`,
-        monthlyAiVolume: "5,400 /mo",
-      },
-      {
-        heading: `How ${company.name} Compares to Alternatives`,
-        passage: `Unlike traditional generic agencies, ${company.name} anchors strategy in verified first-party evidence, proprietary intelligence, and transparent outcome measurement.`,
-        type: "comparison",
-        citabilityScore: 89,
-        sourceUrl: `${company.websiteUrl}/about`,
-        path: "/about",
-        query: `${cleanHost} alternatives & comparison`,
-        monthlyAiVolume: "3,600 /mo",
-      },
-    );
   }
 
   // Deduplicate and rank top answer passages
@@ -230,7 +192,7 @@ export function analyzeGeoCitability(
   const aiVisibility = Math.min(100, Math.round(entityClarityScore * 0.6 + avgPassageScore * 0.4));
   const readinessScore = Math.min(100, Math.round(platformComposite * 0.5 + structuredScore * 0.3 + (crawlPages.length >= 5 ? 20 : 10)));
   const technicalGeoScore = Math.min(100, Math.max(42, Math.round(structuredScore * 0.5 + (crawlPages.length >= 4 ? 30 : 15) + (brandEntityFound ? 20 : 5))));
-  const backlinkAuthorityScore = Math.min(100, Math.max(35, Math.round((discoveredExternalDomains.size * 6) + 42)));
+  const backlinkAuthorityScore = Math.min(100, discoveredExternalDomains.size * 10);
 
   const geoScore = Math.min(98, Math.max(45, Math.round(
     aiVisibility * 0.25 +
@@ -239,20 +201,9 @@ export function analyzeGeoCitability(
     backlinkAuthorityScore * 0.20
   )));
 
-  // Citation Sources
-  const baseCitationDomains = [
-    { domain: "www.youtube.com", name: "YouTube", status: "Active Citation" as const, volume: "~179.2K", iconBg: "#ef4444" },
-    { domain: "github.com", name: "GitHub", status: "Ecosystem Authority" as const, volume: "~109.3K", iconBg: "#181717" },
-    { domain: "en.wikipedia.org", name: "Wikipedia", status: "Entity Mention" as const, volume: "~104.1K", iconBg: "#64748b" },
-    { domain: cleanHost.includes("thesmarketers") ? "hubspot.com" : "nextjs.org", name: cleanHost.includes("thesmarketers") ? "HubSpot" : "Next.js", status: "Direct Referral" as const, volume: "~80.8K", iconBg: "#0f172a" },
-    { domain: "www.reddit.com", name: "Reddit", status: "Active Citation" as const, volume: "~57.2K", iconBg: "#ff4500" },
-    { domain: "medium.com", name: "Medium", status: "Entity Mention" as const, volume: "~44.5K", iconBg: "#12100e" },
-    { domain: "dev.to", name: "Dev.to", status: "Ecosystem Authority" as const, volume: "~27.3K", iconBg: "#0a0a0a" },
-    { domain: "stackoverflow.com", name: "Stack Overflow", status: "Direct Referral" as const, volume: "~19.3K", iconBg: "#f48024" },
-  ];
-
-  // Prioritize discovered external domains if available
-  const citationSources: CitationSource[] = baseCitationDomains;
+  // Citation domains require a connected citation/referral data source. The crawl
+  // only exposes outbound links, so do not present them as verified citations.
+  const citationSources: CitationSource[] = [];
 
   let citationReadinessStage: GeoCitabilityReport["citationReadinessStage"] = "Initial Discovery";
   if (geoScore >= 82) citationReadinessStage = "High Authority Citations";
@@ -272,13 +223,13 @@ export function analyzeGeoCitability(
   strategicActions.push("Ensure Schema.org Organization markup connects official social profiles (sameAs) for entity verification.");
 
   const totalAuditedWordsFormatted = totalWords > 1000 ? `${(totalWords / 1000).toFixed(1)}K` : `${totalWords}`;
-  const aiImpressionIndex = `~${Math.max(45, topPassages.length * 8 + 40)}.${(geoScore % 10)}K`;
-  const aiSearchVolume = `${(topPassages.length * 280 + 1300).toLocaleString()}`;
+  const aiImpressionIndex = "Not measured";
+  const aiSearchVolume = "Not measured";
 
   return {
     geoScore,
     overallCitabilityScore: geoScore,
-    activeSignalsCount: Math.max(4, activeSignals),
+    activeSignalsCount: activeSignals,
     aiVisibility,
     platformReadiness: {
       composite: platformComposite,
@@ -298,7 +249,8 @@ export function analyzeGeoCitability(
       clearValueProp: clearValueProp || Boolean(company.description),
       structuredListsCount,
       tablesCount,
-      totalAuditedPages: crawlPages.length || 1,
+      externalReferenceDomains: discoveredExternalDomains.size,
+      totalAuditedPages: crawlPages.length,
       totalAuditedWords: totalWords,
     },
     aggregateStats: {
