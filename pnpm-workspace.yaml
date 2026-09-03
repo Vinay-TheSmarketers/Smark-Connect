@@ -4,4 +4,5 @@ allowBuilds:
   esbuild: true
   prisma: true
   sharp: false
+  tesseract.js: true
   unrs-resolver: false

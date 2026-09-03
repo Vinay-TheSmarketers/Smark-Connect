@@ -12,6 +12,7 @@ import { runInstagramOpportunityPipeline } from "@/lib/instagram/discovery-pipel
 import { runXOpportunityPipeline } from "@/lib/x/discovery-pipeline";
 import { runCompetitorIntelligencePipeline } from "@/lib/competitors/pipeline";
 import { analyzeCompetitorLandscape } from "@/lib/competitors/analyzer";
+import { buildUploadedSourceEvidence } from "@/lib/sources/content";
 import { AGENT_DEFINITIONS, CORE_DOCUMENTS, getAgentDefinition, getInternalOperation, type CoreDocumentDefinition, type SkillRef } from "./registry";
 import { loadSkillPackWithManifest, type SkillExecutionStep } from "./loader";
 
@@ -550,6 +551,12 @@ export async function runCoreDocument(args: {
   researchTopics?: string[];
 }): Promise<{ analysis: SkillAnalysis; tokensUsed: number; execution: SkillExecutionManifest }> {
   if (!args.user.llmProvider || !args.user.llmApiKeyEnc || !args.user.llmModel) throw new Error("A verified AI provider is required.");
+  const uploadedSources = await db.chatAttachment.findMany({
+    where: { companyId: args.company.id, remembered: true },
+    orderBy: { createdAt: "desc" },
+    select: { title: true, sourceType: true, content: true },
+  });
+  const uploadedEvidence = buildUploadedSourceEvidence(uploadedSources, 72_000);
   const needsPublicDiscovery = ["COMPETITOR_ANALYSIS", "AUDIENCE_ANALYSIS", "GEO_AUDIT", "CONTENT_AUDIT"].includes(args.definition.type);
   const publicDiscovery = needsPublicDiscovery
     ? await discoverLiveResearch({ agentType: args.definition.agentType, companyName: args.company.name, websiteUrl: args.company.websiteUrl, topics: args.researchTopics ?? [] })
@@ -567,7 +574,7 @@ export async function runCoreDocument(args: {
     purpose: args.definition.purpose,
     instructions: args.definition.instructions,
     skills: args.definition.skills,
-    evidence: `${args.evidence}\n\n=== OPERATION-SPECIFIC PUBLIC DISCOVERY ===\n\n${discoveryEvidence}`,
+    evidence: `${args.evidence}\n\n=== UPLOADED SOURCE DOCUMENTS ===\n\n${uploadedEvidence || "No uploaded source documents are available."}\n\n=== OPERATION-SPECIFIC PUBLIC DISCOVERY ===\n\n${discoveryEvidence}`,
     outputKind: "document",
   });
   return args.definition.type === "COMPETITOR_ANALYSIS" ? { ...result, analysis: await enrichCompetitorAnalysis(result.analysis, args.company.websiteUrl) } : result;
@@ -582,7 +589,7 @@ export async function saveCoreAnalysis(args: {
   execution: SkillExecutionManifest;
 }) {
   const existing = await db.document.findUnique({ where: { companyId_type: { companyId: args.companyId, type: args.definition.type } } });
-  const research = await db.company.findUnique({ where: { id: args.companyId }, include: { crawlPages: { orderBy: { fetchedAt: "desc" }, take: 48 }, pageSpeedAudits: { orderBy: { createdAt: "desc" }, take: 2 } } });
+  const research = await db.company.findUnique({ where: { id: args.companyId }, include: { crawlPages: { orderBy: { fetchedAt: "desc" }, take: 48 }, pageSpeedAudits: { orderBy: { createdAt: "desc" }, take: 2 }, chatAttachments: { where: { remembered: true }, select: { title: true } } } });
   const contentMarkdown = research ? appendCompleteResearchAppendix(args.analysis.contentMarkdown, { companyName: research.name, websiteUrl: research.websiteUrl, pages: research.crawlPages, pageSpeed: research.pageSpeedAudits }) : args.analysis.contentMarkdown;
   const completeSources = Array.from(new Set([...(research?.crawlPages.map((page) => page.url) ?? []), ...args.analysis.findings.flatMap((finding) => finding.sourceUrls)]));
   const competitors = args.analysis.findings.filter((finding) => finding.companyName && finding.officialWebsite).map((finding) => ({ companyName: finding.companyName, officialWebsite: finding.officialWebsite, logoUrl: finding.logoUrl, positioning: finding.evidence, competitiveAttributes: finding.competitiveAttributes }));
@@ -592,8 +599,8 @@ export async function saveCoreAnalysis(args: {
     }
     await tx.document.upsert({
       where: { companyId_type: { companyId: args.companyId, type: args.definition.type } },
-      update: { title: args.definition.title, contentMarkdown, metadata: { sources: completeSources, pagesIncluded: research?.crawlPages.length ?? 0, fullResearchAppendix: true, generationMode: "live-skill-run", skillExecution: args.execution, competitors }, skillProvenance: args.definition.skills as unknown as Prisma.InputJsonValue, tokenEstimate: args.tokensUsed, version: { increment: 1 } },
-      create: { companyId: args.companyId, type: args.definition.type, title: args.definition.title, contentMarkdown, metadata: { sources: completeSources, pagesIncluded: research?.crawlPages.length ?? 0, fullResearchAppendix: true, generationMode: "live-skill-run", skillExecution: args.execution, competitors }, skillProvenance: args.definition.skills as unknown as Prisma.InputJsonValue, tokenEstimate: args.tokensUsed },
+      update: { title: args.definition.title, contentMarkdown, metadata: { sources: completeSources, uploadedSources: research?.chatAttachments.map((source) => source.title) ?? [], pagesIncluded: research?.crawlPages.length ?? 0, fullResearchAppendix: true, generationMode: "live-skill-run", skillExecution: args.execution, competitors }, skillProvenance: args.definition.skills as unknown as Prisma.InputJsonValue, tokenEstimate: args.tokensUsed, version: { increment: 1 } },
+      create: { companyId: args.companyId, type: args.definition.type, title: args.definition.title, contentMarkdown, metadata: { sources: completeSources, uploadedSources: research?.chatAttachments.map((source) => source.title) ?? [], pagesIncluded: research?.crawlPages.length ?? 0, fullResearchAppendix: true, generationMode: "live-skill-run", skillExecution: args.execution, competitors }, skillProvenance: args.definition.skills as unknown as Prisma.InputJsonValue, tokenEstimate: args.tokensUsed },
     });
     await tx.agentRun.create({ data: { companyId: args.companyId, agentType: args.definition.agentType, status: "DONE", summary: args.analysis.summary, output: args.analysis.findings as unknown as Prisma.InputJsonValue, sources: Array.from(new Set(args.analysis.findings.flatMap((finding) => finding.sourceUrls))) as unknown as Prisma.InputJsonValue, skills: { mapped: args.definition.skills, execution: args.execution } as unknown as Prisma.InputJsonValue, confidence: Math.round(args.analysis.findings.reduce((total, finding) => total + finding.confidence, 0) / Math.max(1, args.analysis.findings.length)), tokensUsed: args.tokensUsed, startedAt: new Date(), completedAt: new Date() } });
     if (args.definition.type === "SEO_AUDIT") {
@@ -608,7 +615,7 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
   if (!definition) throw new Error("This agent is not available.");
   const company = await db.company.findFirst({
     where: { id: args.companyId, userId: args.userId },
-    include: { user: true, documents: { where: { type: { in: CORE_DOCUMENTS.map((document) => document.type) } }, orderBy: { updatedAt: "desc" } }, crawlPages: { orderBy: { fetchedAt: "desc" }, take: 48 }, pageSpeedAudits: { orderBy: { createdAt: "desc" }, take: 2 } },
+    include: { user: true, documents: { where: { type: { in: CORE_DOCUMENTS.map((document) => document.type) } }, orderBy: { updatedAt: "desc" } }, crawlPages: { orderBy: { fetchedAt: "desc" }, take: 48 }, pageSpeedAudits: { orderBy: { createdAt: "desc" }, take: 2 }, chatAttachments: { where: { remembered: true }, orderBy: { createdAt: "desc" } } },
   });
   if (!company) throw new Error("Company not found.");
   if (company.user.demoMode) throw new Error("Demo Mode shows prepared agent results. Connect a real provider key to run a new analysis.");
@@ -621,7 +628,8 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
     const websiteEvidence = buildEvidencePack({ companyName: company.name, websiteUrl: company.websiteUrl, pages: company.crawlPages, pageSpeed: company.pageSpeedAudits }).slice(0, 72_000);
     const liveEvidence = liveItems.length ? liveItems.map((item) => `TIMESTAMPED PUBLIC-WEB DISCOVERY\nTITLE: ${item.title}\nURL: ${item.url}\nPUBLISHED: ${item.publishedAt ?? "not supplied by index"}\nDISCOVERY SOURCE: ${item.discoverySource}\nQUERY: ${item.query}\nEXCERPT: ${item.excerpt}`).join("\n\n---\n\n") : "No current public-web results were returned. Do not claim current platform activity.";
     const documentEvidence = company.documents.map((document) => `CORE COMPANY FOUNDATION: ${document.title}\n${document.contentMarkdown}`).join("\n\n===\n\n").slice(0, 35_000);
-    const evidence = `${websiteEvidence}\n\n=== CURRENT PUBLIC DISCOVERY ===\n\n${liveEvidence}\n\n=== SHARED COMPANY FOUNDATION ===\n\n${documentEvidence || "No generated foundation document is available; use only the website and public discovery evidence."}`;
+    const uploadedEvidence = buildUploadedSourceEvidence(company.chatAttachments, 60_000);
+    const evidence = `${websiteEvidence}\n\n=== CURRENT PUBLIC DISCOVERY ===\n\n${liveEvidence}\n\n=== UPLOADED SOURCE DOCUMENTS ===\n\n${uploadedEvidence || "No uploaded source documents are available."}\n\n=== SHARED COMPANY FOUNDATION ===\n\n${documentEvidence || "No generated foundation document is available; use only the website and public discovery evidence."}`;
     if (definition.type === "REDDIT") {
       const pipelineResult = await runRedditOpportunityPipeline({
         companyId: company.id,
@@ -975,11 +983,11 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
 }
 
 export async function runCmoSynthesis(args: { companyId: string; userId: string }): Promise<void> {
-  const company = await db.company.findFirst({ where: { id: args.companyId, userId: args.userId }, include: { user: true, documents: { where: { type: { in: CORE_DOCUMENTS.map((document) => document.type) } } } } });
+  const company = await db.company.findFirst({ where: { id: args.companyId, userId: args.userId }, include: { user: true, documents: { where: { type: { in: CORE_DOCUMENTS.map((document) => document.type) } } }, chatAttachments: { where: { remembered: true }, orderBy: { createdAt: "desc" } } } });
   if (!company || company.user.demoMode || !company.user.llmProvider || !company.user.llmApiKeyEnc || !company.user.llmModel || company.documents.length === 0) return;
   const operation = getInternalOperation("ai-cmo-synthesis");
   const skills = operation.skills;
-  const evidence = company.documents.map((document) => `${document.title}\n${document.contentMarkdown}`).join("\n\n===\n\n").slice(0, 90_000);
+  const evidence = `${company.documents.map((document) => `${document.title}\n${document.contentMarkdown}`).join("\n\n===\n\n").slice(0, 90_000)}\n\n=== UPLOADED SOURCE DOCUMENTS ===\n\n${buildUploadedSourceEvidence(company.chatAttachments, 70_000) || "No uploaded source documents are available."}`;
   const result = await completeAnalysis({ providerName: company.user.llmProvider, apiKeyEnc: company.user.llmApiKeyEnc, model: company.user.llmModel, companyName: company.name, websiteUrl: company.websiteUrl, title: "AI CMO Executive Analysis", purpose: "Synthesize the six core analyses into a detailed, sequenced executive marketing diagnosis.", instructions: `${operation.instructions} Do not create a seventh permanent document; return a feed-ready executive analysis.`, skills, evidence, outputKind: "agent", maxTokens: 2600 });
   await db.$transaction([
     db.agentRun.create({ data: { companyId: company.id, agentType: "AI_CMO", status: "DONE", summary: result.analysis.summary, output: result.analysis.findings as unknown as Prisma.InputJsonValue, sources: Array.from(new Set(result.analysis.findings.flatMap((finding) => finding.sourceUrls))) as unknown as Prisma.InputJsonValue, skills: { mapped: skills, execution: result.execution } as unknown as Prisma.InputJsonValue, confidence: Math.round(result.analysis.findings.reduce((total, finding) => total + finding.confidence, 0) / Math.max(1, result.analysis.findings.length)), tokensUsed: result.tokensUsed, startedAt: new Date(), completedAt: new Date() } }),

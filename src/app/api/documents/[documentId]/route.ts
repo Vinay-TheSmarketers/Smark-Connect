@@ -8,6 +8,7 @@ import { loadSkillPackWithManifest, type SkillExecutionStep } from "@/lib/skills
 import { getDocumentDefinition, getInternalOperation, mergeSkillChains } from "@/lib/skills/registry";
 import { appendCompleteResearchAppendix, estimateTokens } from "@/lib/skills/runner";
 import { unwrapStructuredText } from "@/lib/text-format";
+import { buildUploadedSourceEvidence } from "@/lib/sources/content";
 
 const actionSchema = z.object({ action: z.enum(["lock", "unlock"]) });
 const editSchema = z.object({ prompt: z.string().trim().min(3).max(4000), focused: z.boolean().default(true) });
@@ -18,7 +19,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ docum
   const body = await request.json().catch(() => null);
   const actionParsed = actionSchema.safeParse(body);
   const { documentId } = await context.params;
-  const document = await db.document.findFirst({ where: { id: documentId, company: { userId: user.id } }, include: { company: { include: { crawlPages: { orderBy: { fetchedAt: "desc" }, take: 48 }, pageSpeedAudits: { orderBy: { createdAt: "desc" }, take: 2 } } } } });
+  const document = await db.document.findFirst({ where: { id: documentId, company: { userId: user.id } }, include: { company: { include: { crawlPages: { orderBy: { fetchedAt: "desc" }, take: 48 }, pageSpeedAudits: { orderBy: { createdAt: "desc" }, take: 2 }, chatAttachments: { where: { remembered: true }, orderBy: { createdAt: "desc" } } } } } });
   if (!document) return Response.json({ error: "Document not found." }, { status: 404 });
 
   if (actionParsed.success) {
@@ -46,9 +47,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ docum
     executionSteps = skillPack.steps;
   }
   catch (error) { return Response.json({ error: error instanceof Error ? error.message : "The required skill chain could not be loaded." }, { status: 409 }); }
+  const uploadedEvidence = buildUploadedSourceEvidence(document.company.chatAttachments, 70_000);
   const evidence = editParsed.data.focused
-    ? `CURRENT DOCUMENT\n${document.contentMarkdown}`
-    : [`CURRENT DOCUMENT\n${document.contentMarkdown}`, ...document.company.crawlPages.map((page) => `SOURCE ${page.url}\n${page.content.slice(0, 6000)}`)].join("\n\n---\n\n").slice(0, 160_000);
+    ? `CURRENT DOCUMENT\n${document.contentMarkdown}\n\n=== UPLOADED SOURCE DOCUMENTS ===\n\n${uploadedEvidence || "No uploaded source documents are available."}`
+    : [`CURRENT DOCUMENT\n${document.contentMarkdown}`, uploadedEvidence ? `UPLOADED SOURCE DOCUMENTS\n${uploadedEvidence}` : "", ...document.company.crawlPages.map((page) => `SOURCE ${page.url}\n${page.content.slice(0, 6000)}`)].filter(Boolean).join("\n\n---\n\n").slice(0, 190_000);
   const system = `You are the document editor inside Smark Connect. Execute the numbered local skill chain in order, including the document's subject skills followed by the editing and source-quality skills. Preserve factual accuracy, source attribution, matrices, research appendix, and the existing structure. ${editParsed.data.focused ? "Make the smallest coherent change that satisfies the request. Keep every unrelated section unchanged and return the entire revised document, not only the changed passage." : "Regenerate the full report coherently using every supplied source."} Lead each section with its most important non-obvious finding. Cut filler and repeated findings, connect related findings across modules, and propose a visual only when the evidence contains a genuine comparison, sequence, trend, funnel, or impact/effort relationship. Use SEO, GEO, ICP, PESTEL, SWOT, ROI, KPI, CTR, CTA, AI, API, URL, and B2B in full capitals. Return Markdown only, beginning with one H1 title—never a JSON wrapper or a contentMarkdown field. Never invent metrics, rankings, customers, competitors, or citations.`;
   const prompt = `COMPANY: ${document.company.name}\nDOCUMENT: ${document.title}\nEDIT REQUEST: ${editParsed.data.prompt}\nEDIT MODE: ${editParsed.data.focused ? "focused patch" : "full regeneration"}\n\nREQUIRED ORDERED SKILL CHAIN\n${embeddedSkills}\n\nOPERATION RULES\n${definition.instructions}\n${editOperation.instructions}\n\n${evidence}`;
   try {

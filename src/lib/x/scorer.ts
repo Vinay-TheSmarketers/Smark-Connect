@@ -15,6 +15,7 @@ export type RawXCandidate = {
       | "competitor_analysis"
       | "product_feature"
       | "website_content"
+      | "uploaded_source"
       | "reddit_conversation"
       | "audience_pain"
       | "content_gap"

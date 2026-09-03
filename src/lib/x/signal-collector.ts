@@ -10,6 +10,7 @@ export type XCollectedSignal = {
     | "competitor_analysis"
     | "product_feature"
     | "website_content"
+    | "uploaded_source"
     | "reddit_conversation"
     | "audience_pain"
     | "content_gap"
@@ -138,6 +139,18 @@ export async function collectXSignals(
         });
       });
     }
+  });
+
+  const uploadedSources = await db.chatAttachment.findMany({
+    where: { companyId, remembered: true },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    select: { id: true, title: true, content: true },
+  });
+  uploadedSources.forEach((source) => {
+    const evidence = source.content.replace(/[#*_`>\[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 260);
+    if (!evidence) return;
+    signals.push({ id: `x_sig_upload_${source.id}`, source: "uploaded_source", topic: source.title.replace(/\.[^.]+$/, ""), evidence, relevanceConfidence: 97, suggestedAngle: "source_led", opportunityType: "INSIGHT" });
   });
 
   // 3. Ingest Reddit Customer Conversations if available

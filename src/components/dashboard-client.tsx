@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Clock3, Copy, ExternalLink, FileText, Globe2, GripVertical, HelpCircle, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, Monitor, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Smartphone, Sparkles, XCircle, Zap, X as CloseIcon } from "lucide-react";
+import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Clock3, Copy, ExternalLink, FileText, Globe2, GripVertical, HelpCircle, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, Monitor, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Smartphone, Sparkles, Trash2, UploadCloud, XCircle, Zap, X as CloseIcon } from "lucide-react";
 import { StreamingTerminal, type TerminalLog } from "./streaming-terminal";
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS, getDocumentDefinition } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
@@ -31,6 +31,7 @@ import { extractContextCompetitorsFromAgentOutput, selectContextCompetitors } fr
 type FindingKind = "current_status" | "previous_post" | "new_post" | "comment_opportunity" | "audience_signal" | "insight";
 type Finding = { title?: string; evidence?: string; impact?: string; action?: string; description?: string; kind?: FindingKind; platform?: string; sourceLabel?: string; publishedAt?: string; draftContent?: string; recommendedResponse?: string; tags?: string[]; priority?: string; confidence?: number; sourceUrls?: string[]; companyName?: string; officialWebsite?: string; logoUrl?: string; competitiveAttributes?: string[] };
 type AgentItem = { id: string; agentType: string; status: string; summary: string | null; output: unknown; sources: unknown; skills: unknown; confidence: number | null; tokensUsed: number; error: string | null; createdAt: string };
+type AnalysisSource = { id: string; title: string; sourceType: string; characterCount: number; createdAt: string };
 type DashboardData = {
   company: { id: string; name: string; websiteUrl: string; logoUrl: string | null; category: string | null; description?: string | null; companyContext: { overview: string; signals: Array<{ label: string; text: string }>; evidenceLabel: string }; lastAuditedAt: string | null };
   companies: Array<{ id: string; name: string; websiteUrl: string; logoUrl: string | null; status: string }>;
@@ -42,7 +43,10 @@ type DashboardData = {
   analysis: { jobId: string; status: string; progress: number; step: string } | null;
   integrations: Array<{ provider: string; status: string; connectedAt: string | null }>;
   agentConfigs: Array<{ agentType: string; config: unknown }>;
+  sources: AnalysisSource[];
 };
+
+const SOURCE_FILE_ACCEPT = ".pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.rtf,.epub,.md,.markdown,.txt,.csv,.tsv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.sql,.js,.jsx,.ts,.tsx,.py,.java,.css";
 
 function safeHostname(url: string | null | undefined): string {
   if (!url) return "website";
@@ -546,6 +550,52 @@ function GenericAgentFindingCard({
   );
 }
 
+function SourceDrawer({ companyName, sources, uploading, dragActive, error, inputRef, onClose, onFiles, onDragActive, onRemove }: {
+  companyName: string;
+  sources: AnalysisSource[];
+  uploading: boolean;
+  dragActive: boolean;
+  error: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onClose: () => void;
+  onFiles: (files: FileList | File[]) => void;
+  onDragActive: (active: boolean) => void;
+  onRemove: (source: AnalysisSource) => void;
+}) {
+  return <div className="drawer-backdrop source-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !uploading) onClose(); }}>
+    <section className="source-drawer" role="dialog" aria-modal="true" aria-labelledby="source-drawer-title">
+      <header>
+        <div><p className="eyebrow">ANALYSIS EVIDENCE</p><h2 id="source-drawer-title">Source documents</h2><span>Every uploaded source is read and included in future reports, AI CMO answers, and specialist agent work.</span></div>
+        <button type="button" onClick={onClose} disabled={uploading} aria-label="Close source documents"><CloseIcon size={18} /></button>
+      </header>
+      <div
+        className={`source-drop-zone ${dragActive ? "drag-active" : ""}`}
+        onDragEnter={(event) => { event.preventDefault(); onDragActive(true); }}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) onDragActive(false); }}
+        onDrop={(event) => { event.preventDefault(); onFiles(event.dataTransfer.files); }}
+      >
+        <input ref={inputRef} type="file" multiple accept={SOURCE_FILE_ACCEPT} onChange={(event) => { if (event.target.files) onFiles(event.target.files); }} />
+        <UploadCloud size={24} aria-hidden="true" />
+        <strong>{uploading ? "Reading your documents…" : "Drop source documents here"}</strong>
+        <span>or</span>
+        <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}>{uploading ? <RefreshCw className="spin" size={14} /> : <Plus size={14} />} Choose files</button>
+        <small>PDF, DOCX, PPTX, XLSX, Markdown, text, CSV, JSON, HTML, OpenDocument and more · 15 MB each</small>
+      </div>
+      {error && <p className="source-error" role="alert"><AlertTriangle size={14} />{error}</p>}
+      <div className="source-list-heading"><div><strong>Included in analysis</strong><span>{sources.length} {sources.length === 1 ? "document" : "documents"}</span></div>{sources.length > 0 && <small>New agent runs and reports use these automatically.</small>}</div>
+      <div className="source-list">
+        {sources.length ? sources.map((source) => <article key={source.id}>
+          <span className="source-file-icon"><FileText size={16} /></span>
+          <div><strong title={source.title}>{source.title}</strong><small>{source.sourceType.toUpperCase()} · {source.characterCount.toLocaleString()} characters · Added {new Date(source.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</small></div>
+          <button type="button" onClick={() => onRemove(source)} disabled={uploading} aria-label={`Remove ${source.title}`} title="Remove from future analysis"><Trash2 size={14} /></button>
+        </article>) : <div className="source-empty"><FileText size={22} /><strong>No uploaded sources yet</strong><p>Add briefs, research, proposals, reports, spreadsheets, or other supporting documents.</p></div>}
+      </div>
+      <footer><CheckCircle2 size={14} /><span>Stored sources are private to {companyName} and its analysis workspace.</span></footer>
+    </section>
+  </div>;
+}
+
 export function DashboardClient({ data }: { data: DashboardData }) {
   const router = useRouter();
   const workspaceRef = useRef<HTMLElement>(null);
@@ -565,6 +615,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [runningAgent, setRunningAgent] = useState<string | null>(null);
   const [generatingDocument, setGeneratingDocument] = useState<string | null>(null);
   const [showReportsCatalog, setShowReportsCatalog] = useState(false);
+  const [showSources, setShowSources] = useState(false);
+  const [sources, setSources] = useState(data.sources);
+  const [sourceUploading, setSourceUploading] = useState(false);
+  const [sourceDragActive, setSourceDragActive] = useState(false);
+  const [sourceError, setSourceError] = useState("");
+  const sourceInputRef = useRef<HTMLInputElement>(null);
   const [catalogCategory, setCatalogCategory] = useState<string>("all");
   const [agentError, setAgentError] = useState("");
   const [completedOpportunities, setCompletedOpportunities] = useState(() => new Set(savedOpportunityKeys(data.agentConfigs)));
@@ -623,6 +679,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     setDocuments(data.documents);
     setSelectedDocument((current) => current ? data.documents.find((document) => document.id === current.id) ?? current : null);
   }, [data.documents]);
+
+  useEffect(() => setSources(data.sources), [data.sources]);
 
   useEffect(() => {
     if (!analysisRunning) return;
@@ -766,6 +824,46 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     } finally { setChatPending(false); }
   }
 
+  async function uploadSourceFiles(fileList: FileList | File[]) {
+    const files = Array.from(fileList);
+    if (!files.length || sourceUploading) return;
+    setSourceUploading(true);
+    setSourceError("");
+    const formData = new FormData();
+    formData.set("companyId", data.company.id);
+    files.forEach((file) => formData.append("files", file));
+    appendLog("info", "SOURCE_READ", `Reading ${files.length} source document${files.length === 1 ? "" : "s"} for company analysis...`);
+    try {
+      const response = await fetch("/api/sources", { method: "POST", body: formData });
+      const result = await response.json() as { sources?: AnalysisSource[]; error?: string };
+      if (!response.ok || !result.sources) throw new Error(result.error ?? "The source documents could not be added.");
+      setSources((current) => [...result.sources!, ...current]);
+      appendLog("success", "SOURCE_READY", `${result.sources.length} source document${result.sources.length === 1 ? " is" : "s are"} now included in reports and agent work.`);
+      router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The source documents could not be added.";
+      setSourceError(message);
+      appendLog("error", "SOURCE_ERR", message);
+    } finally {
+      setSourceUploading(false);
+      setSourceDragActive(false);
+      if (sourceInputRef.current) sourceInputRef.current.value = "";
+    }
+  }
+
+  async function removeSource(source: AnalysisSource) {
+    setSourceError("");
+    try {
+      const response = await fetch(`/api/sources/${source.id}`, { method: "DELETE" });
+      const result = await response.json() as { removed?: boolean; error?: string };
+      if (!response.ok || !result.removed) throw new Error(result.error ?? "The source document could not be removed.");
+      setSources((current) => current.filter((item) => item.id !== source.id));
+      appendLog("warn", "SOURCE_REMOVED", `${source.title} is no longer included in future analysis.`);
+    } catch (error) {
+      setSourceError(error instanceof Error ? error.message : "The source document could not be removed.");
+    }
+  }
+
   function appendLog(level: "info" | "success" | "interrupt" | "p0" | "warn" | "error", tag: string, message: string) {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false });
     setTerminalLogs((prev) => [
@@ -867,7 +965,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         connectionSummary={<ConnectionStrip data={data} />}
       />
 
-      <nav className="dashboard-actions"><Link href={`/dashboard/${data.company.id}/reporting`}>Reporting</Link><Link href="/settings/credits" aria-label="Settings"><Settings size={16} /></Link><span className="avatar-small">{(data.user.name ?? data.user.email).slice(0, 2).toUpperCase()}</span><LogoutButton /></nav>
+      <nav className="dashboard-actions"><Link href={`/dashboard/${data.company.id}/reporting`}>Reporting</Link><button type="button" className="topbar-source-button" onClick={() => setShowSources(true)} aria-label={`Add source documents. ${sources.length} currently included`} title="Add source documents"><Plus size={16} /><span>Sources</span>{sources.length > 0 && <em>{sources.length}</em>}</button><Link href="/settings/credits" aria-label="Settings"><Settings size={16} /></Link><span className="avatar-small">{(data.user.name ?? data.user.email).slice(0, 2).toUpperCase()}</span><LogoutButton /></nav>
     </header>
 
     <section className="dashboard-grid" ref={workspaceRef} style={gridStyle}>
@@ -1266,10 +1364,11 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         {paneResizer("agents")}
       </section>
 
-      <aside className="chat-pane pane" {...paneProps("chat")}><div className="pane-header"><span><MessageCircle size={15} /><span className="pane-title-text">AI CMO</span></span>{paneControls("chat")}</div><div className="chat-hero"><span className="agent-icon agent-ai_cmo"><Bot size={16} /></span><div><strong>Your AI CMO</strong><small>Grounded in {documents.length} documents and {data.pagesRead} sources</small></div></div><div className="chat-messages">{messages.map((message, index) => <div className={`chat-message ${message.role}`} key={index}>{message.role === "assistant" && <span className="chat-role"><Sparkles size={13} /> CMO</span>}<ReactMarkdown>{message.content}</ReactMarkdown></div>)}{chatPending && <div className="chat-message assistant typing"><span /><span /><span /></div>}</div><form className="chat-composer" onSubmit={sendMessage}><textarea name="message" rows={3} placeholder="Ask me anything…" required /><div><button type="button" className="attach-button" aria-label="Attach client context"><Paperclip size={16} /></button><span>Uses your company evidence</span><button className="send-button" type="submit" disabled={chatPending}><Send size={14} /></button></div></form>{paneResizer("chat")}</aside>
+      <aside className="chat-pane pane" {...paneProps("chat")}><div className="pane-header"><span><MessageCircle size={15} /><span className="pane-title-text">AI CMO</span></span>{paneControls("chat")}</div><div className="chat-hero"><span className="agent-icon agent-ai_cmo"><Bot size={16} /></span><div><strong>Your AI CMO</strong><small>Grounded in {documents.length} reports, {data.pagesRead} web sources and {sources.length} uploaded {sources.length === 1 ? "source" : "sources"}</small></div></div><div className="chat-messages">{messages.map((message, index) => <div className={`chat-message ${message.role}`} key={index}>{message.role === "assistant" && <span className="chat-role"><Sparkles size={13} /> CMO</span>}<ReactMarkdown>{message.content}</ReactMarkdown></div>)}{chatPending && <div className="chat-message assistant typing"><span /><span /><span /></div>}</div><form className="chat-composer" onSubmit={sendMessage}><textarea name="message" rows={3} placeholder="Ask me anything…" required /><div><button type="button" className="attach-button" aria-label="Add source documents" title="Add source documents" onClick={() => setShowSources(true)}><Paperclip size={16} /></button><span>Uses reports and uploaded sources</span><button className="send-button" type="submit" disabled={chatPending}><Send size={14} /></button></div></form>{paneResizer("chat")}</aside>
     </section>
 
     {selectedDocument && <DocumentWorkspace key={`${selectedDocument.id}-${selectedDocument.version}`} document={selectedDocument} onClose={() => setSelectedDocument(null)} onUpdate={updateDocument} />}
+    {showSources && <SourceDrawer companyName={data.company.name} sources={sources} uploading={sourceUploading} dragActive={sourceDragActive} error={sourceError} inputRef={sourceInputRef} onClose={() => setShowSources(false)} onFiles={(files) => void uploadSourceFiles(files)} onDragActive={setSourceDragActive} onRemove={(source) => void removeSource(source)} />}
     {agentTray && <div className="drawer-backdrop agent-tray-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setAgentTray(false); }}><section className="agent-tray"><header><div><p className="eyebrow">SKILL-GOVERNED SPECIALISTS</p><h2>Add an agent</h2><span>Every agent executes a validated sequence of local skill files before returning output.</span></div><button onClick={() => setAgentTray(false)}>×</button></header><div>{AGENT_DEFINITIONS.filter((agent) => agent.optional).map((agent) => <article key={agent.type}><AgentLogo type={agent.type} fallback="✦" /><div><strong>{agent.label}</strong><p>{agent.description}</p><SkillChainPreview skills={agent.skills} /></div><button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(agent.type)}>{runningAgent === agent.type ? <RefreshCw className="spin" size={13} /> : <Sparkles size={13} />}{runningAgent === agent.type ? "Running" : "Run analysis"}</button></article>)}</div>{agentError && <p className="form-error">{agentError}</p>}</section></div>}
     {showReportsCatalog && (
       <div className="drawer-backdrop reports-catalog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowReportsCatalog(false); }}>

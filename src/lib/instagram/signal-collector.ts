@@ -10,6 +10,7 @@ export type CollectedSignal = {
     | "reddit_discussion"
     | "competitor_whitespace"
     | "product_feature"
+    | "uploaded_source"
     | "marketing_ideas"
     | "customer_faq";
   topic: string;
@@ -96,6 +97,18 @@ export async function collectInstagramSignals(
         });
       });
     }
+  });
+
+  const uploadedSources = await db.chatAttachment.findMany({
+    where: { companyId, remembered: true },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    select: { id: true, title: true, content: true },
+  });
+  uploadedSources.forEach((source) => {
+    const evidence = source.content.replace(/[#*_`>\[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 260);
+    if (!evidence) return;
+    signals.push({ id: `sig_upload_${source.id}`, source: "uploaded_source", topic: source.title.replace(/\.[^.]+$/, ""), evidence, relevanceConfidence: 97, suggestedAngle: "source_led" });
   });
 
   // 3. Extract signals from latest Reddit agent runs if available

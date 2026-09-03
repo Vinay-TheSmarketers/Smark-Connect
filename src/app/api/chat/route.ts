@@ -5,6 +5,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { getProvider } from "@/lib/llm";
 import { loadSkillPack } from "@/lib/skills/loader";
 import { getInternalOperation } from "@/lib/skills/registry";
+import { buildUploadedSourceEvidence } from "@/lib/sources/content";
 
 const schema = z.object({ companyId: z.string().min(1), sessionId: z.string().optional(), message: z.string().trim().min(1).max(5000) });
 
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
       documents: true,
       crawlPages: { orderBy: { fetchedAt: "desc" }, take: 12 },
       agentRuns: { where: { status: "DONE" }, orderBy: { createdAt: "desc" }, take: 10 },
-      chatAttachments: { where: { remembered: true }, take: 6 },
+      chatAttachments: { where: { remembered: true }, orderBy: { createdAt: "desc" } },
     },
   });
   if (!company) return Response.json({ error: "Company not found." }, { status: 404 });
@@ -38,11 +39,11 @@ export async function POST(request: Request) {
 
   const context = [
     `Company: ${company.name}\nWebsite: ${company.websiteUrl}\nDescription: ${company.description ?? ""}\nCategory: ${company.category ?? "Technology / Growth"}`,
+    buildUploadedSourceEvidence(company.chatAttachments, 60_000),
     recentPages ? `LATEST CRAWLED PAGES, NEWS & BLOG UPDATES:\n${recentPages}` : "",
-    ...company.documents.map((document) => `DOCUMENT — ${document.title}\n${document.contentMarkdown}`),
-    ...company.agentRuns.map((run) => `AGENT SIGNALS & OPPORTUNITIES — ${run.agentType}\n${JSON.stringify(run.output)}`),
-    ...company.chatAttachments.map((attachment) => `REMEMBERED ATTACHMENT — ${attachment.title}\n${attachment.content}`),
-  ].filter(Boolean).join("\n\n---\n\n").slice(0, 70_000);
+    company.documents.map((document) => `DOCUMENT — ${document.title}\n${document.contentMarkdown}`).join("\n\n").slice(0, 55_000),
+    company.agentRuns.map((run) => `AGENT SIGNALS & OPPORTUNITIES — ${run.agentType}\n${JSON.stringify(run.output)}`).join("\n\n").slice(0, 30_000),
+  ].filter(Boolean).join("\n\n---\n\n").slice(0, 150_000);
 
   const history = session.messages.slice(-10).map((message) => ({ role: message.role === "assistant" ? "assistant" as const : "user" as const, content: message.content }));
   try {

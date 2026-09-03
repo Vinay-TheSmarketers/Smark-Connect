@@ -133,7 +133,7 @@ export type InstagramOpportunity = {
   targetAudience: string;
   targetPainPoint: string;
   signalOrigin: {
-    source: "website_content" | "seo_geo" | "reddit_discussion" | "competitor_whitespace" | "product_feature" | "marketing_ideas" | "customer_faq";
+    source: "website_content" | "seo_geo" | "reddit_discussion" | "competitor_whitespace" | "product_feature" | "uploaded_source" | "marketing_ideas" | "customer_faq";
     description: string;
     evidenceSnippet?: string;
     sourceUrl?: string;

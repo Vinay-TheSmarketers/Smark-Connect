@@ -59,6 +59,10 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
         orderBy: { wordCount: "desc" },
         take: 24,
       },
+      chatAttachments: {
+        where: { remembered: true },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 
@@ -67,10 +71,11 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
   }
 
   const docMap = new Map(company.documents.map((d) => [d.type, d.contentMarkdown]));
-  const companyIntel = docMap.get("COMPANY_INTELLIGENCE") || "";
-  const productInfo = docMap.get("PRODUCT_INFO") || "";
-  const audienceDoc = docMap.get("AUDIENCE_ANALYSIS") || "";
-  const strategyDoc = docMap.get("MARKETING_STRATEGY") || "";
+  const uploadedSourceText = company.chatAttachments.map((source) => `# ${source.title}\n\n${source.content}`).join("\n\n").slice(0, 80_000);
+  const companyIntel = `${docMap.get("COMPANY_INTELLIGENCE") || ""}\n\n${uploadedSourceText}`;
+  const productInfo = `${docMap.get("PRODUCT_INFO") || ""}\n\n${uploadedSourceText}`;
+  const audienceDoc = `${docMap.get("AUDIENCE_ANALYSIS") || ""}\n\n${uploadedSourceText}`;
+  const strategyDoc = `${docMap.get("MARKETING_STRATEGY") || ""}\n\n${uploadedSourceText}`;
 
   const companyName = company.name || "Company";
   const websiteUrl = company.websiteUrl || "";
