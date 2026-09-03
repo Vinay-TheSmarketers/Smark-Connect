@@ -1,7 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
+vi.mock("server-only", () => ({}));
 import { generateRedditSearchMap } from "./search-map";
 import { runDeterministicPreFilter } from "./pre-filter";
 import { evaluateRedditOpportunity } from "./scorer";
+import { discoverRedditCandidates, hasVerifiedRedditIdentity } from "./fetcher";
+import { isVerifiedRedditOpportunityIdentity, qualifyRedditOpportunities } from "./qualifier";
+import { extractLabeledOfferStack } from "../competitors/company-profiler";
 import { generateRedditReplyVariants } from "./writer";
 import { clusterSignals, type MarketSignal } from "../signals/store";
 import type { CompanyMemory } from "./company-memory";
@@ -56,7 +60,84 @@ const mockMemory: CompanyMemory = {
   },
 };
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("Reddit Continuous Opportunity Discovery System", () => {
+  it("keeps an empty verified discovery empty instead of manufacturing opportunities", () => {
+    expect(qualifyRedditOpportunities([])).toEqual([]);
+    expect(isVerifiedRedditOpportunityIdentity({
+      id: "reddit-rec-acme",
+      sourceUrl: "https://www.reddit.com/r/SaaS/comments/eval_tool_fake/recommend_tools/",
+      verified: true,
+    })).toBe(false);
+  });
+
+  it("keeps Reddit JSON metrics exactly as supplied and never invents engagement", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("search.json")) {
+        return Response.json({
+          data: {
+            children: [{
+              data: {
+                id: "abc123",
+                title: "Recommend an SAP S/4HANA migration partner",
+                selftext: "We need help with an SAP implementation and S/4HANA migration.",
+                permalink: "/r/SAP/comments/abc123/recommend_an_sap_partner/",
+                subreddit_name_prefixed: "r/SAP",
+                author: "enterprise_buyer",
+                created_utc: 1_788_220_800,
+                ups: 0,
+                num_comments: 0,
+              },
+            }],
+          },
+        });
+      }
+      return new Response("<rss></rss>", { status: 200, headers: { "Content-Type": "application/xml" } });
+    }));
+
+    const candidates = await discoverRedditCandidates([{
+      id: "test-query",
+      query: "SAP S/4HANA migration partner",
+      family: "recommendation_buying",
+      label: "SAP migration partner",
+      priority: "high",
+      expectedIntent: "RECOMMENDATION_REQUEST",
+    }], []);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toEqual(expect.objectContaining({
+      id: "abc123",
+      score: 0,
+      numComments: 0,
+      verified: true,
+      discoverySource: "Reddit public JSON API",
+    }));
+  });
+
+  it("drops Reddit-looking indexed URLs whose post identity cannot be verified", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("search.json")) return Response.json({ data: { children: [] } });
+      const fakeFeed = `<entry><title>Looking for recommendations</title><link href="https://www.reddit.com/r/SaaS/comments/eval_tool_fake/recommend_tools/"/><updated>2026-09-01T00:00:00Z</updated><content>Need a modern platform</content></entry>`;
+      return new Response(fakeFeed, { status: 200, headers: { "Content-Type": "application/xml" } });
+    }));
+
+    const candidates = await discoverRedditCandidates([{
+      id: "test-query",
+      query: "recommend a tool",
+      family: "recommendation_buying",
+      label: "Recommend a tool",
+      priority: "high",
+      expectedIntent: "RECOMMENDATION_REQUEST",
+    }], []);
+
+    expect(candidates).toEqual([]);
+  });
+
   it("generates a dynamic Search Map containing all 7 query families", () => {
     const searchMap = generateRedditSearchMap(mockMemory);
 
@@ -71,11 +152,50 @@ describe("Reddit Continuous Opportunity Discovery System", () => {
     expect(searchMap.prioritySubreddits).toContain("r/SEO");
   });
 
+  it("routes SAP companies to SAP communities instead of generic web development", () => {
+    const sapMemory: CompanyMemory = {
+      ...mockMemory,
+      companyName: "Praeemineo",
+      category: "SAP Consulting & Enterprise Transformation",
+      description: "SAP implementation, S/4HANA migration, upgrades, optimization, and managed services.",
+      productsAndServices: ["SAP implementation", "S/4HANA migration", "SAP managed services"],
+      featuresAndCapabilities: ["SAP optimization", "ERP transformation"],
+      primaryKeywords: ["sap implementation", "s/4hana migration"],
+      secondaryKeywords: ["sap managed services"],
+    };
+
+    const searchMap = generateRedditSearchMap(sapMemory);
+    expect(searchMap.prioritySubreddits).toContain("r/SAP");
+    expect(searchMap.prioritySubreddits).toContain("r/ERP");
+    expect(searchMap.prioritySubreddits).not.toContain("r/webdev");
+  });
+
+  it("extracts evidence-backed service offers from company intelligence tables", () => {
+    const markdown = `| Element | Evidence |\n|---|---|\n| **Core Offer** | ABM, Inbound Marketing, Marketing Automation, SEO/AEO/GEO, RevOps, HubSpot services – homepage & service links |`;
+    expect(extractLabeledOfferStack(markdown)).toEqual([
+      "ABM",
+      "Inbound Marketing",
+      "Marketing Automation",
+      "SEO/AEO/GEO",
+      "RevOps",
+      "HubSpot services",
+    ]);
+  });
+
+  it("uses service-buyer language for agencies instead of pretending they are software tools", () => {
+    const searchMap = generateRedditSearchMap(mockMemory);
+    const directQueries = searchMap.queryFamilies.direct_product.map((query) => query.query.toLowerCase());
+    const recommendationQueries = searchMap.queryFamilies.recommendation_buying.map((query) => query.query.toLowerCase());
+    expect(directQueries).toContain("full-funnel demand generation agency");
+    expect(recommendationQueries).toContain("who should i hire for full-funnel demand generation");
+    expect([...directQueries, ...recommendationQueries].every((query) => !query.includes(" software"))).toBe(true);
+  });
+
   it("filters out promotional spam, duplicates, and processed opportunities deterministically", () => {
     const rawCandidates = [
       {
-        id: "cand-1",
-        url: "https://reddit.com/r/SEO/comments/123/good_tool",
+        id: "abc123",
+        url: "https://reddit.com/r/SEO/comments/abc123/good_tool",
         subreddit: "r/SEO",
         title: "Looking for best automated client SEO reporting tool for agency",
         excerpt: "We spend 5 hours per client on manual SEO audits. Any good tools?",
@@ -86,11 +206,12 @@ describe("Reddit Continuous Opportunity Discovery System", () => {
         query: "best SEO audit tool",
         queryFamily: "direct_product",
         discoverySource: "Reddit RSS",
+        verified: true,
       },
       {
         // Duplicate URL
-        id: "cand-2",
-        url: "https://reddit.com/r/SEO/comments/123/good_tool",
+        id: "abc123",
+        url: "https://reddit.com/r/SEO/comments/abc123/good_tool",
         subreddit: "r/SEO",
         title: "Looking for best automated client SEO reporting tool for agency",
         excerpt: "We spend 5 hours per client on manual SEO audits. Any good tools?",
@@ -101,11 +222,12 @@ describe("Reddit Continuous Opportunity Discovery System", () => {
         query: "best SEO audit tool",
         queryFamily: "direct_product",
         discoverySource: "Reddit RSS",
+        verified: true,
       },
       {
         // Promotional spam
-        id: "cand-3",
-        url: "https://reddit.com/r/SEO/comments/456/spam",
+        id: "def456",
+        url: "https://reddit.com/r/SEO/comments/def456/spam",
         subreddit: "r/SEO",
         title: "Use my discount code for cheap backlinks now!",
         excerpt: "Get 50% discount code with affiliate link dm me for price",
@@ -116,6 +238,7 @@ describe("Reddit Continuous Opportunity Discovery System", () => {
         query: "SEO audit tool",
         queryFamily: "direct_product",
         discoverySource: "Reddit RSS",
+        verified: true,
       },
     ];
 
@@ -123,7 +246,80 @@ describe("Reddit Continuous Opportunity Discovery System", () => {
     const filtered = runDeterministicPreFilter(rawCandidates, mockMemory, processedIds);
 
     expect(filtered.length).toBe(1);
-    expect(filtered[0].id).toBe("cand-1");
+    expect(filtered[0].id).toBe("abc123");
+  });
+
+  it("rejects invented Reddit identities and unrelated verified threads", () => {
+    const invented = {
+      id: "reddit-rec-acme",
+      url: "https://www.reddit.com/r/SEO/comments/eval_tool_fake/recommend_tools/",
+      verified: true,
+    };
+    expect(hasVerifiedRedditIdentity(invented)).toBe(false);
+
+    const unrelated = [{
+      id: "xyz789",
+      url: "https://www.reddit.com/r/webdev/comments/xyz789/javascript_local_environment/",
+      subreddit: "r/webdev",
+      title: "Best practices for a JavaScript local development environment",
+      excerpt: "How are frontend developers configuring package managers and local servers?",
+      author: "developer",
+      publishedAt: new Date().toISOString(),
+      score: 20,
+      numComments: 12,
+      query: "software workflow",
+      queryFamily: "direct_product",
+      discoverySource: "Reddit public JSON API",
+      verified: true,
+    }];
+    expect(runDeterministicPreFilter(unrelated, mockMemory, new Set())).toEqual([]);
+  });
+
+  it("keeps a slightly relevant real thread as a low-score monitoring opportunity", () => {
+    const candidate = {
+      id: "abm789",
+      url: "https://www.reddit.com/r/marketing/comments/abm789/enterprise_abm_advice/",
+      subreddit: "r/marketing",
+      title: "Has anyone here tried ABM recently?",
+      excerpt: "Curious about practitioner experiences and lessons.",
+      author: "b2b_marketer",
+      publishedAt: new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString(),
+      score: null,
+      numComments: null,
+      query: "ABM agency",
+      queryFamily: "broader_icp",
+      discoverySource: "Reddit public RSS search feed",
+      verified: true,
+    };
+    const filtered = runDeterministicPreFilter([candidate], mockMemory, new Set());
+    expect(filtered).toHaveLength(1);
+    const evaluated = evaluateRedditOpportunity(filtered[0], mockMemory);
+    expect(evaluated.score.total).toBeLessThan(65);
+    expect(evaluated.recommendedAction).toBe("MONITOR");
+    expect(qualifyRedditOpportunities([evaluated])).toHaveLength(1);
+  });
+
+  it("does not inflate generic marketing hiring discussions into buying intent", () => {
+    const candidate = {
+      id: "hire789",
+      url: "https://www.reddit.com/r/marketing/comments/hire789/recruiter_marketing_ama/",
+      subreddit: "r/marketing",
+      title: "Recruiter AMA about marketing candidates and hiring teams",
+      excerpt: "Ask about resumes, interviews, careers, or how internal hiring decisions get made.",
+      author: "marketing_recruiter",
+      publishedAt: new Date(Date.now() - 150 * 24 * 60 * 60 * 1000).toISOString(),
+      score: null,
+      numComments: null,
+      query: "B2B marketing agency",
+      queryFamily: "broader_icp",
+      discoverySource: "Reddit public RSS search feed",
+      verified: true,
+      passedPreFilter: true as const,
+    };
+    const evaluated = evaluateRedditOpportunity(candidate, mockMemory);
+    expect(evaluated.intent).toBe("CONTENT_SIGNAL");
+    expect(evaluated.score.total).toBeLessThan(65);
+    expect(evaluated.recommendedAction).toBe("MONITOR");
   });
 
   it("calculates explainable 8-factor score and classifies intent correctly", () => {
@@ -140,6 +336,7 @@ describe("Reddit Continuous Opportunity Discovery System", () => {
       query: "recommend an SEO tool",
       queryFamily: "recommendation_buying",
       discoverySource: "Reddit JSON",
+      verified: true,
       passedPreFilter: true as const,
     };
 
@@ -168,6 +365,7 @@ describe("Reddit Continuous Opportunity Discovery System", () => {
       query: "recommend an SEO tool",
       queryFamily: "recommendation_buying",
       discoverySource: "Reddit JSON",
+      verified: true,
       passedPreFilter: true as const,
     };
 

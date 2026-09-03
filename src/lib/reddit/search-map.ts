@@ -46,7 +46,13 @@ export function inferPrioritySubreddits(memory: CompanyMemory, customSubreddits?
   const matchedSubs = new Set<string>();
 
   // Domain-specific subreddit clusters
-  if (/developer|code|api|sdk|react|nextjs|javascript|python|software|backend|frontend|devops|cloud|hosting|server|infrastructure/i.test(textToScan)) {
+  if (/\bsap\b|s\/4hana|enterprise resource planning|\berp\b|business transformation/i.test(textToScan)) {
+    ["r/SAP", "r/ERP", "r/consulting", "r/ITManagers"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/agency|marketing|growth|content|social media|advertising|ppc|copywriting/i.test(textToScan)) {
+    ["r/marketing", "r/agency", "r/digitalmarketing", "r/GrowthHacking", "r/PPC"].forEach((s) => matchedSubs.add(s));
+  }
+  if (/developer|coding|\bapi\b|\bsdk\b|react|nextjs|javascript|python|backend|frontend|devops|cloud hosting|server infrastructure/i.test(textToScan)) {
     ["r/webdev", "r/programming", "r/devops", "r/softwareengineering", "r/reactjs", "r/nextjs", "r/javascript", "r/cloud"].forEach((s) => matchedSubs.add(s));
   }
   if (/ai|artificial intelligence|machine learning|llm|gpt|openai|rag|models|deep learning|nlp|agents/i.test(textToScan)) {
@@ -72,9 +78,6 @@ export function inferPrioritySubreddits(memory: CompanyMemory, customSubreddits?
   }
   if (/seo|search engine|backlinks|keyword|organic traffic|rankings|technical seo|serp/i.test(textToScan)) {
     ["r/SEO", "r/bigseo", "r/TechSEO", "r/digitalmarketing", "r/marketing"].forEach((s) => matchedSubs.add(s));
-  }
-  if (/agency|marketing|growth|content|social media|advertising|ppc|copywriting/i.test(textToScan)) {
-    ["r/marketing", "r/agency", "r/digitalmarketing", "r/GrowthHacking", "r/PPC"].forEach((s) => matchedSubs.add(s));
   }
   if (/hr|recruiting|hiring|talent|employees|payroll|staffing|job/i.test(textToScan)) {
     ["r/humanresources", "r/recruiting", "r/jobs"].forEach((s) => matchedSubs.add(s));
@@ -107,6 +110,8 @@ export function generateRedditSearchMap(
   const competitors = memory.competitors.map((c) => c.name).filter(Boolean);
   const primaryCompetitor = competitors[0];
   const secondaryCompetitor = competitors[1] || competitors[0];
+  const isServiceBusiness = /\b(?:agency|consultancy|consulting|professional services?|managed services?)\b/i
+    .test(`${category} ${memory.description} ${memory.positioning}`);
 
   const subreddits = inferPrioritySubreddits(memory, customSubreddits);
 
@@ -114,7 +119,7 @@ export function generateRedditSearchMap(
   const directProduct: SearchMapQuery[] = [
     {
       id: "dp-1",
-      query: `best ${category.toLowerCase()} tool`,
+      query: isServiceBusiness ? `best ${category.toLowerCase()} partner` : `best ${category.toLowerCase()} tool`,
       family: "direct_product",
       label: `Best ${category} Tool`,
       priority: "high",
@@ -122,7 +127,7 @@ export function generateRedditSearchMap(
     },
     {
       id: "dp-2",
-      query: `${primaryProduct.toLowerCase()} software`,
+      query: isServiceBusiness ? `${primaryProduct.toLowerCase()} agency` : `${primaryProduct.toLowerCase()} software`,
       family: "direct_product",
       label: `${primaryProduct} Software`,
       priority: "high",
@@ -130,7 +135,7 @@ export function generateRedditSearchMap(
     },
     {
       id: "dp-3",
-      query: `top ${category.toLowerCase()} platform`,
+      query: isServiceBusiness ? `top ${category.toLowerCase()} firms` : `top ${category.toLowerCase()} platform`,
       family: "direct_product",
       label: `Top ${category} Platform`,
       priority: "high",
@@ -138,7 +143,7 @@ export function generateRedditSearchMap(
     },
     {
       id: "dp-4",
-      query: `automated ${secondaryProduct.toLowerCase()} solution`,
+      query: isServiceBusiness ? `${secondaryProduct.toLowerCase()} service provider` : `automated ${secondaryProduct.toLowerCase()} solution`,
       family: "direct_product",
       label: `Automated ${secondaryProduct} Solution`,
       priority: "medium",
@@ -150,7 +155,7 @@ export function generateRedditSearchMap(
   const recommendationBuying: SearchMapQuery[] = [
     {
       id: "rb-1",
-      query: `recommend a ${category.toLowerCase()} tool`,
+      query: isServiceBusiness ? `recommend a ${category.toLowerCase()} partner` : `recommend a ${category.toLowerCase()} tool`,
       family: "recommendation_buying",
       label: `Recommend a ${category} Tool`,
       priority: "high",
@@ -158,7 +163,7 @@ export function generateRedditSearchMap(
     },
     {
       id: "rb-2",
-      query: `what tool should I use for ${primaryProduct.toLowerCase()}`,
+      query: isServiceBusiness ? `who should I hire for ${primaryProduct.toLowerCase()}` : `what tool should I use for ${primaryProduct.toLowerCase()}`,
       family: "recommendation_buying",
       label: `What Tool Should I Use for ${primaryProduct}`,
       priority: "high",
@@ -166,7 +171,7 @@ export function generateRedditSearchMap(
     },
     {
       id: "rb-3",
-      query: `looking for ${category.toLowerCase()} software`,
+      query: isServiceBusiness ? `looking for a ${category.toLowerCase()}` : `looking for ${category.toLowerCase()} software`,
       family: "recommendation_buying",
       label: `Looking for ${category} Software`,
       priority: "high",
@@ -174,7 +179,7 @@ export function generateRedditSearchMap(
     },
     {
       id: "rb-4",
-      query: `what's the best software for ${primaryProduct.toLowerCase()}`,
+      query: isServiceBusiness ? `what's the best agency for ${primaryProduct.toLowerCase()}` : `what's the best software for ${primaryProduct.toLowerCase()}`,
       family: "recommendation_buying",
       label: `Best Software for ${primaryProduct}`,
       priority: "high",
@@ -183,8 +188,8 @@ export function generateRedditSearchMap(
   ];
 
   // 3. Pain / Problem Searches
-  const cleanPain1 = primaryPain.replace(/^managing\s+/i, "").slice(0, 40);
-  const cleanPain2 = (painPoints[1] || primaryPain).replace(/^managing\s+/i, "").slice(0, 40);
+  const cleanPain1 = primaryPain.replace(/^managing\s+/i, "").slice(0, 90);
+  const cleanPain2 = (painPoints[1] || primaryPain).replace(/^managing\s+/i, "").slice(0, 90);
 
   const painProblem: SearchMapQuery[] = [
     {
@@ -283,7 +288,9 @@ export function generateRedditSearchMap(
   }
 
   // 5. Jobs-To-Be-Done (JTBD) Searches
-  const cleanJtbd = primaryJtbd.replace(/^[a-z]+\s+/i, "").slice(0, 45);
+  const cleanJtbd = primaryJtbd
+    .replace(/^(?:automating|automate|streamlining|streamline)(?:\s+and\s+(?:automating|streamlining))?\s+/i, "manage ")
+    .slice(0, 70);
   const jobsToBeDoneSearches: SearchMapQuery[] = [
     {
       id: "jtbd-1",

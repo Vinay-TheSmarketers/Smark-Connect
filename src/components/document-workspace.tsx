@@ -4,10 +4,8 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  Check,
   CheckCircle2,
   Clock3,
-  Copy,
   Download,
   FileSpreadsheet,
   FileText,
@@ -18,7 +16,6 @@ import {
   ShieldCheck,
   Sparkles,
   TrendingUp,
-  Unlock,
   X,
   Zap,
   Globe,
@@ -29,6 +26,7 @@ import {
   Scale,
 } from "lucide-react";
 import { unwrapStructuredText } from "@/lib/text-format";
+import { normalizeDocumentMarkdown } from "@/lib/documents/content";
 import { formatSkillName } from "@/lib/skills/format";
 import { resolveArtifactManifest } from "@/lib/artifacts/config";
 import { isCoreModule, ModuleIcon } from "./module-icon";
@@ -152,7 +150,6 @@ export function DocumentWorkspace({
   const [slideIndex, setSlideIndex] = useState(0);
   const [focused, setFocused] = useState(true);
   const [pending, setPending] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [prompt, setPrompt] = useState("");
   const [pdfState, setPdfState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -164,9 +161,18 @@ export function DocumentWorkspace({
   const skills = provenance(document.skillProvenance);
   const metadata = documentMetadata(document.metadata);
   const execution = skillExecution(metadata.skillExecution);
-  const cleanContent = useMemo(() => unwrapStructuredText(document.contentMarkdown), [document.contentMarkdown]);
+  const cleanContent = useMemo(
+    () => normalizeDocumentMarkdown(unwrapStructuredText(document.contentMarkdown)),
+    [document.contentMarkdown]
+  );
   const artifactManifest = resolveArtifactManifest({ reportType: document.type, markdown: document.contentMarkdown, metadata });
+  const pdfEnabled = artifactManifest.decisions.pdf.enabled;
+  const pptxEnabled = artifactManifest.decisions.pptx.enabled;
   const xlsxEnabled = artifactManifest.decisions.xlsx.enabled;
+  const enabledFormats = (["pdf", "pptx", "xlsx"] as const)
+    .filter((format) => artifactManifest.decisions[format].enabled)
+    .map((format) => format.toUpperCase())
+    .join(" · ");
   const preparedDemo = metadata.generationMode === "prepared-demo";
   const estimatedEditTokens = useMemo(
     () =>
@@ -180,12 +186,6 @@ export function DocumentWorkspace({
   useEffect(() => () => {
     if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
   }, []);
-
-  function copyMarkdown() {
-    navigator.clipboard.writeText(cleanContent);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   async function generatePdf(download = false) {
     if (pdfState === "loading") return;
@@ -254,26 +254,6 @@ export function DocumentWorkspace({
     if (pdfState === "idle" || pdfState === "error") void generatePdf(false);
   }
 
-  async function toggleLock() {
-    if (pending) return;
-    setPending(true);
-    setError("");
-    try {
-      const response = await fetch(`/api/documents/${document.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: document.locked ? "unlock" : "lock" }),
-      });
-      const data = (await response.json()) as { document?: WorkspaceDocument; error?: string };
-      if (!response.ok || !data.document) throw new Error(data.error ?? "Failed to update lock status.");
-      onUpdate(data.document);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Failed to update lock status.");
-    } finally {
-      setPending(false);
-    }
-  }
-
   async function editDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending || document.locked || prompt.trim().length < 3) return;
@@ -328,38 +308,26 @@ export function DocumentWorkspace({
             )}
           </div>
           <div className="document-actions">
-            <button
-              type="button"
-              className="copy-markdown-action"
-              onClick={copyMarkdown}
-              title="Copy clean Markdown to clipboard"
-            >
-              {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy Markdown"}
-            </button>
-            <button
-              type="button"
-              className={`lock-action ${document.locked ? "is-locked" : ""}`}
-              onClick={toggleLock}
-              title={document.locked ? "Unlock document to allow edits" : "Lock document to prevent edits"}
-            >
-              {document.locked ? <Lock size={14} /> : <Unlock size={14} />} {document.locked ? "Locked" : "Unlocked"}
-            </button>
-            <a href={`/api/documents/${document.id}/export?format=pptx`}>
-              <Presentation size={14} /> PPTX
-            </a>
+            {pptxEnabled && (
+              <a href={`/api/documents/${document.id}/export?format=pptx`}>
+                <Presentation size={14} /> PPTX
+              </a>
+            )}
             {xlsxEnabled && (
               <a className="spreadsheet-action" href={`/api/documents/${document.id}/export?format=xlsx`}>
                 <FileSpreadsheet size={14} /> XLSX
               </a>
             )}
-            <button
-              className="generate-pdf-action"
-              type="button"
-              disabled={pdfState === "loading"}
-              onClick={() => void generatePdf(true)}
-            >
-              <Download size={14} /> {pdfState === "loading" ? "Preparing PDF" : "Generate PDF"}
-            </button>
+            {pdfEnabled && (
+              <button
+                className="generate-pdf-action"
+                type="button"
+                disabled={pdfState === "loading"}
+                onClick={() => void generatePdf(true)}
+              >
+                <Download size={14} /> {pdfState === "loading" ? "Preparing PDF" : "Generate PDF"}
+              </button>
+            )}
             <button type="button" onClick={onClose} aria-label="Close document">
               <X size={17} />
             </button>
@@ -370,13 +338,17 @@ export function DocumentWorkspace({
           <button className={tab === "document" ? "active" : ""} onClick={() => setTab("document")}>
             Document
           </button>
-          <button className={tab === "deck" ? "active" : ""} onClick={() => setTab("deck")}>
-            Deck preview
-          </button>
-          <button className={tab === "pdf" ? "active" : ""} onClick={openPdfPreview}>
-            PDF preview
-          </button>
-          <span>PDF · PPTX{xlsxEnabled ? " · XLSX" : ""}</span>
+          {pptxEnabled && (
+            <button className={tab === "deck" ? "active" : ""} onClick={() => setTab("deck")}>
+              Deck preview
+            </button>
+          )}
+          {pdfEnabled && (
+            <button className={tab === "pdf" ? "active" : ""} onClick={openPdfPreview}>
+              PDF preview
+            </button>
+          )}
+          <span>{enabledFormats}</span>
         </div>
 
         <div className="document-body">
@@ -389,17 +361,15 @@ export function DocumentWorkspace({
                     {artifactManifest.theme.replace(/-/g, " ")} · {artifactManifest.primaryArtifact.toUpperCase()} primary
                   </span>
                 </div>
-                {(["pdf", "pptx", "xlsx"] as const).map((format) => (
+                {(["pdf", "pptx", "xlsx"] as const).filter((format) => artifactManifest.decisions[format].enabled).map((format) => (
                   <em
-                    className={artifactManifest.decisions[format].enabled ? "enabled" : "disabled"}
+                    className="enabled"
                     title={artifactManifest.decisions[format].reason}
                     key={format}
                   >
                     {format.toUpperCase()}
                     <small>
-                      {artifactManifest.decisions[format].enabled
-                        ? artifactManifest.decisions[format].requirement
-                        : "not needed"}
+                      {artifactManifest.decisions[format].requirement}
                     </small>
                   </em>
                 ))}

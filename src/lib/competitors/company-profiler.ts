@@ -24,6 +24,15 @@ function extractSection(markdown: string, headings: string[]): string {
   return match ? match[0].replace(/^#{1,4}\s+[^\n]+\n/, "").trim() : "";
 }
 
+export function extractLabeledOfferStack(markdown: string): string[] {
+  const tableValue = markdown.match(/\|\s*\*{0,2}(?:core offer|products?\s*(?:and|&)\s*services?|services?|offerings?)\*{0,2}\s*\|\s*([^|\n]+)/i)?.[1] ?? "";
+  return Array.from(new Set(tableValue
+    .replace(/\s+[–—]\s+(?:homepage|website|source|evidence).*$/i, "")
+    .split(/[,;]|\s+\band\b\s+/i)
+    .map((offer) => offer.replace(/[*_`]/g, "").trim())
+    .filter((offer) => offer.length >= 3 && offer.length <= 90)));
+}
+
 function cleanDomain(urlStr: string): string {
   try {
     const parsed = new URL(urlStr.startsWith("http") ? urlStr : `https://${urlStr}`);
@@ -57,7 +66,7 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
       },
       crawlPages: {
         orderBy: { wordCount: "desc" },
-        take: 24,
+        take: 80,
       },
       chatAttachments: {
         where: { remembered: true },
@@ -129,10 +138,18 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
     extractSection(productInfo, ["Products", "Services", "Offerings", "Core Offer", "What We Offer", "Offer Stack"]) ||
     extractSection(companyIntel, ["Offer", "Products and Services", "Capabilities"]);
   let coreOfferStack = extractBulletPoints(productSection, 6);
+  if (coreOfferStack.length === 0) coreOfferStack = extractLabeledOfferStack(companyIntel).slice(0, 6);
 
   if (coreOfferStack.length === 0) {
     const pageTitles = company.crawlPages
-      .filter((p) => p.url !== websiteUrl && !p.url.endsWith("/"))
+      .filter((p) => {
+        try {
+          const url = new URL(p.url);
+          return url.pathname.replace(/\/+$/, "") !== "" && !/\/(?:blogs?|news|insights?|resources?)\//i.test(url.pathname);
+        } catch {
+          return false;
+        }
+      })
       .map((p) => p.title?.split(/[|–—:•]/)[0]?.trim())
       .filter((t): t is string => Boolean(t && t.length > 3 && !t.toLowerCase().includes("home")));
 

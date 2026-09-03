@@ -5,7 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { Activity, AlertTriangle, ArrowUp, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Clock3, Copy, ExternalLink, FileText, Globe2, GripVertical, HelpCircle, LayoutGrid, Link2, Lock, MessageCircle, MessageSquare, Monitor, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Smartphone, Sparkles, Trash2, UploadCloud, XCircle, Zap, X as CloseIcon } from "lucide-react";
+import type { DocumentType } from "@prisma/client";
+import { Activity, AlertTriangle, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CirclePlus, Clock3, Copy, ExternalLink, FileText, Globe2, GripVertical, HelpCircle, LayoutGrid, Link2, Lock, MessageCircle, Monitor, PanelLeftClose, PanelLeftOpen, Paperclip, Pencil, Plus, Radio, RefreshCw, RotateCcw, Send, Settings, Smartphone, Sparkles, Trash2, UploadCloud, XCircle, Zap, X as CloseIcon } from "lucide-react";
 import { StreamingTerminal, type TerminalLog } from "./streaming-terminal";
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS, getDocumentDefinition } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
@@ -26,6 +27,7 @@ import { AuditSkeleton, LighthouseAuditPanel, useLighthouseAudit } from "./light
 import { AnalyticsGeoView } from "./analytics-geo-view";
 import { AnalyticsLinksView } from "./analytics-links-view";
 import { AnalyticsTechnicalView } from "./analytics-technical-view";
+import { LiveConversationMining } from "./live-conversation-mining";
 import { extractContextCompetitorsFromAgentOutput, selectContextCompetitors } from "@/lib/competitors/context-display";
 
 type FindingKind = "current_status" | "previous_post" | "new_post" | "comment_opportunity" | "audience_signal" | "insight";
@@ -280,6 +282,21 @@ function savedOpportunityKeys(configs: DashboardData["agentConfigs"]): string[] 
   });
 }
 
+function savedManualCompetitors(configs: DashboardData["agentConfigs"]): Finding[] {
+  const entry = configs.find((config) => config.agentType === "COMPETITOR");
+  if (!entry?.config || typeof entry.config !== "object" || Array.isArray(entry.config)) return [];
+  const values = (entry.config as Record<string, unknown>).manualCompetitors;
+  if (!Array.isArray(values)) return [];
+  return values.flatMap((value): Finding[] => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const item = value as Record<string, unknown>;
+    const companyName = typeof item.companyName === "string" ? item.companyName.trim() : "";
+    const officialWebsite = typeof item.officialWebsite === "string" ? item.officialWebsite.trim() : "";
+    if (!companyName || !officialWebsite) return [];
+    return [{ companyName, title: companyName, officialWebsite, sourceUrls: [officialWebsite] }];
+  });
+}
+
 function agentStatusSummary(type: string, run: AgentItem | undefined, items: Finding[]) {
   if (!run) return "Ready to run directly from current source evidence";
   const structured = items.filter((item) => item.kind);
@@ -435,16 +452,13 @@ function SocialFindingCard({ type, item, index, company, liveConnected, complete
   }
 
   if (type === "REDDIT") {
-    const subreddit = item.tags?.[0] || (index % 2 === 0 ? "r/webdev" : index % 3 === 0 ? "r/nextjs" : "r/reactjs");
-    const upvotes = (index * 23 + 10) % 80;
-    const comments = (index * 37 + 11) % 150;
+    const subreddit = item.tags?.find((tag) => /^r\//i.test(tag)) || item.sourceLabel || "Reddit";
     return <article className="reddit-opportunity-row">
       <div className="reddit-row-content">
         <h4 className="reddit-post-title">{item.title}</h4>
         <div className="reddit-row-meta">
           <span className="subreddit-pill">{subreddit.startsWith("r/") ? subreddit : `r/${subreddit}`}</span>
-          <span className="reddit-stat"><ArrowUp size={11} /> {upvotes}</span>
-          <span className="reddit-stat"><MessageSquare size={11} /> {comments}</span>
+          <span className="reddit-stat">Verified thread</span>
         </div>
       </div>
       <button type="button" className="reddit-post-btn" onClick={() => setOpen(true)}>Post</button>
@@ -484,6 +498,9 @@ function GenericAgentFindingCard({
   item: Finding;
 }) {
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const summary = paragraphText(item.evidence ?? item.description).slice(0, 180);
+  const priority = item.priority ? normalizeAcronyms(item.priority) : "Insight";
 
   const handleCopyText = async () => {
     const text = `${item.title}\n\n${item.evidence ?? item.description ?? ""}\n\nImpact: ${unwrapStructuredText(item.impact)}\nAction: ${unwrapStructuredText(item.action)}`;
@@ -493,59 +510,56 @@ function GenericAgentFindingCard({
   };
 
   return (
-    <article className="generic-agent-finding-card sc-card">
-      <div className="finding-card-top-bar">
-        <div className="finding-badge-group">
-          <span className={`sc-badge sc-badge--sm sc-badge--${item.priority === "high" ? "error" : item.priority === "medium" ? "warning" : "default"}`}>
-            {item.priority ? item.priority.toUpperCase() : "INSIGHT"}
-          </span>
-          {item.confidence !== undefined && (
-            <span className="sc-badge sc-badge--sm sc-badge--accent">
-              {item.confidence}% confidence
-            </span>
-          )}
-        </div>
-        {item.publishedAt && <time className="finding-timestamp">{item.publishedAt}</time>}
-      </div>
+    <article className={`generic-agent-finding-card generic-agent-finding-card--minimal ${expanded ? "is-expanded" : ""}`}>
+      <button
+        type="button"
+        className="finding-card-summary"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((current) => !current)}
+      >
+        <span className={`finding-priority-dot finding-priority-dot--${item.priority ?? "default"}`} aria-hidden="true" />
+        <span className="finding-card-summary-copy">
+          <strong>{item.title || "Untitled finding"}</strong>
+          {summary && <small>{summary}</small>}
+        </span>
+        <span className="finding-card-summary-meta">
+          <em>{priority}{item.confidence !== undefined ? ` · ${item.confidence}%` : ""}</em>
+          <ChevronDown size={13} className={expanded ? "rotated" : ""} />
+        </span>
+      </button>
 
-      <h3 className="finding-card-headline">{item.title}</h3>
-
-      <div className="finding-card-body-text">
-        <CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>
-      </div>
-
-      {item.impact && (
-        <div className="finding-card-callout impact-callout">
-          <strong>Why it matters:</strong>
-          <span>{unwrapStructuredText(item.impact)}</span>
-        </div>
-      )}
-
-      {item.action && (
-        <div className="finding-card-callout action-callout">
-          <strong>Recommended response / Next action:</strong>
-          <span>{unwrapStructuredText(item.action)}</span>
-        </div>
-      )}
-
-      <div className="finding-card-footer">
-        {item.sourceUrls?.length ? (
-          <div className="finding-sources-wrap">
-            {item.sourceUrls.slice(0, 2).map((url) => (
-              <a key={url} href={url} target="_blank" rel="noreferrer" className="finding-source-link">
-                <ExternalLink size={10} /> {url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 28)}…
-              </a>
-            ))}
+      {expanded && (
+        <div className="finding-card-detail">
+          {item.publishedAt && <time className="finding-timestamp">{item.publishedAt}</time>}
+          <div className="finding-card-body-text">
+            <CleanMarkdown>{item.evidence ?? item.description}</CleanMarkdown>
           </div>
-        ) : <span />}
 
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <button type="button" className="sc-btn sc-btn--ghost sc-btn--sm" onClick={handleCopyText}>
-            {copied ? <Check size={11} /> : <Copy size={11} />}
-            <span>{copied ? "Copied" : "Copy"}</span>
-          </button>
+          {(item.impact || item.action) && (
+            <div className="finding-decision-list">
+              {item.impact && <div><strong>Impact</strong><span>{unwrapStructuredText(item.impact)}</span></div>}
+              {item.action && <div><strong>Next step</strong><span>{unwrapStructuredText(item.action)}</span></div>}
+            </div>
+          )}
+
+          <div className="finding-card-footer">
+            {item.sourceUrls?.length ? (
+              <div className="finding-sources-wrap">
+                {item.sourceUrls.slice(0, 2).map((url) => (
+                  <a key={url} href={url} target="_blank" rel="noreferrer" className="finding-source-link">
+                    <ExternalLink size={10} /> {url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 28)}…
+                  </a>
+                ))}
+              </div>
+            ) : <span className="finding-source-empty">Source evidence stored in this analysis</span>}
+
+            <button type="button" className="finding-copy-button" onClick={handleCopyText}>
+              {copied ? <Check size={11} /> : <Copy size={11} />}
+              <span>{copied ? "Copied" : "Copy"}</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </article>
   );
 }
@@ -624,6 +638,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [catalogCategory, setCatalogCategory] = useState<string>("all");
   const [agentError, setAgentError] = useState("");
   const [completedOpportunities, setCompletedOpportunities] = useState(() => new Set(savedOpportunityKeys(data.agentConfigs)));
+  const [manualCompetitors, setManualCompetitors] = useState<Finding[]>(() => savedManualCompetitors(data.agentConfigs));
+  const [showCompetitorAdd, setShowCompetitorAdd] = useState(false);
+  const [competitorAddPending, setCompetitorAddPending] = useState(false);
+  const [competitorAddError, setCompetitorAddError] = useState("");
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([{ role: "assistant", content: `I’ve synthesized ${documents.length} core documents and ${data.pagesRead} source pages for ${data.company.name}. Ask me for a detailed priority analysis or campaign decision.` }]);
   const [chatPending, setChatPending] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>();
@@ -632,11 +650,11 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     const agentCompetitors = extractContextCompetitorsFromAgentOutput(data.agents.find((item) => item.agentType === "COMPETITOR")?.output);
     const documentCompetitors = (documents.find((d) => d.type === "COMPETITOR_ANALYSIS")?.metadata as { competitors?: Finding[] } | null)?.competitors ?? [];
     return selectContextCompetitors({
-      agentItems: agentCompetitors,
+      agentItems: [...manualCompetitors, ...agentCompetitors],
       documentItems: documentCompetitors,
       company: data.company,
     });
-  }, [data.agents, data.company, documents]);
+  }, [data.agents, data.company, documents, manualCompetitors]);
   const analysisRunning = data.analysis && ["QUEUED", "RUNNING"].includes(data.analysis.status);
   const queuedDocumentsReady = documents.filter((document) => queuedDocumentTypes.includes(document.type)).length;
 
@@ -864,6 +882,57 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     }
   }
 
+  async function addManualCompetitor(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (competitorAddPending) return;
+    const form = new FormData(event.currentTarget);
+    const companyName = String(form.get("companyName") ?? "").trim();
+    const websiteInput = String(form.get("officialWebsite") ?? "").trim();
+    setCompetitorAddError("");
+
+    let officialWebsite = websiteInput;
+    try {
+      const parsed = new URL(/^https?:\/\//i.test(websiteInput) ? websiteInput : `https://${websiteInput}`);
+      if (!/^https?:$/.test(parsed.protocol)) throw new Error("invalid protocol");
+      officialWebsite = parsed.toString().replace(/\/$/, "");
+    } catch {
+      setCompetitorAddError("Enter a valid company website.");
+      return;
+    }
+
+    if (!companyName) {
+      setCompetitorAddError("Enter the competitor name.");
+      return;
+    }
+    const host = safeHostname(officialWebsite);
+    if (host === safeHostname(data.company.websiteUrl)) {
+      setCompetitorAddError("This is the current company website.");
+      return;
+    }
+    if (competitorItems.some((item) => safeHostname(item.officialWebsite) === host)) {
+      setCompetitorAddError("This competitor is already in the list.");
+      return;
+    }
+
+    const next = [...manualCompetitors, { companyName, title: companyName, officialWebsite, sourceUrls: [officialWebsite] }];
+    setCompetitorAddPending(true);
+    try {
+      const response = await fetch("/api/agents/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId: data.company.id, agentType: "COMPETITOR", config: { manualCompetitors: next } }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "The competitor could not be saved.");
+      setManualCompetitors(next);
+      setShowCompetitorAdd(false);
+      event.currentTarget.reset();
+    } catch (error) {
+      setCompetitorAddError(error instanceof Error ? error.message : "The competitor could not be saved.");
+    } finally {
+      setCompetitorAddPending(false);
+    }
+  }
   function appendLog(level: "info" | "success" | "interrupt" | "p0" | "warn" | "error", tag: string, message: string) {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false });
     setTerminalLogs((prev) => [
@@ -877,7 +946,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     setAgentError("");
     appendLog("info", "AGENT_RUN", `Running specialist agent: ${agentType}...`);
     try {
-      const response = await fetch("/api/agents/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: data.company.id, agentType }) });
+      const endpoint = agentType === "REDDIT" ? "/api/agents/reddit/opportunities" : "/api/agents/run";
+      const body = agentType === "REDDIT" ? { companyId: data.company.id } : { companyId: data.company.id, agentType };
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "The agent could not run.");
       setExpandedAgent(agentType);
@@ -903,7 +974,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   async function generateDocument(documentType: string) {
     setGeneratingDocument(documentType);
     setAgentError("");
-    const def = getDocumentDefinition(documentType as any);
+    const def = getDocumentDefinition(documentType as DocumentType);
     const title = def?.title ?? documentType;
     appendLog("info", "DOC_COMPILE", `Compiling document: ${title}...`);
     try {
@@ -923,7 +994,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   }
 
   async function prioritizeDocument(documentType: string, customTitle?: string) {
-    const def = getDocumentDefinition(documentType as any);
+    const def = getDocumentDefinition(documentType as DocumentType);
     const title = customTitle ?? def?.title ?? documentType;
     appendLog("interrupt", "INTERRUPT", `User selected ${title} -> Elevating priority to P0 (Critical Path).`);
     appendLog("p0", "P0_QUEUE", `Pausing background queue -> Compiling ${title} immediately...`);
@@ -942,7 +1013,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     : "completed";
 
   const activeTask = generatingDocument
-    ? `P0 Compiling: ${getDocumentDefinition(generatingDocument as any)?.title ?? generatingDocument}`
+    ? `P0 Compiling: ${getDocumentDefinition(generatingDocument as DocumentType)?.title ?? generatingDocument}`
     : runningAgent
     ? `P0 Agent: ${runningAgent}`
     : analysisRunning
@@ -981,7 +1052,14 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </div>
         <section className="pane-section"><div className="section-label-row"><p className="section-label">CORE DOCUMENTS</p><span>{documents.filter((item) => coreDocumentOrder.includes(item.type)).length}/6</span></div><div className="document-list">{coreDocumentOrder.map((type) => { const document = documents.find((item) => item.type === type); return document ? <button type="button" key={type} onClick={() => setSelectedDocument(document)}><ModuleIcon type={type} size={14} /><span className="document-row-title">{document.title}</span><small>v{document.version}</small><ChevronRight size={13} /><span className="document-hover-detail" role="tooltip"><strong>{document.title}</strong><span>{documentPreview(document) || "Open this document to review its complete evidence and recommendations."}{document.contentMarkdown.length > 190 ? "…" : ""}</span><em>{document.tokenEstimate.toLocaleString()} tokens · Updated {new Date(document.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</em></span></button> : <button className="pending-document p0-triggerable" type="button" key={type} disabled={Boolean(generatingDocument)} onClick={() => prioritizeDocument(type, coreDocumentLabels[type])} title="Click to elevate to P0 and compile immediately"><ModuleIcon type={type} size={14} /><span>{coreDocumentLabels[type]}</span><small className="p0-action-tag">{generatingDocument === type ? <RefreshCw className="spin" size={10} /> : <Zap size={10} />}{generatingDocument === type ? "Compiling" : "P0"}</small></button>; })}</div></section>
         <section className="pane-section context-competitors">
-          <div className="section-label-row"><p className="section-label">COMPETITORS &amp; ALTERNATIVES</p><span>{competitorItems.length ? `${competitorItems.length} verified` : "Discovery pending"}</span><button type="button" className="competitors-refresh" disabled={Boolean(runningAgent)} onClick={() => runAgent("COMPETITOR")} title="Refresh competitor research" aria-label="Refresh competitor research"><RefreshCw className={runningAgent === "COMPETITOR" ? "spin" : ""} size={12} /></button></div>
+          <div className="section-label-row"><p className="section-label">COMPETITORS &amp; ALTERNATIVES</p><span>{competitorItems.length ? `${competitorItems.length} tracked` : "Discovery pending"}</span><button type="button" className="competitors-add" onClick={() => { setCompetitorAddError(""); setShowCompetitorAdd((open) => !open); }} title="Add competitor" aria-label="Add competitor"><Plus size={13} /></button><button type="button" className="competitors-refresh" disabled={Boolean(runningAgent)} onClick={() => runAgent("COMPETITOR")} title="Refresh competitor research" aria-label="Refresh competitor research"><RefreshCw className={runningAgent === "COMPETITOR" ? "spin" : ""} size={12} /></button></div>
+          {showCompetitorAdd && <form className="competitor-quick-add" onSubmit={addManualCompetitor} aria-label="Add competitor manually">
+            <header><strong>Add competitor</strong><button type="button" onClick={() => setShowCompetitorAdd(false)} aria-label="Close competitor form"><CloseIcon size={13} /></button></header>
+            <label><span>Company name</span><input name="companyName" autoFocus autoComplete="organization" placeholder="Competitor name" required /></label>
+            <label><span>Official website</span><input name="officialWebsite" inputMode="url" autoComplete="url" placeholder="company.com" required /></label>
+            {competitorAddError && <p role="alert">{competitorAddError}</p>}
+            <footer><button type="button" onClick={() => setShowCompetitorAdd(false)}>Cancel</button><button type="submit" disabled={competitorAddPending}>{competitorAddPending ? "Saving…" : "Add"}</button></footer>
+          </form>}
           {competitorItems.length ? <div className="context-competitor-grid">{competitorItems.map((item, index) => <ContextCompetitor item={item} key={`${item.companyName || item.title}-${index}`} />)}</div> : <div className="context-competitor-empty"><ModuleIcon type="COMPETITOR" size={15} /><div><strong>Build the competitor set</strong><small>Run the competitor agent to discover six real companies and their official logos.</small></div><button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent("COMPETITOR")}>{runningAgent === "COMPETITOR" ? "Finding…" : "Find competitors"}</button></div>}
         </section>
         <section className="pane-section extended-documents">
@@ -1260,7 +1338,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           const running = runningAgent === type;
           const liveConnected = !data.user.demoMode && data.integrations.some((integration) => integration.provider.toLowerCase() === type.toLowerCase() && /connected|active/i.test(integration.status));
           return <div className="agent-row" key={type}>
-            <button className="agent-summary" type="button" onClick={() => {
+            <button className="agent-summary" type="button" aria-expanded={open} onClick={() => {
               if (open) {
                 setExpandedAgent(null);
                 return;
@@ -1287,14 +1365,18 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 </button>
               </div>
               {running ? (
-                <div className="agent-run-outline">
-                  <div><span /><strong>Scanning Reddit search map across 7 query families</strong></div>
-                  <div><span /><strong>Filtering promotional spam and checking ICP fit</strong></div>
-                  <div><span /><strong>Computing 8-factor score and generating reply variants</strong></div>
+                <div className="agent-run-minimal" role="status" aria-live="polite">
+                  <RefreshCw size={14} className="spin" aria-hidden="true" />
+                  <span><strong>Running {label}</strong><small>Reviewing connected evidence through the configured workflow</small></span>
+                  <em>Working</em>
+                  <i aria-hidden="true"><b /></i>
                 </div>
               ) : type === "REDDIT" ? (
                 <RedditOpportunityFeed
                   companyId={data.company.id}
+                  companyName={data.company.name}
+                  companyWebsite={data.company.websiteUrl}
+                  companyLogoUrl={data.company.logoUrl}
                   initialOpportunities={
                     (run?.output && typeof run.output === "object" && Array.isArray((run.output as Record<string, unknown>).opportunities)
                       ? (run.output as Record<string, unknown>).opportunities
@@ -1306,6 +1388,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 <InstagramOpportunityFeed
                   companyId={data.company.id}
                   companyName={data.company.name}
+                  companyWebsite={data.company.websiteUrl}
+                  companyLogoUrl={data.company.logoUrl}
                   initialOpportunities={
                     (run?.output && typeof run.output === "object" && Array.isArray((run.output as Record<string, unknown>).opportunities)
                       ? (run.output as Record<string, unknown>).opportunities
@@ -1333,6 +1417,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   <XOpportunityFeed
                     companyId={data.company.id}
                     companyName={data.company.name}
+                    companyWebsite={data.company.websiteUrl}
+                    companyLogoUrl={data.company.logoUrl}
                     initialOpportunities={
                       (run?.output && typeof run.output === "object" && Array.isArray((run.output as Record<string, unknown>).opportunities)
                         ? (run.output as Record<string, unknown>).opportunities
@@ -1364,7 +1450,18 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         {paneResizer("agents")}
       </section>
 
-      <aside className="chat-pane pane" {...paneProps("chat")}><div className="pane-header"><span><MessageCircle size={15} /><span className="pane-title-text">AI CMO</span></span>{paneControls("chat")}</div><div className="chat-hero"><span className="agent-icon agent-ai_cmo"><Bot size={16} /></span><div><strong>Your AI CMO</strong><small>Grounded in {documents.length} reports, {data.pagesRead} web sources and {sources.length} uploaded {sources.length === 1 ? "source" : "sources"}</small></div></div><div className="chat-messages">{messages.map((message, index) => <div className={`chat-message ${message.role}`} key={index}>{message.role === "assistant" && <span className="chat-role"><Sparkles size={13} /> CMO</span>}<ReactMarkdown>{message.content}</ReactMarkdown></div>)}{chatPending && <div className="chat-message assistant typing"><span /><span /><span /></div>}</div><form className="chat-composer" onSubmit={sendMessage}><textarea name="message" rows={3} placeholder="Ask me anything…" required /><div><button type="button" className="attach-button" aria-label="Add source documents" title="Add source documents" onClick={() => setShowSources(true)}><Paperclip size={16} /></button><span>Uses reports and uploaded sources</span><button className="send-button" type="submit" disabled={chatPending}><Send size={14} /></button></div></form>{paneResizer("chat")}</aside>
+      <aside className="chat-pane pane" {...paneProps("chat")}>
+        <div className="pane-header"><span><MessageCircle size={15} /><span className="pane-title-text">AI CMO</span></span>{paneControls("chat")}</div>
+        <div className="cmo-split-workspace">
+          <section className="cmo-chat-section" aria-label="AI CMO conversation">
+            <div className="chat-hero"><span className="agent-icon agent-ai_cmo"><Bot size={16} /></span><div><strong>Your AI CMO</strong><small>Grounded in {documents.length} reports, {data.pagesRead} web sources and {sources.length} uploaded {sources.length === 1 ? "source" : "sources"}</small></div></div>
+            <div className="chat-messages">{messages.map((message, index) => <div className={`chat-message ${message.role}`} key={index}>{message.role === "assistant" && <span className="chat-role"><Sparkles size={13} /> CMO</span>}<ReactMarkdown>{message.content}</ReactMarkdown></div>)}{chatPending && <div className="chat-message assistant typing"><span /><span /><span /></div>}</div>
+            <form className="chat-composer" onSubmit={sendMessage}><textarea name="message" rows={2} placeholder="Ask me anything…" required /><div><button type="button" className="attach-button" aria-label="Add source documents" title="Add source documents" onClick={() => setShowSources(true)}><Paperclip size={16} /></button><span>Uses all company evidence</span><button className="send-button" type="submit" disabled={chatPending}><Send size={14} /></button></div></form>
+          </section>
+          <LiveConversationMining agents={data.agents} running={runningAgent === "REDDIT"} onScan={() => void runAgent("REDDIT")} />
+        </div>
+        {paneResizer("chat")}
+      </aside>
     </section>
 
     {selectedDocument && <DocumentWorkspace key={`${selectedDocument.id}-${selectedDocument.version}`} document={selectedDocument} onClose={() => setSelectedDocument(null)} onUpdate={updateDocument} />}

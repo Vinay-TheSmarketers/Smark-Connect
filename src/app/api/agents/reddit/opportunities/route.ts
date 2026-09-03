@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { runRedditOpportunityPipeline } from "@/lib/reddit/discovery-pipeline";
 import type { RedditActionFeedOpportunity } from "@/lib/signals/store";
 import type { Prisma } from "@prisma/client";
+import { isVerifiedRedditOpportunityIdentity } from "@/lib/reddit/qualifier";
 
 export async function GET(request: Request) {
   const user = await requireApiUser();
@@ -26,7 +27,8 @@ export async function GET(request: Request) {
   });
 
   const output = latestRun?.output && typeof latestRun.output === "object" ? (latestRun.output as Record<string, unknown>) : null;
-  const opportunities = (output && Array.isArray(output.opportunities) ? output.opportunities : []) as RedditActionFeedOpportunity[];
+  const opportunities = ((output && Array.isArray(output.opportunities) ? output.opportunities : []) as RedditActionFeedOpportunity[])
+    .filter(isVerifiedRedditOpportunityIdentity);
   const searchMap = output?.searchMap ?? null;
   const trendSignals = output?.trendSignals ?? [];
 

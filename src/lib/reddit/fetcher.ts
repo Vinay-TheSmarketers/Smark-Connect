@@ -1,5 +1,4 @@
 import "server-only";
-import { load } from "cheerio";
 import type { SearchMapQuery } from "./search-map";
 
 export type RawRedditCandidate = {
@@ -10,11 +9,12 @@ export type RawRedditCandidate = {
   excerpt: string;
   author: string;
   publishedAt: string | null;
-  score: number;
-  numComments: number;
+  score: number | null;
+  numComments: number | null;
   query: string;
   queryFamily: string;
   discoverySource: string;
+  verified: boolean;
 };
 
 function decodeXml(value: string): string {
@@ -39,9 +39,20 @@ function extractSubredditFromUrl(url: string): string {
   return match?.[1] ? `r/${match[1]}` : "r/SaaS";
 }
 
-function extractPostIdFromUrl(url: string): string {
-  const match = url.match(/comments\/([a-z0-9]+)/i);
-  return match?.[1] || Math.random().toString(36).substring(2, 9);
+function extractPostIdFromUrl(url: string): string | null {
+  const match = url.match(/\/comments\/([a-z0-9]{5,10})(?:\/|$)/i);
+  return match?.[1]?.toLowerCase() || null;
+}
+
+export function hasVerifiedRedditIdentity(candidate: Pick<RawRedditCandidate, "id" | "url" | "verified">): boolean {
+  try {
+    const url = new URL(candidate.url);
+    const host = url.hostname.replace(/^www\./i, "").toLowerCase();
+    const postId = extractPostIdFromUrl(url.pathname);
+    return candidate.verified && host === "reddit.com" && Boolean(postId) && postId === candidate.id.toLowerCase();
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -50,8 +61,8 @@ function extractPostIdFromUrl(url: string): string {
 async function searchRedditRss(queryObj: SearchMapQuery, subreddit?: string): Promise<RawRedditCandidate[]> {
   const cleanQ = queryObj.query.replace(/site:reddit\.com\s*/gi, "").replace(/[()]/g, " ").trim();
   const searchUrl = subreddit
-    ? `https://www.reddit.com/${subreddit.replace(/^\/?/, "")}/search.rss?q=${encodeURIComponent(cleanQ)}&restrict_sr=1&sort=new`
-    : `https://www.reddit.com/search.rss?q=${encodeURIComponent(cleanQ)}&sort=new`;
+    ? `https://www.reddit.com/${subreddit.replace(/^\/?/, "")}/search.rss?q=${encodeURIComponent(cleanQ)}&restrict_sr=1&sort=relevance&t=all`
+    : `https://www.reddit.com/search.rss?q=${encodeURIComponent(cleanQ)}&sort=relevance&t=all`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12_000);
@@ -69,13 +80,14 @@ async function searchRedditRss(queryObj: SearchMapQuery, subreddit?: string): Pr
     const xml = await response.text();
     const entries = Array.from(xml.matchAll(/<entry>([\s\S]*?)<\/entry>/gi), (m) => m[1]);
 
-    return entries.map((entry) => {
+    return entries.map((entry): RawRedditCandidate | null => {
       const rawUrl = entry.match(/<link[^>]+href=["']([^"']+)["']/i)?.[1]?.replace(/&amp;/g, "&") ?? "";
       const updated = tag(entry, "updated");
       const title = tag(entry, "title");
       const content = tag(entry, "content");
       const sub = subreddit ? (subreddit.startsWith("r/") ? subreddit : `r/${subreddit}`) : extractSubredditFromUrl(rawUrl);
       const postId = extractPostIdFromUrl(rawUrl);
+      if (!postId) return null;
 
       return {
         id: postId,
@@ -84,14 +96,15 @@ async function searchRedditRss(queryObj: SearchMapQuery, subreddit?: string): Pr
         title,
         excerpt: content.slice(0, 700),
         author: tag(entry, "name") || "reddit_user",
-        publishedAt: updated && !Number.isNaN(Date.parse(updated)) ? new Date(updated).toISOString() : new Date().toISOString(),
-        score: Math.floor(Math.random() * 45) + 5,
-        numComments: Math.floor(Math.random() * 28) + 3,
+        publishedAt: updated && !Number.isNaN(Date.parse(updated)) ? new Date(updated).toISOString() : null,
+        score: null,
+        numComments: null,
         query: queryObj.query,
         queryFamily: queryObj.family,
-        discoverySource: "Reddit public search feed",
+        discoverySource: "Reddit public RSS search feed",
+        verified: true,
       };
-    }).filter((item) => item.title && /^https?:\/\/(?:www\.)?reddit\.com\//i.test(item.url));
+    }).filter((item): item is RawRedditCandidate => Boolean(item?.title && /^https?:\/\/(?:www\.)?reddit\.com\//i.test(item.url)));
   } catch {
     return [];
   } finally {
@@ -125,13 +138,14 @@ async function searchBingForReddit(queryObj: SearchMapQuery): Promise<RawRedditC
     const xml = await response.text();
     const items = Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/gi), (m) => m[1]);
 
-    return items.map((item) => {
+    return items.map((item): RawRedditCandidate | null => {
       const rawUrl = tag(item, "link");
       const title = tag(item, "title").replace(/\s*:\s*r\/[a-zA-Z0-9_]+\s*$/i, "").replace(/\s*-\s*Reddit\s*$/i, "");
       const excerpt = tag(item, "description");
       const published = tag(item, "pubDate");
       const sub = extractSubredditFromUrl(rawUrl);
       const postId = extractPostIdFromUrl(rawUrl);
+      if (!postId) return null;
 
       return {
         id: postId,
@@ -140,14 +154,15 @@ async function searchBingForReddit(queryObj: SearchMapQuery): Promise<RawRedditC
         title,
         excerpt: excerpt.slice(0, 700),
         author: "reddit_user",
-        publishedAt: published && !Number.isNaN(Date.parse(published)) ? new Date(published).toISOString() : new Date().toISOString(),
-        score: Math.floor(Math.random() * 35) + 8,
-        numComments: Math.floor(Math.random() * 22) + 2,
+        publishedAt: published && !Number.isNaN(Date.parse(published)) ? new Date(published).toISOString() : null,
+        score: null,
+        numComments: null,
         query: queryObj.query,
         queryFamily: queryObj.family,
         discoverySource: "Public web search index (Reddit)",
+        verified: false,
       };
-    }).filter((item) => item.title && /^https?:\/\/(?:www\.)?reddit\.com\//i.test(item.url));
+    }).filter((item): item is RawRedditCandidate => Boolean(item?.title && /^https?:\/\/(?:www\.)?reddit\.com\//i.test(item.url)));
   } catch {
     return [];
   } finally {
@@ -161,8 +176,8 @@ async function searchBingForReddit(queryObj: SearchMapQuery): Promise<RawRedditC
 async function searchRedditJson(queryObj: SearchMapQuery, subreddit?: string): Promise<RawRedditCandidate[]> {
   const cleanQ = queryObj.query.replace(/site:reddit\.com\s*/gi, "").replace(/[()]/g, " ").trim();
   const searchUrl = subreddit
-    ? `https://www.reddit.com/${subreddit.replace(/^\/?/, "")}/search.json?q=${encodeURIComponent(cleanQ)}&restrict_sr=1&sort=new&limit=15`
-    : `https://www.reddit.com/search.json?q=${encodeURIComponent(cleanQ)}&sort=new&limit=15`;
+    ? `https://www.reddit.com/${subreddit.replace(/^\/?/, "")}/search.json?q=${encodeURIComponent(cleanQ)}&restrict_sr=1&sort=relevance&t=all&limit=15`
+    : `https://www.reddit.com/search.json?q=${encodeURIComponent(cleanQ)}&sort=relevance&t=all&limit=15`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12_000);
@@ -201,20 +216,24 @@ async function searchRedditJson(queryObj: SearchMapQuery, subreddit?: string): P
       if (!d || !d.title || !d.permalink) continue;
       const fullUrl = `https://www.reddit.com${d.permalink}`;
       if (!/^https?:\/\/(?:www\.)?reddit\.com\//i.test(fullUrl)) continue;
+      const urlPostId = extractPostIdFromUrl(fullUrl);
+      const postId = d.id?.toLowerCase() || urlPostId;
+      if (!postId || !urlPostId || postId !== urlPostId) continue;
 
       candidates.push({
-        id: d.id || extractPostIdFromUrl(fullUrl),
+        id: postId,
         url: fullUrl,
         subreddit: d.subreddit_name_prefixed || (subreddit ? `r/${subreddit.replace(/^r\//, "")}` : "r/SaaS"),
         title: d.title,
         excerpt: (d.selftext || d.title).slice(0, 700),
         author: d.author || "reddit_user",
-        publishedAt: d.created_utc ? new Date(d.created_utc * 1000).toISOString() : new Date().toISOString(),
-        score: d.ups || 12,
-        numComments: d.num_comments || 4,
+        publishedAt: d.created_utc ? new Date(d.created_utc * 1000).toISOString() : null,
+        score: d.ups ?? null,
+        numComments: d.num_comments ?? null,
         query: queryObj.query,
         queryFamily: queryObj.family,
         discoverySource: "Reddit public JSON API",
+        verified: true,
       });
     }
     return candidates;
@@ -222,6 +241,91 @@ async function searchRedditJson(queryObj: SearchMapQuery, subreddit?: string): P
     return [];
   } finally {
     clearTimeout(timer);
+  }
+}
+
+async function verifyIndexedCandidate(candidate: RawRedditCandidate): Promise<RawRedditCandidate | null> {
+  if (hasVerifiedRedditIdentity(candidate)) return candidate;
+  const postId = extractPostIdFromUrl(candidate.url);
+  if (!postId || postId !== candidate.id.toLowerCase()) return null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(`https://www.reddit.com/comments/${postId}.json?raw_json=1`, {
+      signal: controller.signal,
+      cache: "no-store",
+      headers: {
+        "User-Agent": "SmarkConnectResearch/2.0 (+https://thesmarketers.com; read-only opportunity verification)",
+      },
+    });
+    if (response.ok) {
+      const payload = await response.json() as Array<{
+      data?: { children?: Array<{ data?: {
+        id?: string;
+        title?: string;
+        selftext?: string;
+        permalink?: string;
+        subreddit_name_prefixed?: string;
+        author?: string;
+        created_utc?: number;
+        ups?: number;
+        num_comments?: number;
+        removed_by_category?: string | null;
+      } }> };
+    }>;
+      const post = payload?.[0]?.data?.children?.[0]?.data;
+      if (post?.id && post.id.toLowerCase() === postId && post.title && post.permalink && !post.removed_by_category) {
+        const verified: RawRedditCandidate = {
+          ...candidate,
+          id: postId,
+          url: `https://www.reddit.com${post.permalink}`,
+          subreddit: post.subreddit_name_prefixed || candidate.subreddit,
+          title: post.title,
+          excerpt: (post.selftext || post.title).slice(0, 700),
+          author: post.author || candidate.author,
+          publishedAt: post.created_utc ? new Date(post.created_utc * 1000).toISOString() : null,
+          score: post.ups ?? null,
+          numComments: post.num_comments ?? null,
+          discoverySource: `${candidate.discoverySource}; verified by Reddit JSON API`,
+          verified: true,
+        };
+        if (hasVerifiedRedditIdentity(verified)) return verified;
+      }
+    }
+  } catch {
+    // The public JSON endpoint is frequently blocked; verify against the public thread page below.
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const pageController = new AbortController();
+  const pageTimer = setTimeout(() => pageController.abort(), 10_000);
+  try {
+    const response = await fetch(candidate.url, {
+      signal: pageController.signal,
+      cache: "no-store",
+      redirect: "follow",
+      headers: { "User-Agent": "Mozilla/5.0 SmarkConnectResearch/2.0 (read-only thread verification)" },
+    });
+    if (!response.ok) return null;
+    const finalUrl = response.url || candidate.url;
+    const finalPostId = extractPostIdFromUrl(finalUrl);
+    if (finalPostId !== postId) return null;
+    const html = await response.text();
+    if (/page not found|this post was removed|removed by reddit/i.test(html)) return null;
+    const verified = {
+      ...candidate,
+      id: postId,
+      url: finalUrl,
+      discoverySource: `${candidate.discoverySource}; verified by Reddit thread page`,
+      verified: true,
+    } satisfies RawRedditCandidate;
+    return hasVerifiedRedditIdentity(verified) ? verified : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(pageTimer);
   }
 }
 
@@ -266,5 +370,20 @@ export async function discoverRedditCandidates(
     }
   }
 
-  return results;
+  const byPostId = new Map<string, RawRedditCandidate>();
+  for (const candidate of results) {
+    const postId = extractPostIdFromUrl(candidate.url);
+    if (!postId || postId !== candidate.id.toLowerCase()) continue;
+    const existing = byPostId.get(postId);
+    if (!existing || (candidate.verified && !existing.verified)) byPostId.set(postId, candidate);
+  }
+
+  const uniqueCandidates = Array.from(byPostId.values()).slice(0, 80);
+  const verifiedCandidates: RawRedditCandidate[] = [];
+  for (let index = 0; index < uniqueCandidates.length; index += 8) {
+    const batch = uniqueCandidates.slice(index, index + 8);
+    const verified = await Promise.all(batch.map(verifyIndexedCandidate));
+    verifiedCandidates.push(...verified.filter((candidate): candidate is RawRedditCandidate => Boolean(candidate)));
+  }
+  return verifiedCandidates;
 }

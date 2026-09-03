@@ -148,7 +148,7 @@ export const XPreview: React.FC<XPreviewProps> = ({
       )}
       
       <div className="x-preview-footer">
-        Simulation · Not affiliated with X
+        Draft preview · Not affiliated with X
       </div>
     </div>
   );

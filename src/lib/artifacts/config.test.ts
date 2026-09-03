@@ -24,4 +24,13 @@ describe("artifact routing", () => {
     expect(manifest.primaryArtifact).toBe("pptx");
     expect(manifest.decisions.xlsx.enabled).toBe(false);
   });
+
+  it("routes the off-page SEO strategy to an Excel workbook only", () => {
+    const manifest = resolveArtifactManifest({ reportType: "BACKLINK_OUTREACH_BLUEPRINT", markdown: "# Off-Page SEO" });
+    expect(manifest.primaryArtifact).toBe("xlsx");
+    expect(manifest.decisions.xlsx.enabled).toBe(true);
+    expect(manifest.decisions.pdf.enabled).toBe(false);
+    expect(manifest.decisions.pptx.enabled).toBe(false);
+    expect(manifest.requiredSheets).toContain("03_Validated_Prospects");
+  });
 });

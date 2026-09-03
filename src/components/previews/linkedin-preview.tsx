@@ -82,14 +82,16 @@ export function LinkedInPreview({
       </div>
 
       {/* ── Social Stats ── */}
-      <div className="linkedin-preview__stats">
-        <span className="linkedin-preview__likes">
-          <ThumbsUp size={11} className="linkedin-preview__like-icon" /> {likesCount}
-        </span>
-        <span className="linkedin-preview__engagement">
-          {commentsCount} comments · {repostsCount} reposts
-        </span>
-      </div>
+      {likesCount + commentsCount + repostsCount > 0 && (
+        <div className="linkedin-preview__stats">
+          <span className="linkedin-preview__likes">
+            <ThumbsUp size={11} className="linkedin-preview__like-icon" /> {likesCount}
+          </span>
+          <span className="linkedin-preview__engagement">
+            {commentsCount} comments · {repostsCount} reposts
+          </span>
+        </div>
+      )}
 
       {/* ── Actions ── */}
       <div className="linkedin-preview__actions">
@@ -113,7 +115,7 @@ export function LinkedInPreview({
 
       {/* ── Simulation Footer ── */}
       <div className="linkedin-preview__footer">
-        Simulation · Not affiliated with LinkedIn
+        Draft preview · Not affiliated with LinkedIn
       </div>
     </div>
   );

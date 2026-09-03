@@ -1,34 +1,26 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import Image from "next/image";
 import {
   ArrowUp,
   Check,
-  ChevronLeft,
   ChevronDown,
-  ChevronRight,
   ChevronUp,
   Clock3,
   Copy,
   ExternalLink,
-  HelpCircle,
   MessageSquare,
   RefreshCw,
   Sparkles,
   Trash2,
   CheckCircle2,
   Filter,
-  ShieldAlert,
-  Send,
-  Eye,
-  Type,
-  Layers,
-  LayoutList,
-  LayoutGrid,
 } from "lucide-react";
 import type { RedditActionFeedOpportunity } from "@/lib/signals/store";
 import type { ReplyVariant } from "@/lib/reddit/writer";
+import { isVerifiedRedditOpportunityIdentity } from "@/lib/reddit/qualifier";
+import { SocialCompanyIdentity } from "./social-company-identity";
 
 /* ─────────────────────────────────────────────────────────────
    Helpers
@@ -50,6 +42,13 @@ function cleanRedditText(value: string) {
     .trim();
 }
 
+function formatRedditPublishedAt(value: string | null): string {
+  if (!value) return "Time unavailable";
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) return "Time unavailable";
+  return timestamp.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 function scoreTierClass(total: number) {
   if (total >= 90) return "sc-score--exceptional";
   if (total >= 80) return "sc-score--high";
@@ -65,14 +64,22 @@ type TabFilter = "all" | "high_priority" | "unreplied" | "replied" | "dismissed"
 
 export function RedditOpportunityFeed({
   companyId,
+  companyName,
+  companyWebsite,
+  companyLogoUrl,
   initialOpportunities,
   onOpportunityUpdated,
 }: {
   companyId: string;
+  companyName: string;
+  companyWebsite?: string | null;
+  companyLogoUrl?: string | null;
   initialOpportunities: RedditActionFeedOpportunity[];
   onOpportunityUpdated?: () => void;
 }) {
-  const [opportunities, setOpportunities] = useState<RedditActionFeedOpportunity[]>(initialOpportunities);
+  const [opportunities, setOpportunities] = useState<RedditActionFeedOpportunity[]>(
+    initialOpportunities.filter(isVerifiedRedditOpportunityIdentity),
+  );
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
@@ -80,12 +87,6 @@ export function RedditOpportunityFeed({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    if (opportunities.length === 0 && !scanning) {
-      void triggerLiveScan();
-    }
-  }, [companyId]);
 
   /* ── Counts ── */
   const counts = useMemo(() => {
@@ -196,8 +197,8 @@ export function RedditOpportunityFeed({
         body: JSON.stringify({ companyId }),
       });
       const data = await res.json();
-      if (Array.isArray(data.opportunities) && data.opportunities.length > 0) {
-        setOpportunities(data.opportunities);
+      if (Array.isArray(data.opportunities)) {
+        setOpportunities((data.opportunities as RedditActionFeedOpportunity[]).filter(isVerifiedRedditOpportunityIdentity));
         onOpportunityUpdated?.();
       }
     } finally {
@@ -296,11 +297,19 @@ export function RedditOpportunityFeed({
                   tabIndex={0}
                   onKeyDown={(e) => e.key === "Enter" && toggleCard(opp.id)}
                 >
-                  <div className="reddit-card__header-left">
-                    <span className="reddit-card__subreddit-pill">
-                      r/{opp.subreddit}
-                    </span>
-                    <h4 className="reddit-card__title">{opp.title}</h4>
+                  <div className="reddit-card__header-left social-post-card__header-left">
+                    <SocialCompanyIdentity
+                      companyName={companyName}
+                      companyWebsite={companyWebsite}
+                      companyLogoUrl={companyLogoUrl}
+                      platform="Reddit"
+                      meta={`reply to r/${opp.subreddit}`}
+                      compact
+                    />
+                    <div className="social-post-card__summary">
+                      <h4 className="reddit-card__title">{opp.title}</h4>
+                      <p>{currentDraft || cleanRedditText(opp.excerpt)}</p>
+                    </div>
                   </div>
                   <div className="reddit-card__header-right">
                     <span className={`sc-score sc-score--pill ${scoreTierClass(opp.score.total)}`}>
@@ -314,13 +323,11 @@ export function RedditOpportunityFeed({
                 {!isExpanded && (
                   <div className="reddit-card__collapsed-row" onClick={() => toggleCard(opp.id)}>
                     <div className="reddit-card__engagement">
-                      <span><ArrowUp size={11} /> {opp.upvotes}</span>
-                      <span><MessageSquare size={11} /> {opp.commentsCount}</span>
+                      <span><ArrowUp size={11} /> {opp.upvotes ?? "—"}</span>
+                      <span><MessageSquare size={11} /> {opp.commentsCount ?? "—"}</span>
                       <span>
                         <Clock3 size={11} />
-                        {opp.publishedAt
-                          ? `${Math.max(1, Math.round((Date.now() - new Date(opp.publishedAt).getTime()) / (1000 * 3600)))}h ago`
-                          : "Fresh"}
+                        {formatRedditPublishedAt(opp.publishedAt)}
                       </span>
                     </div>
                     <span className="reddit-card__intent-pill">{opp.intentLabel}</span>
@@ -334,13 +341,11 @@ export function RedditOpportunityFeed({
                     <div className="reddit-card__post-box">
                       <div className="reddit-card__post-meta">
                         <div className="reddit-card__engagement">
-                          <span><ArrowUp size={11} /> {opp.upvotes} upvotes</span>
-                          <span><MessageSquare size={11} /> {opp.commentsCount} comments</span>
+                          <span><ArrowUp size={11} /> {opp.upvotes === null ? "Upvotes unavailable" : `${opp.upvotes} upvotes`}</span>
+                          <span><MessageSquare size={11} /> {opp.commentsCount === null ? "Comments unavailable" : `${opp.commentsCount} comments`}</span>
                           <span>
                             <Clock3 size={11} />
-                            {opp.publishedAt
-                              ? `${Math.max(1, Math.round((Date.now() - new Date(opp.publishedAt).getTime()) / (1000 * 3600)))}h ago`
-                              : "Fresh"}
+                            {formatRedditPublishedAt(opp.publishedAt)}
                           </span>
                         </div>
                         <a
@@ -388,6 +393,13 @@ export function RedditOpportunityFeed({
                     {/* AI-Prepared Reply Section */}
                     <div className="reddit-card__reply-section">
                       <div className="reddit-card__reply-header">
+                        <SocialCompanyIdentity
+                          companyName={companyName}
+                          companyWebsite={companyWebsite}
+                          companyLogoUrl={companyLogoUrl}
+                          platform="Reddit"
+                          meta="prepared reply"
+                        />
                         <div className="reddit-card__variants-bar">
                           <span className="reddit-card__reply-label">AI Reply Style:</span>
                           <div className="reddit-card__variant-chips">

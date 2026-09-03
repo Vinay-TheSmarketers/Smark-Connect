@@ -33,3 +33,39 @@ Blocked for the same reason. Code-level checks confirm that every analysis area 
 ## Final result
 
 final result: blocked
+
+---
+
+# Social Agent Card QA
+
+- Source visual truth: `C:\Users\OrCon\Downloads\twitter-text-tweet-mockup_thumb.jpg` and `C:\Users\OrCon\Downloads\linkedin-post.png`.
+- Implementation route: `http://localhost:3000/dashboard/cmtb3xryh0005lbwwvjpq49wu`, Action Feed social agents.
+- Target state: Reddit, Instagram, X, and LinkedIn cards in the narrow agent pane, with expanded editor and preview controls.
+- Implementation screenshot: unavailable because the in-app browser URL policy blocked the localhost page before a current screenshot could be captured.
+
+## Full-view comparison evidence
+
+Blocked. Both supplied references were opened at original resolution. The implementation follows their shared structure in code: circular company avatar, company name and website-derived handle, lightweight platform metadata, concise body preview, and compact action controls. A rendered implementation image could not be placed beside the references for the required visual comparison.
+
+## Focused region comparison evidence
+
+Blocked for the same browser-policy limitation. Code-level checks confirm that the social cards use the analyzed company identity and that X, Instagram, and LinkedIn previews no longer show fabricated engagement totals.
+
+## Findings
+
+- P1 — Browser-rendered comparison unavailable.
+  - Location: Action Feed social agent cards.
+  - Impact: final wrapping, logo rendering, and the 340px container breakpoint cannot be visually signed off.
+  - Fix: capture collapsed and expanded states for each social agent in the in-app browser and compare them beside the supplied X and LinkedIn references.
+
+## Verification completed
+
+- TypeScript: passed.
+- Vitest: 23 files and 77 tests passed.
+- Production build: passed.
+- Focused ESLint for the new shared company identity component: passed.
+- Local development server: running at port 3000.
+
+## Final result
+
+final result: blocked

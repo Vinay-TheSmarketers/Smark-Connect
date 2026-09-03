@@ -44,7 +44,10 @@ next-env.d.ts
 
 # Local generated artifacts
 /output/
+/outputs/
 /tmp/
+/.codex-tmp/
+/.codex-dev-server*.log
 .pnpm-store/
 __pycache__/
 *.pyc

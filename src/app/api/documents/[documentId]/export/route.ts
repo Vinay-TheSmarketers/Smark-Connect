@@ -5,7 +5,7 @@ import { createBrandedHtml, createBrandedPdf } from "@/lib/documents/pdf";
 import { createExecutivePptx } from "@/lib/documents/pptx";
 import { createBrandedXlsx } from "@/lib/documents/xlsx";
 import type { VisualReportCompetitor } from "@/lib/documents/pdf";
-import { safeFilename } from "@/lib/documents/content";
+import { normalizeDocumentMarkdown, safeFilename } from "@/lib/documents/content";
 import { fetchCompanyLogoAsset } from "@/lib/company-logo";
 import { CORE_DOCUMENTS } from "@/lib/skills/registry";
 import { createCompanyBrief } from "@/lib/company-brief";
@@ -57,11 +57,11 @@ export async function GET(request: Request, context: { params: Promise<{ documen
   const coreDocuments = siblingDocuments.filter((item) => coreOrder.has(item.type)).sort((left, right) => (coreOrder.get(left.type) ?? 99) - (coreOrder.get(right.type) ?? 99));
   const modules = await Promise.all(coreDocuments.map(async (item) => {
     const itemMetadata = (item.metadata as ReportMetadata | null) ?? {};
-    return { type: item.type, title: item.title, markdown: item.contentMarkdown, competitors: item.type === "COMPETITOR_ANALYSIS" ? await reportCompetitors(itemMetadata) : [] };
+    return { type: item.type, title: item.title, markdown: normalizeDocumentMarkdown(item.contentMarkdown), competitors: item.type === "COMPETITOR_ANALYSIS" ? await reportCompetitors(itemMetadata) : [] };
   }));
   const reportType = includeAllModules && modules.length > 1 ? "STRATEGIC_INTELLIGENCE" : document.type;
   const title = includeAllModules && modules.length > 1 ? "Strategic Intelligence Report" : document.title;
-  const markdown = includeAllModules && modules.length > 1 ? modules.map((module) => `# ${module.title}\n\n${module.markdown}`).join("\n\n") : document.contentMarkdown;
+  const markdown = normalizeDocumentMarkdown(includeAllModules && modules.length > 1 ? modules.map((module) => `# ${module.title}\n\n${module.markdown}`).join("\n\n") : document.contentMarkdown);
   const sourceCount = includeAllModules && modules.length > 1 ? coreDocuments.reduce((total, item) => { const itemMetadata = (item.metadata as ReportMetadata | null) ?? {}; return total + (Array.isArray(itemMetadata.sources) ? itemMetadata.sources.length : 0); }, 0) : Array.isArray(metadata.sources) ? metadata.sources.length : 0;
   const manifest = resolveArtifactManifest({ reportType, markdown, metadata, competitorCount: competitors.length });
   const reportModel = buildReportDataModel({

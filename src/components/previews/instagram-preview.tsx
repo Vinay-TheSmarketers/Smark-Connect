@@ -210,11 +210,6 @@ export function InstagramPreview({
         </div>
       </div>
 
-      {/* Likes */}
-      <div className="ig-preview-likes">
-        1,234 likes
-      </div>
-
       {/* Caption Area */}
       {renderCaption()}
 
@@ -224,7 +219,7 @@ export function InstagramPreview({
           {caption.length} / 2,200 characters
         </div>
         <div className="ig-preview-timestamp">
-          Just now
+          Draft preview
         </div>
       </div>
       

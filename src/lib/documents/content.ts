@@ -1,5 +1,37 @@
 export type DocumentBlock = { type: "h1" | "h2" | "h3" | "paragraph" | "bullet" | "number" | "quote"; text: string } | { type: "table"; rows: string[][] };
 
+/**
+ * Repairs common model-output typography before Markdown is displayed or exported.
+ * Valid bold markers are preserved for the Markdown renderer, while stray single
+ * asterisks and inconsistent list prefixes are converted to stable list syntax.
+ */
+export function normalizeDocumentMarkdown(value: string): string {
+  const normalizedLines = value
+    .replace(/[\u2013\u2014]/g, " - ")
+    .replace(/\u00a0/g, " ")
+    .replace(/\\\*/g, "")
+    .split(/\r?\n/)
+    .map((line) => {
+      const bullet = line.match(/^(\s*)(?:[\u2022\u25e6\u25aa+]\s*|\*(?!\*)\s+)(.+)$/);
+      const numbered = line.match(/^(\s*)(\d+)[)]\s*(.+)$/);
+      if (bullet) return `${bullet[1]}- ${bullet[2]}`;
+      if (numbered) return `${numbered[1]}${numbered[2]}. ${numbered[3]}`;
+      return line.replace(/(?<!\*)\*(?!\*)/g, "");
+    });
+
+  const output: string[] = [];
+  const isListLine = (line: string) => /^\s*(?:[-+]\s+|\d+\.\s+)/.test(line);
+  for (const rawLine of normalizedLines) {
+    const line = rawLine.replace(/[ \t]+$/g, "");
+    const previous = output.at(-1) ?? "";
+    if (isListLine(line) && previous && !isListLine(previous)) output.push("");
+    if (!isListLine(line) && line && isListLine(previous)) output.push("");
+    output.push(line);
+  }
+
+  return output.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 export function cleanInlineMarkdown(value: string): string {
   return value
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
@@ -22,7 +54,7 @@ export function parseMarkdown(markdown: string): DocumentBlock[] {
     if (paragraph.length) blocks.push({ type: "paragraph", text: cleanInlineMarkdown(paragraph.join(" ")) });
     paragraph = [];
   };
-  const lines = markdown.replace(/\r/g, "").split("\n");
+  const lines = normalizeDocumentMarkdown(markdown).replace(/\r/g, "").split("\n");
   const tableRow = (value: string) => value.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cleanInlineMarkdown(cell.replace(/\\\|/g, "|")));
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index];

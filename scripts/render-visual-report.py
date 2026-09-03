@@ -73,16 +73,34 @@ def clean_inline(value: str) -> str:
             value = repaired
         except (UnicodeEncodeError, UnicodeDecodeError):
             break
-    for broken, repaired in {"â€”": "—", "â€“": "–", "â€™": "’", "â€œ": "“", "â€ ": "”", "Â®": "®", "Â": ""}.items():
+    for broken, repaired in {"â€”": " - ", "â€“": " - ", "â€™": "’", "â€œ": "“", "â€ ": "”", "Â®": "®", "Â": ""}.items():
         value = value.replace(broken, repaired)
     value = re.sub(r"(?:â[^\w\s]{1,4})+", " · ", value)
     value = re.sub(r"!\[([^]]*)\]\([^)]*\)", r"\1", value)
     value = re.sub(r"\[([^]]+)\]\((https?://[^)]+)\)", r'<span class="smark-cite-link" title="\2">\1</span>', value)
     value = re.sub(r"[\u2500-\u259f\ufffd]+", " · ", value)
     value = re.sub(r"(?:\s*·\s*){2,}", " · ", value)
+    value = re.sub(r"[\u2013\u2014]", " - ", value)
     value = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", value)
+    value = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"\1", value)
+    value = value.replace("\\*", "").replace("*", "")
     value = re.sub(r"`([^`]+)`", r"<code>\1</code>", value)
+    value = re.sub(r"[ \t]{2,}", " ", value)
     return value.strip()
+
+
+def normalize_document_markdown(markdown: str) -> str:
+    normalized: list[str] = []
+    for raw_line in markdown.replace("\u00a0", " ").splitlines():
+        line = re.sub(r"[\u2013\u2014]", " - ", raw_line).rstrip()
+        bullet = re.match(r"^(\s*)(?:[•◦▪+]\s*|\*(?!\*)\s+)(.+)$", line)
+        numbered = re.match(r"^(\s*)(\d+)[)]\s*(.+)$", line)
+        if bullet:
+            line = f"{bullet.group(1)}- {bullet.group(2)}"
+        elif numbered:
+            line = f"{numbered.group(1)}{numbered.group(2)}. {numbered.group(3)}"
+        normalized.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(normalized)).strip()
 
 
 def parse_markdown_blocks(markdown: str) -> list[dict[str, Any]]:
@@ -170,7 +188,7 @@ def render_module_visuals(doc_type: str, company: str, competitors: list[dict[st
             </div>
             <div class="visual-split-grid">
                 <div class="visual-card">
-                    <h4 class="card-mini-title">Capability Dimension Radar (0–100 Benchmark)</h4>
+                    <h4 class="card-mini-title">Capability Dimension Radar (0 to 100 Benchmark)</h4>
                     <svg viewBox="0 0 360 270" class="svg-visual-lg">
                         <polygon points="180,30 300,95 300,215 180,270 60,215 60,95" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
                         <polygon points="180,65 270,110 270,195 180,240 90,195 90,110" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
@@ -446,9 +464,9 @@ def render_module_visuals(doc_type: str, company: str, competitors: list[dict[st
                 <div class="visual-card">
                     <h4 class="card-mini-title">6-Month Implementation Roadmap</h4>
                     <div class="gantt-container">
-                        <div class="gt-track"><span class="gt-lbl">Core Tech & Tracking</span><div class="gt-bar" style="margin-left: 0%; width: 35%;">M1–M2</div></div>
-                        <div class="gt-track"><span class="gt-lbl">Organic & GEO Sprints</span><div class="gt-bar" style="margin-left: 20%; width: 55%;">M2–M5</div></div>
-                        <div class="gt-track"><span class="gt-lbl">ABM & Paid Acceleration</span><div class="gt-bar" style="margin-left: 45%; width: 55%;">M3–M6</div></div>
+                        <div class="gt-track"><span class="gt-lbl">Core Tech & Tracking</span><div class="gt-bar" style="margin-left: 0%; width: 35%;">M1 to M2</div></div>
+                        <div class="gt-track"><span class="gt-lbl">Organic & GEO Sprints</span><div class="gt-bar" style="margin-left: 20%; width: 55%;">M2 to M5</div></div>
+                        <div class="gt-track"><span class="gt-lbl">ABM & Paid Acceleration</span><div class="gt-bar" style="margin-left: 45%; width: 55%;">M3 to M6</div></div>
                     </div>
                 </div>
             </div>
@@ -464,7 +482,7 @@ def render_module_visuals(doc_type: str, company: str, competitors: list[dict[st
         </div>
         <div class="visual-split-grid">
             <div class="visual-card">
-                <h4 class="card-mini-title">Capability Dimension Radar (0–100)</h4>
+                <h4 class="card-mini-title">Capability Dimension Radar (0 to 100)</h4>
                 <svg viewBox="0 0 360 270" class="svg-visual-lg">
                     <polygon points="180,30 300,95 300,215 180,270 60,215 60,95" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
                     <polygon points="180,65 270,110 270,195 180,240 90,195 90,110" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
@@ -491,6 +509,55 @@ def render_module_visuals(doc_type: str, company: str, competitors: list[dict[st
         </div>
     </section>
     '''
+
+
+def add_visual_explanation(markup: str, doc_type: str, report_model: dict[str, Any] | None) -> str:
+    model = report_model if isinstance(report_model, dict) else {}
+    summaries = model.get("executiveSummary") if isinstance(model.get("executiveSummary"), list) else []
+    findings = model.get("findings") if isinstance(model.get("findings"), list) else []
+    evidence_summary = next((str(item) for item in summaries if str(item).strip()), "")
+    if not evidence_summary:
+        evidence_summary = next(
+            (str(item.get("narrative", "")) for item in findings if isinstance(item, dict) and item.get("narrative")),
+            "The diagram organizes the report's source-backed findings into a decision-ready view.",
+        )
+    evidence_summary = clean_inline(evidence_summary[:420])
+    interpretation = {
+        "COMPANY_INTELLIGENCE": "Read the relationships as a qualitative capability map. Use the adjacent findings to distinguish observed evidence from hypotheses before assigning resources.",
+        "SEO_AUDIT": "Read the sequence from technical constraint to search impact and remediation priority. Values are meaningful only where the report cites the underlying audit result.",
+        "GEO_AUDIT": "Read the map as a view of entity clarity, answer coverage, and citation readiness. It highlights where stronger source evidence can improve AI discovery.",
+        "COMPETITOR_ANALYSIS": "Use the comparison to identify defensible whitespace, not to infer market share. Every position should be checked against the competitor evidence in the surrounding section.",
+        "AUDIENCE_ANALYSIS": "Use the comparison to connect audience tension, buying role, and message priority. It supports sequencing decisions rather than a demographic score.",
+        "CONTENT_AUDIT": "Follow the relationship between content coverage, buyer stage, and the next editorial action. Priorities should trace back to a cited content or search signal.",
+        "CONTENT_STRATEGY": "Read the flow from audience need through format, distribution, and conversion action. The diagram is a planning aid grounded in the report's evidence.",
+        "MARKETING_STRATEGY": "Use the visual to connect strategic priority with execution order and measurement. It is a decision aid, not a substitute for the cited operating assumptions.",
+    }.get(doc_type.upper(), "Use the visual to connect the report's evidence with execution order and the next decision. Treat uncited values as directional, not measured benchmarks.")
+    explanation = f'''
+        <div class="visual-explanation">
+            <strong>How to read this visual</strong>
+            <p>{evidence_summary}</p>
+            <p><b>Decision use:</b> {clean_inline(interpretation)}</p>
+        </div>
+    '''
+    closing = markup.rfind("</section>")
+    return f"{markup[:closing]}{explanation}{markup[closing:]}" if closing >= 0 else f"{markup}{explanation}"
+
+
+def visual_insertion_index(blocks: list[dict[str, Any]]) -> int:
+    if len(blocks) < 2:
+        return 0
+    heading_indexes = [index for index, block in enumerate(blocks) if block.get("type") in ("h1", "h2")]
+    executive_index = next(
+        (index for index in heading_indexes if re.search(r"executive|summary|overview|recommendation", str(blocks[index].get("text", "")), re.I)),
+        None,
+    )
+    if executive_index is not None:
+        next_heading = next((index for index in heading_indexes if index > executive_index), None)
+        if next_heading is not None:
+            return next_heading
+    if len(heading_indexes) > 1:
+        return heading_indexes[1]
+    return min(max(1, len(blocks) // 3), len(blocks) - 1)
 
 
 def extract_swot_matrix(blocks: list[dict[str, Any]], start_index: int) -> tuple[dict[str, list[str]], int]:
@@ -572,13 +639,18 @@ def extract_swot_matrix(blocks: list[dict[str, Any]], start_index: int) -> tuple
     return swot_items, i
 
 
-def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[str, str] | None = None) -> str:
+def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[str, str] | None = None, inline_visuals: str = "") -> str:
     competitor_logos = competitor_logos or {}
     html_parts: list[str] = []
     
     chapter_count = 1
     i = 0
+    insert_at = visual_insertion_index(blocks) if inline_visuals else -1
+    visuals_inserted = False
     while i < len(blocks):
+        if not visuals_inserted and i == insert_at:
+            html_parts.append(inline_visuals)
+            visuals_inserted = True
         block = blocks[i]
         b_type = block["type"]
         block_text = block.get("text", "")
@@ -711,6 +783,8 @@ def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[s
                 ''')
         i += 1
 
+    if inline_visuals and not visuals_inserted:
+        html_parts.insert(max(1, len(html_parts) // 3), inline_visuals)
     return "\n".join(html_parts)
 
 
@@ -1322,8 +1396,8 @@ body {
 
 /* Visual Framework Panels */
 .visual-framework-panel {
-    margin: 14px 0;
-    padding: 12px 14px;
+    margin: 18px 0;
+    padding: 16px 18px;
     background: #FFFFFF;
     border: 1px solid var(--line-border);
     border-radius: 8px;
@@ -1353,14 +1427,14 @@ body {
 .visual-split-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 14px;
 }
 
 .visual-card {
     background: #FAF8FC;
     border: 1px solid var(--line-border);
     border-radius: 6px;
-    padding: 10px 12px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -1376,13 +1450,42 @@ body {
 .svg-visual-lg {
     width: 100%;
     height: auto;
-    max-height: 200px;
+    max-height: 235px;
 }
 
 .svg-visual {
     width: 100%;
     height: auto;
-    max-height: 140px;
+    max-height: 170px;
+}
+
+.visual-explanation {
+    margin-top: 12px;
+    padding: 11px 13px;
+    border-left: 3px solid var(--signature-purple);
+    border-radius: 0 6px 6px 0;
+    background: var(--blush-pink);
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+.visual-explanation > strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--deep-violet);
+    font-size: 8.5pt;
+    letter-spacing: 0.02em;
+}
+
+.visual-explanation p {
+    margin: 0 0 4px;
+    color: var(--slate-gray);
+    font-size: 8.5pt;
+    line-height: 1.45;
+}
+
+.visual-explanation p:last-child {
+    margin-bottom: 0;
 }
 
 /* 2x2 Matrix Component */
@@ -1771,7 +1874,6 @@ body {
 
 <main class="report-main-flow">
     {{ content_html|safe }}
-    {{ module_visuals_html|safe }}
     {{ competitor_html|safe }}
     {{ skills_html|safe }}
     {{ sources_register_html|safe }}
@@ -1800,9 +1902,14 @@ def build_report_html(payload: dict[str, Any]) -> str:
     doc_type = payload.get("documentType") or payload.get("reportType") or "STRATEGIC_INTELLIGENCE"
     company = clean_inline(payload.get("companyName", "Target Company"))
 
+    raw_markdown = normalize_document_markdown(raw_markdown)
     blocks = parse_markdown_blocks(raw_markdown)
-    content_html = render_blocks_to_html(blocks, competitor_logos)
-    module_visuals_html = render_module_visuals(doc_type, company, competitors)
+    module_visuals_html = add_visual_explanation(
+        render_module_visuals(doc_type, company, competitors),
+        doc_type,
+        payload.get("reportModel"),
+    )
+    content_html = render_blocks_to_html(blocks, competitor_logos, module_visuals_html)
     competitor_html = render_competitor_cards(competitors)
     
     skills = payload.get("skills", [])
@@ -1830,7 +1937,6 @@ def build_report_html(payload: dict[str, Any]) -> str:
         source_count=source_count,
         brand_logo=brand_logo,
         content_html=content_html,
-        module_visuals_html=module_visuals_html,
         competitor_html=competitor_html,
         skills_html=skills_html,
         sources_register_html=sources_register_html,

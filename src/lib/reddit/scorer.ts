@@ -55,10 +55,23 @@ export type EvaluatedRedditOpportunity = {
   recommendedActionLabel: string;
   discoveredAt: string;
   publishedAt: string | null;
-  upvotes: number;
-  commentsCount: number;
+  upvotes: number | null;
+  commentsCount: number | null;
   queryFamily: string;
+  discoverySource: string;
+  verified: true;
 };
+
+const MATCH_STOPWORDS = new Set([
+  "about", "agency", "and", "are", "best", "business", "client", "company", "consulting", "for", "from", "help", "how", "into", "management",
+  "modern", "platform", "provider", "service", "services", "software", "solution", "solutions", "team", "tool",
+  "the", "tools", "using", "what", "with", "workflow", "workflows", "your",
+]);
+
+function matchingTerms(value: string): string[] {
+  return value.toLowerCase().replace(/[^a-z0-9+#./ -]/g, " ").split(/[\s,&/-]+/)
+    .filter((term) => term.length >= 3 && !MATCH_STOPWORDS.has(term));
+}
 
 /**
  * Classifies the intent of a Reddit candidate discussion.
@@ -73,7 +86,8 @@ function classifyIntent(title: string, excerpt: string): { intent: OpportunityIn
   }
 
   if (
-    /buy|pricing|budget|subscription|hire|contractor|vendor|purchase|trial|switching to/i.test(text)
+    /\b(?:buy|pricing|budget|subscription|contractor|vendor|purchase|trial|switching to)\b/i.test(text) ||
+    /\b(?:hire|hiring)\s+(?:an?\s+|the\s+)?(?:agency|consultant|provider|vendor|specialist)\b/i.test(text)
   ) {
     return { intent: "BUYING_INTENT", label: "High Buying Intent" };
   }
@@ -85,7 +99,7 @@ function classifyIntent(title: string, excerpt: string): { intent: OpportunityIn
   }
 
   if (
-    /vs|compare|or|difference between|pros and cons/i.test(title.toLowerCase())
+    /\b(?:vs\.?|versus|compare|comparison|difference between|pros and cons)\b/i.test(title.toLowerCase())
   ) {
     return { intent: "COMPARISON", label: "Tool / Approach Comparison" };
   }
@@ -123,27 +137,39 @@ export function evaluateRedditOpportunity(
   const { intent, label: intentLabel } = classifyIntent(candidate.title, candidate.excerpt);
 
   // 1. ICP Matching from Company Memory
-  let matchedIcp = memory.icpsAndPersonas[0]?.title || `${memory.category || "Target"} Decision Maker`;
+  let matchedIcp = "No specific ICP role established from this thread";
+  let hasIcpMatch = false;
   for (const icp of memory.icpsAndPersonas) {
-    const roleWords = `${icp.title} ${icp.role} ${icp.description}`.toLowerCase().split(/\s+/);
-    if (roleWords.some((w) => w.length > 3 && text.includes(w))) {
+    const roleWords = matchingTerms(`${icp.title} ${icp.role} ${icp.description}`);
+    if (roleWords.filter((word) => text.includes(word)).length >= 2) {
       matchedIcp = icp.title;
+      hasIcpMatch = true;
       break;
     }
   }
 
   // 2. Problem Matching from Company Memory
-  let matchedProblem = memory.painPoints[0] || `Managing ${memory.category || "core"} workflows takes too much time`;
+  let matchedProblem = "No specific company pain point established from this thread";
+  let problemMatches = 0;
   for (const pain of memory.painPoints) {
-    const painWords = pain.toLowerCase().split(/\s+/).filter((w) => w.length > 4);
-    if (painWords.some((w) => text.includes(w))) {
+    const painWords = matchingTerms(pain);
+    const matches = painWords.filter((word) => text.includes(word)).length;
+    if (matches >= 2 && matches > problemMatches) {
       matchedProblem = pain;
-      break;
+      problemMatches = matches;
     }
   }
 
   // 3. Product Match
-  const matchedProduct = memory.productsAndServices[0] || `${memory.companyName} ${memory.category || "Platform"}`;
+  let matchedProduct = "No specific offer established from this thread";
+  let matchedProductTerms = 0;
+  for (const product of [memory.category, ...memory.productsAndServices, ...memory.featuresAndCapabilities]) {
+    const matches = matchingTerms(product).filter((word) => text.includes(word)).length;
+    if (matches > matchedProductTerms) {
+      matchedProduct = product;
+      matchedProductTerms = matches;
+    }
+  }
 
   // 4. Competitor Detection from Company Memory
   let detectedCompetitor: string | null = null;
@@ -170,60 +196,64 @@ export function evaluateRedditOpportunity(
   // -------------------------------------------------------------
   // Factor 2: Product Fit (0 - 20)
   // -------------------------------------------------------------
-  let productFitScore = 10;
+  let productFitScore = 0;
   const productTerms = [
-    memory.companyName,
     memory.category,
     ...memory.productsAndServices,
     ...memory.featuresAndCapabilities,
     ...(memory.primaryKeywords || []),
-    ...(memory.painPoints || []),
-  ].flatMap((t) => t.toLowerCase().split(/[\s,&/]+/)).filter((w) => w.length > 3 && !["with", "that", "this", "from", "your", "more", "most", "about", "into"].includes(w));
+  ].flatMap(matchingTerms);
 
   let matchesCount = 0;
   for (const term of new Set(productTerms)) {
     if (text.includes(term)) matchesCount += 1;
   }
 
-  if (matchesCount >= 3) productFitScore = 20;
-  else if (matchesCount >= 2) productFitScore = 18;
-  else if (matchesCount === 1) productFitScore = 14;
-  else productFitScore = 10;
+  if (matchesCount >= 4) productFitScore = 20;
+  else if (matchesCount >= 3) productFitScore = 18;
+  else if (matchesCount === 2) productFitScore = 15;
+  else if (matchesCount === 1) productFitScore = 7;
 
   // -------------------------------------------------------------
   // Factor 3: ICP Fit (0 - 15)
   // -------------------------------------------------------------
-  let icpFitScore = 10;
-  if (matchedIcp) icpFitScore = 14;
+  const icpFitScore = hasIcpMatch ? 14 : 0;
 
   // -------------------------------------------------------------
   // Factor 4: Relevance (0 - 15)
   // -------------------------------------------------------------
-  let relevanceScore = 8;
-  const painTerms = memory.painPoints.map((p) => p.toLowerCase());
-  if (painTerms.some((p) => text.includes(p))) relevanceScore += 4;
+  let relevanceScore = Math.min(9, matchesCount * 3);
+  if (problemMatches >= 2) relevanceScore += 3;
   if (detectedCompetitor) relevanceScore += 3;
   relevanceScore = Math.min(15, relevanceScore);
 
   // -------------------------------------------------------------
   // Factor 5: Recency (0 - 10)
   // -------------------------------------------------------------
-  let recencyScore = 8;
+  let recencyScore = 0;
   if (candidate.publishedAt) {
-    const ageDays = (Date.now() - new Date(candidate.publishedAt).getTime()) / (1000 * 60 * 60 * 24);
-    if (ageDays <= 1) recencyScore = 10;
-    else if (ageDays <= 3) recencyScore = 9;
-    else if (ageDays <= 7) recencyScore = 8;
-    else if (ageDays <= 14) recencyScore = 6;
-    else recencyScore = 4;
+    const publishedTime = new Date(candidate.publishedAt).getTime();
+    if (!Number.isNaN(publishedTime)) {
+      const ageDays = (Date.now() - publishedTime) / (1000 * 60 * 60 * 24);
+      if (ageDays <= 1) recencyScore = 10;
+      else if (ageDays <= 3) recencyScore = 9;
+      else if (ageDays <= 7) recencyScore = 8;
+      else if (ageDays <= 14) recencyScore = 6;
+      else recencyScore = 4;
+    }
   }
 
   // -------------------------------------------------------------
   // Factor 6: Conversation & Engagement Potential (0 - 5)
   // -------------------------------------------------------------
-  let engagementScore = 3;
-  if (candidate.numComments > 10 || candidate.score > 20) engagementScore = 5;
-  else if (candidate.numComments >= 3 || candidate.score >= 5) engagementScore = 4;
+  let engagementScore = 0;
+  const comments = candidate.numComments ?? 0;
+  const upvotes = candidate.score ?? 0;
+  if (candidate.numComments !== null || candidate.score !== null) {
+    engagementScore = 2;
+    if (comments > 10 || upvotes > 20) engagementScore = 5;
+    else if (comments >= 3 || upvotes >= 5) engagementScore = 4;
+  }
 
   // -------------------------------------------------------------
   // Factor 7: Actionability (0 - 5)
@@ -269,7 +299,7 @@ export function evaluateRedditOpportunity(
   // 6. Spam Risk Calculation (0.0 to 1.0)
   let spamRisk = 0.08;
   if (/promo|affiliate|discount|hire me/i.test(text)) spamRisk += 0.35;
-  if (candidate.score <= 1 && candidate.numComments === 0) spamRisk += 0.1;
+  if ((candidate.score ?? 0) <= 1 && (candidate.numComments ?? 0) === 0) spamRisk += 0.1;
   if (candidate.author === "reddit_user" || !candidate.author) spamRisk += 0.05;
   spamRisk = Math.min(0.95, Math.max(0.02, spamRisk));
 
@@ -277,9 +307,12 @@ export function evaluateRedditOpportunity(
   let recommendedAction: DecisionAction = "EDUCATIONAL_REPLY";
   let recommendedActionLabel = "Educational Workflow Reply";
 
-  if (spamRisk > 0.6 || tier === "low") {
+  if (spamRisk > 0.6 || productFitScore < 7 || relevanceScore < 3) {
     recommendedAction = "DO_NOT_ENGAGE";
     recommendedActionLabel = "Do Not Engage (Low relevance / high risk)";
+  } else if (tier === "low") {
+    recommendedAction = "MONITOR";
+    recommendedActionLabel = "Low-confidence opportunity — review before engaging";
   } else if (intent === "RECOMMENDATION_REQUEST" || intent === "BUYING_INTENT") {
     if (productFitScore >= 18) {
       recommendedAction = "DIRECT_RECOMMENDATION";
@@ -309,19 +342,19 @@ export function evaluateRedditOpportunity(
     intent === "BUYING_INTENT" ? "✓ Explicit commercial / buying intent detected" :
     intent === "COMPETITOR_DISSATISFACTION" ? `✓ Competitor dissatisfaction detected (${detectedCompetitor || "Legacy tool"})` :
     "✓ Stated problem aligns with core platform capability",
-    `✓ Product addresses: ${matchedProblem.slice(0, 50)}…`,
-    candidate.publishedAt ? `✓ Fresh discussion active within monitoring window` : "✓ Discovered through live search index",
+    problemMatches >= 2 ? `✓ Documented problem overlap: ${matchedProblem.slice(0, 50)}…` : "✓ No unsupported problem-match claim added",
+    candidate.publishedAt ? `✓ Reddit supplied the publication timestamp` : "✓ Verified Reddit thread; publication time unavailable",
   ];
 
   // 9. Why It Matters synthesis
   const whyItMatters =
     intent === "RECOMMENDATION_REQUEST"
-      ? `The author is actively evaluating solutions in ${candidate.subreddit}. Recommending ${memory.companyName} with helpful context will establish authority and capture high-intent demand.`
+      ? `The author is actively evaluating solutions in ${candidate.subreddit}. A helpful, transparent response may be useful if the verified product-fit evidence is strong enough.`
       : intent === "COMPETITOR_DISSATISFACTION"
       ? `Frustration with ${detectedCompetitor || "current tooling"} creates an ideal opportunity to highlight your automated workflow and transparent capabilities.`
       : intent === "PAIN_POINT"
-      ? `Addresses the exact operational bottleneck (${matchedProblem}) that ${memory.companyName} solves, offering high value without being overly promotional.`
-      : `Relevant discussion in ${candidate.subreddit} touching core domain capabilities. Replying with actionable advice builds brand trust.`;
+      ? `The thread overlaps with a documented operational bottleneck (${matchedProblem}) and may support a useful educational response.`
+      : `Verified discussion in ${candidate.subreddit} with evidence of overlap to documented company capabilities.`;
 
   return {
     id: candidate.id,
@@ -348,5 +381,7 @@ export function evaluateRedditOpportunity(
     upvotes: candidate.score,
     commentsCount: candidate.numComments,
     queryFamily: candidate.queryFamily,
+    discoverySource: candidate.discoverySource,
+    verified: true,
   };
 }

@@ -95,6 +95,28 @@ export const ARTIFACT_PROFILES: Record<string, ArtifactProfile> = {
     requiredVisuals: ["executive-dashboard", "cross-functional-priority-map", "integrated-roadmap"],
     requiredSheets: ["01_Summary", "02_Findings", "03_Action_Tracker", "04_Metrics", "05_Source_Register"],
   },
+  BACKLINK_OUTREACH_BLUEPRINT: {
+    ...DEFAULT_PROFILE,
+    pdf: "disabled",
+    pptx: "disabled",
+    xlsx: "required",
+    primaryArtifact: "xlsx",
+    theme: "search-intelligence",
+    targetSlides: 0,
+    requiredVisuals: ["pipeline-health", "opportunity-priority", "90-day-roadmap"],
+    requiredSheets: [
+      "01_Executive_Dashboard",
+      "02_Strategy_On_A_Page",
+      "03_Validated_Prospects",
+      "04_90_Day_Roadmap",
+      "05_Outreach_CRM",
+      "06_Link_Earnings_Log",
+      "07_Linkable_Assets",
+      "08_KPI_Tracker",
+      "09_Validation_Registry",
+    ],
+    appendixRequired: false,
+  },
 };
 
 type RoutingInput = {
@@ -168,8 +190,8 @@ export function resolveArtifactManifest(input: RoutingInput): ArtifactManifest {
     requiredSheets: profile.requiredSheets,
     appendixRequired: profile.appendixRequired,
     decisions: {
-      pdf: decision("pdf", profile.pdf, profile.pdf !== "disabled", "The PDF is the detailed analytical source of truth."),
-      pptx: decision("pptx", profile.pptx, profile.pptx !== "disabled", "The PPTX is the compressed leadership decision story."),
+      pdf: decision("pdf", profile.pdf, profile.pdf !== "disabled", profile.pdf === "disabled" ? "Disabled by the report profile." : "The PDF is the detailed analytical source of truth."),
+      pptx: decision("pptx", profile.pptx, profile.pptx !== "disabled", profile.pptx === "disabled" ? "Disabled by the report profile." : "The PPTX is the compressed leadership decision story."),
       xlsx: decision("xlsx", profile.xlsx, xlsxEnabled, reason),
     },
   };

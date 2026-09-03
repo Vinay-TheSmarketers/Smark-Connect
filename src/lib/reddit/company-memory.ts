@@ -1,6 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { unwrapStructuredText } from "@/lib/text-format";
+import { buildCompanyStrategicProfile } from "@/lib/competitors/company-profiler";
+import { extractContextCompetitorsFromAgentOutput, selectContextCompetitors } from "@/lib/competitors/context-display";
 
 export type CompanyMemory = {
   companyName: string;
@@ -104,6 +106,7 @@ function deriveKeywordsFromPages(pages: Array<{ title: string | null; descriptio
  * foundation documents, and crawled website pages — with zero generic SEO assumptions.
  */
 export async function extractCompanyMemory(companyId: string): Promise<CompanyMemory> {
+  const strategicProfile = await buildCompanyStrategicProfile(companyId);
   const company = await db.company.findUnique({
     where: { id: companyId },
     include: {
@@ -122,7 +125,12 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
       },
       crawlPages: {
         orderBy: { wordCount: "desc" },
-        take: 16,
+        take: 80,
+      },
+      agentRuns: {
+        where: { agentType: "COMPETITOR", status: "DONE" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
       },
       chatAttachments: {
         where: { remembered: true },
@@ -148,30 +156,23 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
   const websiteUrl = company.websiteUrl || "";
   const domain = cleanDomainName(websiteUrl);
 
-  const homePage = company.crawlPages[0];
+  const websiteHost = cleanDomainName(websiteUrl).toLowerCase();
+  const homePage = company.crawlPages.find((page) => {
+    try {
+      const url = new URL(page.url);
+      return url.hostname.replace(/^www\./i, "").toLowerCase() === websiteHost && url.pathname.replace(/\/+$/, "") === "";
+    } catch {
+      return false;
+    }
+  }) || company.crawlPages[0];
   const derivedKeywords = deriveKeywordsFromPages(company.crawlPages, companyName);
 
-  // Derive dynamic category from company or crawl pages
-  let category = company.category?.trim();
-  if (!category || category === "B2B Marketing & Demand Generation") {
-    // Try to derive from homepage title or first few keywords
-    if (homePage?.title) {
-      const parts = homePage.title.split(/[|–—:•]/).map((s) => s.trim());
-      const nonBrand = parts.find((p) => !p.toLowerCase().includes(companyName.toLowerCase()) && p.length > 3);
-      if (nonBrand) {
-        category = nonBrand;
-      }
-    }
-    if (!category && derivedKeywords.length > 0) {
-      category = derivedKeywords[0];
-    }
-    if (!category) {
-      category = `${companyName} Solutions`;
-    }
-  }
+  // Use the shared evidence-based profiler so every agent agrees on the company's category.
+  const category = strategicProfile.category;
 
   // Derive dynamic description
   const description =
+    strategicProfile.description ||
     company.description ||
     extractSection(companyIntel, ["Executive Summary", "Overview", "What It Does", "Company Overview"]) ||
     homePage?.description ||
@@ -195,6 +196,8 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
 
     if (pageOfferings.length > 0) {
       productsAndServices = Array.from(new Set(pageOfferings)).slice(0, 6);
+    } else if (strategicProfile.coreOfferStack.length > 0) {
+      productsAndServices = strategicProfile.coreOfferStack.slice(0, 6);
     } else if (derivedKeywords.length > 0) {
       productsAndServices = derivedKeywords.slice(0, 4);
     } else {
@@ -206,7 +209,8 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
   const featureSection = extractSection(productInfo, ["Features", "Key Capabilities", "Capabilities", "Key Features"]);
   let featuresAndCapabilities = extractBulletPoints(featureSection, 8);
   if (featuresAndCapabilities.length === 0) {
-    featuresAndCapabilities = derivedKeywords.slice(0, 6).map((kw) => `${kw} capability`);
+    featuresAndCapabilities = strategicProfile.productServiceCategories.slice(0, 6);
+    if (featuresAndCapabilities.length === 0) featuresAndCapabilities = derivedKeywords.slice(0, 6).map((kw) => `${kw} capability`);
     if (featuresAndCapabilities.length === 0) {
       featuresAndCapabilities = [`${category} core feature set`];
     }
@@ -218,7 +222,7 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
     extractSection(strategyDoc, ["Target Audience", "Audience"]);
   const icpBullets = extractBulletPoints(audienceSection, 6);
   
-  let icpsAndPersonas = icpBullets.length > 0
+  const icpsAndPersonas = icpBullets.length > 0
     ? icpBullets.map((bullet) => {
         const parts = bullet.split(/[:-]/);
         return {
@@ -231,26 +235,12 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
           ],
         };
       })
-    : [
-        {
-          title: `${category} Decision Maker`,
-          role: "Team Lead / Executive",
-          description: `Leaders and practitioners looking for reliable ${category} solutions.`,
-          painPoints: [
-            `Inefficient workflows and slow turnaround when managing ${category.toLowerCase()}`,
-            `Lack of unified, modern tooling for ${category.toLowerCase()}`,
-          ],
-        },
-        {
-          title: `${companyName} Practitioner / Power User`,
-          role: "Practitioner / Specialist",
-          description: `Hands-on specialists executing ${category.toLowerCase()} workflows daily.`,
-          painPoints: [
-            `Legacy tools are overly complex, expensive, or hard to integrate`,
-            `Need automated and scalable workflows for ${category.toLowerCase()}`,
-          ],
-        },
-      ];
+    : strategicProfile.icpsAndPersonas.map((persona) => ({
+        title: persona.title,
+        role: persona.role,
+        description: persona.description,
+        painPoints: persona.painPoints,
+      }));
 
   // 5. Customer Pain Points
   const painSection =
@@ -258,24 +248,14 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
     extractSection(strategyDoc, ["Market Gaps", "Friction Points"]);
   let painPoints = extractBulletPoints(painSection, 8);
   if (painPoints.length === 0) {
-    painPoints = [
-      `High manual overhead and friction in existing ${category.toLowerCase()} workflows`,
-      `Legacy ${category.toLowerCase()} tools lack essential modern capabilities`,
-      `Difficulty scaling ${category.toLowerCase()} without adding head-count`,
-      `Expensive subscription pricing and feature gating in existing alternatives`,
-    ];
+    painPoints = strategicProfile.painPoints.slice(0, 8);
   }
 
   // 6. Jobs-To-Be-Done (JTBD)
   const jtbdSection = extractSection(audienceDoc, ["Jobs to be Done", "JTBD", "Core Jobs"]);
   let jobsToBeDone = extractBulletPoints(jtbdSection, 8);
   if (jobsToBeDone.length === 0) {
-    jobsToBeDone = [
-      `Streamline and automate ${category.toLowerCase()} operations`,
-      `Find high-intent solutions and software for ${category.toLowerCase()}`,
-      `Replace clunky or outdated ${category.toLowerCase()} tools`,
-      `Deliver reliable and measurable results with ${companyName}`,
-    ];
+    jobsToBeDone = strategicProfile.useCases.slice(0, 8);
   }
 
   // 7. Differentiators
@@ -284,16 +264,13 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
     extractSection(productInfo, ["Differentiators", "Value Proposition"]);
   let differentiators = extractBulletPoints(diffSection, 6);
   if (differentiators.length === 0) {
-    differentiators = [
-      `Purpose-built for modern ${category.toLowerCase()} demands`,
-      `Grounded in verified efficiency, ease-of-use, and clear ROI`,
-      `Fast implementation without complex legacy setup`,
-    ];
+    differentiators = strategicProfile.differentiators.slice(0, 6);
   }
 
   // 8. Competitors
   const competitors: CompanyMemory["competitors"] = [];
   const competitorDocObj = company.documents.find((d) => d.type === "COMPETITOR_ANALYSIS");
+  const documentCompetitorItems: Array<{ companyName?: string; officialWebsite?: string; positioning?: string; competitiveAttributes?: string[] }> = [];
   if (competitorDocObj?.metadata && typeof competitorDocObj.metadata === "object") {
     const meta = competitorDocObj.metadata as {
       competitors?: Array<{ companyName?: string; officialWebsite?: string; positioning?: string; competitiveAttributes?: string[] }>;
@@ -301,15 +278,25 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
     if (Array.isArray(meta.competitors) && meta.competitors.length > 0) {
       for (const comp of meta.competitors) {
         if (comp.companyName && comp.companyName.toLowerCase() !== companyName.toLowerCase()) {
-          competitors.push({
-            name: comp.companyName,
-            website: comp.officialWebsite,
-            positioning: comp.positioning,
-            attributes: comp.competitiveAttributes,
-          });
+          documentCompetitorItems.push(comp);
         }
       }
     }
+  }
+
+  const selectedCompetitors = selectContextCompetitors({
+    agentItems: company.agentRuns.flatMap((run) => extractContextCompetitorsFromAgentOutput(run.output)),
+    documentItems: documentCompetitorItems,
+    company: { name: companyName, websiteUrl },
+  });
+  for (const competitor of selectedCompetitors) {
+    if (!competitor.companyName || !competitor.officialWebsite) continue;
+    competitors.push({
+      name: competitor.companyName,
+      website: competitor.officialWebsite,
+      positioning: competitor.evidence,
+      attributes: competitor.competitiveAttributes,
+    });
   }
 
   if (competitors.length === 0) {
@@ -318,7 +305,7 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
     for (const bullet of compBullets) {
       const parts = bullet.split(/[:-]/);
       const name = parts[0]?.trim();
-      if (name && name.toLowerCase() !== companyName.toLowerCase() && name.length < 40) {
+      if (name && !/[|[\]{}]/.test(name) && name.toLowerCase() !== companyName.toLowerCase() && name.length < 40) {
         competitors.push({
           name,
           positioning: parts[1]?.trim() || bullet,
@@ -332,6 +319,7 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
     companyName.toLowerCase(),
     domain.toLowerCase(),
     category.toLowerCase(),
+    ...strategicProfile.coreOfferStack.slice(0, 5).map((offer) => offer.toLowerCase()),
     ...derivedKeywords.slice(0, 5).map((k) => k.toLowerCase()),
   ];
 
@@ -345,7 +333,7 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
 
   // 10. Brand Voice
   const brandVoice = {
-    tone: "Helpful, knowledgeable, concise, authentic, and transparent.",
+    tone: strategicProfile.voice.tone,
     principles: [
       "Answer the author's question directly with valuable tactical insight before mentioning any product.",
       "Never pretend to be an unbiased third-party customer or fake user.",
@@ -358,12 +346,7 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
       `Designed to streamline ${category.toLowerCase()} workflows.`,
       `Grounded in verifiable performance and practical utility.`,
     ],
-    forbiddenPhrases: [
-      "Best in the world",
-      "Guaranteed #1",
-      "DM me for special discount",
-      "100% effortless magical results",
-    ],
+    forbiddenPhrases: strategicProfile.voice.forbiddenPhrases,
   };
 
   const useCases = productsAndServices.slice(0, 4).map((p) => `${p} optimization and execution`);
@@ -373,7 +356,7 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
     websiteUrl,
     category,
     description: unwrapStructuredText(description).slice(0, 500),
-    tagline: `${companyName}: Modern ${category} solutions.`,
+    tagline: strategicProfile.tagline,
     productsAndServices,
     featuresAndCapabilities,
     icpsAndPersonas,
@@ -382,7 +365,7 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
     useCases: useCases.length > 0 ? useCases : [`${category} operations`],
     differentiators,
     competitors,
-    positioning: `${companyName} delivers high-performance ${category} solutions that solve key bottlenecks in ${category.toLowerCase()}.`,
+    positioning: strategicProfile.positioning,
     primaryKeywords: Array.from(new Set(primaryKeywords)),
     secondaryKeywords: Array.from(new Set(secondaryKeywords)),
     brandVoice,

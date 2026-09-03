@@ -49,6 +49,7 @@ export interface Finding {
 }
 
 import { LinkedInPreview } from "./previews/linkedin-preview";
+import { SocialCompanyIdentity, companyLogoSource } from "./social-company-identity";
 
 type LinkedInTab = "all" | "post_draft" | "findings";
 
@@ -106,25 +107,19 @@ export function LinkedInAgentFeed({
       {/* ── Header ── */}
       <div className="linkedin-feed__header">
         <div className="linkedin-feed__header-left">
-          <div className="linkedin-feed__platform-badge">
-            <span className="linkedin-feed__platform-icon">in</span>
-            <strong>LinkedIn Thought Leadership</strong>
-          </div>
-          <span className="linkedin-feed__subtitle">
-            Executive angles & strategy signals for <strong>{company.name}</strong>
-          </span>
+          <span className="linkedin-feed__platform-icon">in</span>
+          <strong>LinkedIn content for {company.name}</strong>
         </div>
-        <div className="linkedin-feed__header-actions">
-          <button
-            type="button"
-            className="sc-btn sc-btn--secondary sc-btn--sm"
-            onClick={() => runAgent("LINKEDIN")}
-            disabled={running}
-          >
-            <RefreshCw size={13} className={running ? "sc-spinning" : ""} />
-            <span>{running ? "Analyzing…" : "Refresh"}</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          className="linkedin-feed__refresh"
+          onClick={() => runAgent("LINKEDIN")}
+          disabled={running}
+          aria-label="Refresh LinkedIn content"
+          title="Refresh LinkedIn content"
+        >
+          <RefreshCw size={13} className={running ? "sc-spinning" : ""} />
+        </button>
       </div>
 
       {/* ── Filter Chips ── */}
@@ -165,9 +160,19 @@ export function LinkedInAgentFeed({
         {postDraftItem && (activeTab === "all" || activeTab === "post_draft") && (
           <div className={`linkedin-card ${isPostCompleted ? "linkedin-card--completed" : ""}`}>
             <div className="linkedin-card__header">
-              <div className="linkedin-card__header-left">
-                <span className="linkedin-card__tag-pill">NEW POST DRAFT</span>
-                <h4 className="linkedin-card__title">{postDraftItem.title || "Thought Leadership Post"}</h4>
+              <div className="linkedin-card__header-left social-post-card__header-left">
+                <SocialCompanyIdentity
+                  companyName={company.name}
+                  companyWebsite={company.websiteUrl}
+                  companyLogoUrl={company.logoUrl}
+                  platform="LinkedIn"
+                  meta="post draft"
+                  compact
+                />
+                <div className="social-post-card__summary">
+                  <h4 className="linkedin-card__title">{postDraftItem.title || "Thought Leadership Post"}</h4>
+                  <p>{currentDraft}</p>
+                </div>
               </div>
               <div className="linkedin-card__header-right">
                 <div className="linkedin-card__view-toggle">
@@ -210,7 +215,12 @@ export function LinkedInAgentFeed({
                 <div className="linkedin-card__preview-wrap">
                   <LinkedInPreview
                     companyName={company.name}
+                    companyHeadline={company.websiteUrl.replace(/^https?:\/\/(?:www\.)?/, "").replace(/\/$/, "")}
+                    avatarUrl={companyLogoSource(company.logoUrl) || undefined}
                     content={currentDraft}
+                    likesCount={0}
+                    commentsCount={0}
+                    repostsCount={0}
                   />
                 </div>
               )}

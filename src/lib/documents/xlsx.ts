@@ -2,6 +2,7 @@ import "server-only";
 import ExcelJS, { type Cell, type Fill, type Font, type Worksheet } from "exceljs";
 import type { ArtifactManifest, ReportDataModel } from "../artifacts/types";
 import { parseMarkdown, type DocumentBlock } from "./content";
+import { createOffPageSeoXlsx } from "./off-page-xlsx";
 
 const PURPLE = "8B2CE0";
 const VIOLET = "7030B5";
@@ -17,7 +18,10 @@ const LINE = "EADBD5";
 type WorkbookModule = { type: string; title: string; markdown: string };
 type SpreadsheetArgs = {
   companyName: string;
+  companyWebsite?: string;
+  companyCategory?: string | null;
   title: string;
+  documentType?: string;
   markdown: string;
   updatedAt: Date;
   sourceCount: number;
@@ -321,6 +325,9 @@ function addLineage(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, model: Re
 }
 
 export async function createBrandedXlsx(args: SpreadsheetArgs): Promise<Buffer> {
+  if (args.documentType === "BACKLINK_OUTREACH_BLUEPRINT") {
+    return createOffPageSeoXlsx(args);
+  }
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Smark Connect";
   workbook.company = "The Smarketers";

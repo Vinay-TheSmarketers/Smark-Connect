@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, ExternalLink, Gauge, RotateCcw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, Gauge, LoaderCircle, RotateCcw, ShieldCheck } from "lucide-react";
 import type { LighthouseReport, LighthouseStrategy } from "@/lib/lighthouse/types";
 
 type JobStatus = "idle" | "queued" | "running" | "completed" | "failed";
@@ -45,10 +45,15 @@ const userFacingErrors: Record<string, string> = {
 };
 
 export function AuditSkeleton({ status }: { status: "queued" | "running" }) {
-  return <div className="lighthouse-progress" role="status" aria-live="polite">
-    <div className="lighthouse-progress-copy"><span>{status === "queued" ? "Queued behind the current audit" : "Running Lighthouse in an isolated browser"}</span><strong>{status === "queued" ? "Waiting for the audit worker…" : "Measuring page load, accessibility, SEO, and best practices…"}</strong></div>
-    <div className="audit-progress-rail"><span className={status} /></div>
-    <div className="audit-result-skeleton" aria-hidden="true"><i /><i /><i /><i /><b /><b /><b /><b /></div>
+  const running = status === "running";
+  return <div className="lighthouse-progress lighthouse-progress--minimal" role="status" aria-live="polite">
+    <LoaderCircle size={15} className="lighthouse-progress-icon" aria-hidden="true" />
+    <div className="lighthouse-progress-copy">
+      <strong>{running ? "Auditing website" : "Audit queued"}</strong>
+      <span>{running ? "Checking performance, accessibility, SEO, and best practices" : "Waiting for the audit to begin"}</span>
+    </div>
+    <span className="lighthouse-progress-state">{running ? "In progress" : "Waiting"}</span>
+    <div className="audit-progress-rail" aria-hidden="true"><span className={status} /></div>
   </div>;
 }
 

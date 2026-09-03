@@ -20,8 +20,6 @@ import {
   Eye,
   Flame,
   Wand2,
-  Send,
-  CornerDownRight,
   Plus,
   Type,
   Hash,
@@ -35,6 +33,7 @@ import type {
   ThreadTweet,
 } from "@/lib/x/types";
 import { XPreview } from "./previews/x-preview";
+import { SocialCompanyIdentity, companyLogoSource, companySocialHandle } from "./social-company-identity";
 
 /* ─────────────────────────────────────────────────────────────
    Types
@@ -77,13 +76,6 @@ function formatLabel(format: XPostFormat): string {
   return map[format] || format;
 }
 
-function formatIcon(format: XPostFormat) {
-  if (format === "THREAD") return <Layers size={12} />;
-  if (format === "REPLY") return <CornerDownRight size={12} />;
-  if (format === "REPURPOSE") return <Share2 size={12} />;
-  return <Send size={12} />;
-}
-
 /* ─────────────────────────────────────────────────────────────
    Component
    ───────────────────────────────────────────────────────────── */
@@ -91,11 +83,15 @@ function formatIcon(format: XPostFormat) {
 export function XOpportunityFeed({
   companyId,
   companyName,
+  companyWebsite,
+  companyLogoUrl,
   initialOpportunities,
   onOpportunityUpdated,
 }: {
   companyId: string;
   companyName: string;
+  companyWebsite?: string | null;
+  companyLogoUrl?: string | null;
   initialOpportunities: XOpportunity[];
   onOpportunityUpdated?: () => void;
 }) {
@@ -109,13 +105,6 @@ export function XOpportunityFeed({
   const [customDrafts, setCustomDrafts] = useState<Record<string, string>>({});
   const [customThreads, setCustomThreads] = useState<Record<string, ThreadTweet[]>>({});
   const [repurposeModalOpp, setRepurposeModalOpp] = useState<XOpportunity | null>(null);
-
-  // Auto-scan on mount if empty
-  useEffect(() => {
-    if (opportunities.length === 0 && !scanning) {
-      void triggerLiveScan();
-    }
-  }, [companyId]);
 
   /* ── Counts ── */
   const counts = useMemo(() => {
@@ -184,6 +173,14 @@ export function XOpportunityFeed({
     }
   };
 
+  // Auto-scan on mount if empty
+  useEffect(() => {
+    if (opportunities.length === 0 && !scanning) {
+      const scanTimer = window.setTimeout(() => void triggerLiveScan(), 0);
+      return () => window.clearTimeout(scanTimer);
+    }
+  }, [companyId]);
+
   const handleAction = async (oppId: string, actionType: "approve" | "publish" | "schedule" | "dismiss" | "ready") => {
     setActionLoading((prev) => ({ ...prev, [oppId]: true }));
     try {
@@ -206,7 +203,7 @@ export function XOpportunityFeed({
                   : actionType === "dismiss"
                   ? "dismissed"
                   : o.lifecycleStatus;
-              return { ...o, lifecycleStatus: newStatus as any };
+              return { ...o, lifecycleStatus: newStatus as XOpportunity["lifecycleStatus"] };
             }
             return o;
           })
@@ -351,12 +348,19 @@ export function XOpportunityFeed({
                   tabIndex={0}
                   onKeyDown={(e) => e.key === "Enter" && toggleCard(opp.id)}
                 >
-                  <div className="x-card__header-left">
-                    <span className={`x-card__format-badge x-card__format-badge--${opp.format.toLowerCase()}`}>
-                      {formatIcon(opp.format)}
-                      <span>{formatLabel(opp.format)}</span>
-                    </span>
-                    <h4 className="x-card__title">{opp.title}</h4>
+                  <div className="x-card__header-left social-post-card__header-left">
+                    <SocialCompanyIdentity
+                      companyName={companyName}
+                      companyWebsite={companyWebsite}
+                      companyLogoUrl={companyLogoUrl}
+                      platform="X"
+                      meta={formatLabel(opp.format)}
+                      compact
+                    />
+                    <div className="social-post-card__summary">
+                      <h4 className="x-card__title">{opp.title}</h4>
+                      <p>{postText}</p>
+                    </div>
                   </div>
                   <div className="x-card__header-right">
                     <span className={`sc-score sc-score--pill ${scoreTierClass(opp.score.total)}`}>
@@ -580,14 +584,12 @@ export function XOpportunityFeed({
                       <div className="x-card__viewer x-card__viewer--preview">
                         <XPreview
                           displayName={companyName}
-                          handle={companyName.toLowerCase().replace(/\s+/g, "")}
+                          handle={companySocialHandle(companyName, companyWebsite)}
+                          avatarUrl={companyLogoSource(companyLogoUrl) || undefined}
                           content={postText}
                           format={opp.format}
                           threadTweets={threadList}
                           replyTarget={opp.executionPackage.replyTarget}
-                          likesCount={42}
-                          repostsCount={12}
-                          repliesCount={5}
                         />
                       </div>
                     )}

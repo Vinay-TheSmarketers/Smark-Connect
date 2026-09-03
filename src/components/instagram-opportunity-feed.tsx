@@ -36,6 +36,7 @@ import type {
   StoryFrame,
 } from "@/lib/instagram/types";
 import { InstagramPreview } from "./previews/instagram-preview";
+import { SocialCompanyIdentity, companyLogoSource, companySocialHandle } from "./social-company-identity";
 
 /* ─────────────────────────────────────────────────────────────
    Types
@@ -79,12 +80,6 @@ function formatLabel(format: InstagramFormat): string {
   return map[format] || format;
 }
 
-function formatIcon(format: InstagramFormat) {
-  if (format === "REEL") return <Film size={12} />;
-  if (format === "CAROUSEL") return <Layers size={12} />;
-  return <Smartphone size={12} />;
-}
-
 /* ─────────────────────────────────────────────────────────────
    Component
    ───────────────────────────────────────────────────────────── */
@@ -92,12 +87,16 @@ function formatIcon(format: InstagramFormat) {
 export function InstagramOpportunityFeed({
   companyId,
   companyName,
+  companyWebsite,
+  companyLogoUrl,
   initialOpportunities,
   opportunityMapSummary,
   onOpportunityUpdated,
 }: {
   companyId: string;
   companyName: string;
+  companyWebsite?: string | null;
+  companyLogoUrl?: string | null;
   initialOpportunities: InstagramOpportunity[];
   opportunityMapSummary?: InstagramOpportunityMap | null;
   onOpportunityUpdated?: () => void;
@@ -113,13 +112,6 @@ export function InstagramOpportunityFeed({
   const [showMapModal, setShowMapModal] = useState(false);
   const [draftCaptions, setDraftCaptions] = useState<Record<string, string>>({});
   const [repurposeModalOpp, setRepurposeModalOpp] = useState<InstagramOpportunity | null>(null);
-
-  // Auto-scan on mount if empty
-  useEffect(() => {
-    if (opportunities.length === 0 && !scanning) {
-      void triggerLiveScan();
-    }
-  }, [companyId]);
 
   /* ── Counts ── */
   const counts = useMemo(() => {
@@ -190,6 +182,14 @@ export function InstagramOpportunityFeed({
     }
   };
 
+  // Auto-scan on mount if empty
+  useEffect(() => {
+    if (opportunities.length === 0 && !scanning) {
+      const scanTimer = window.setTimeout(() => void triggerLiveScan(), 0);
+      return () => window.clearTimeout(scanTimer);
+    }
+  }, [companyId]);
+
   const handleAction = async (oppId: string, actionType: "approve" | "schedule" | "dismiss" | "ready" | "publish") => {
     setActionLoading((prev) => ({ ...prev, [oppId]: true }));
     try {
@@ -202,8 +202,8 @@ export function InstagramOpportunityFeed({
         setOpportunities((prev) =>
           prev.map((o) => {
             if (o.id === oppId) {
-              const newStatus = actionType === "approve" ? "ready" : actionType === "schedule" ? "scheduled" : actionType === "publish" ? "published" : actionType === "dismiss" ? "dismissed" : o.lifecycleStatus;
-              return { ...o, lifecycleStatus: newStatus as any };
+              const newStatus: InstagramOpportunity["lifecycleStatus"] = actionType === "approve" ? "ready" : actionType === "schedule" ? "scheduled" : actionType === "publish" ? "published" : actionType === "dismiss" ? "dismissed" : o.lifecycleStatus;
+              return { ...o, lifecycleStatus: newStatus };
             }
             return o;
           })
@@ -325,12 +325,19 @@ export function InstagramOpportunityFeed({
               >
                 {/* ── Card Header (always visible) ── */}
                 <div className="ig-card__header" onClick={() => toggleCard(opp.id)} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && toggleCard(opp.id)}>
-                  <div className="ig-card__header-left">
-                    <span className={`ig-card__format-badge ig-card__format-badge--${opp.recommendedFormat.toLowerCase()}`}>
-                      {formatIcon(opp.recommendedFormat)}
-                      <span>{formatLabel(opp.recommendedFormat)}</span>
-                    </span>
-                    <h4 className="ig-card__title">{opp.title}</h4>
+                  <div className="ig-card__header-left social-post-card__header-left">
+                    <SocialCompanyIdentity
+                      companyName={companyName}
+                      companyWebsite={companyWebsite}
+                      companyLogoUrl={companyLogoUrl}
+                      platform="Instagram"
+                      meta={formatLabel(opp.recommendedFormat)}
+                      compact
+                    />
+                    <div className="social-post-card__summary">
+                      <h4 className="ig-card__title">{opp.title}</h4>
+                      <p>{captionText}</p>
+                    </div>
                   </div>
                   <div className="ig-card__header-right">
                     <span className={`sc-score sc-score--pill ${scoreTierClass(opp.score.total)}`}>
@@ -572,7 +579,8 @@ export function InstagramOpportunityFeed({
                     {viewer === "preview" && (
                       <div className="ig-card__viewer ig-card__viewer--preview">
                         <InstagramPreview
-                          username={companyName.toLowerCase().replace(/\s+/g, "")}
+                          username={companySocialHandle(companyName, companyWebsite)}
+                          profileImageUrl={companyLogoSource(companyLogoUrl) || undefined}
                           format={opp.recommendedFormat}
                           caption={captionText}
                           hashtags={opp.executionPackage.hashtags}
