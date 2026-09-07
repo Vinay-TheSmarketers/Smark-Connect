@@ -59,3 +59,26 @@ export async function POST(_request: Request, context: RouteContext<"/api/audits
   after(() => runInitialAudit(result.job.id));
   return Response.json({ jobId: result.job.id }, { status: 202 });
 }
+
+export async function DELETE(_request: Request, context: RouteContext<"/api/audits/[jobId]">) {
+  const user = await requireApiUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const { jobId } = await context.params;
+  const job = await db.auditJob.findFirst({ where: { id: jobId, company: { userId: user.id } } });
+  if (!job) return Response.json({ error: "Audit not found" }, { status: 404 });
+
+  const message = "Audit was stopped by user.";
+  await db.$transaction([
+    db.auditJob.update({
+      where: { id: job.id },
+      data: { status: "ERROR", error: message, step: "Audit stopped by user", completedAt: new Date() },
+    }),
+    db.company.update({
+      where: { id: job.companyId },
+      data: { status: "ERROR", crawlStatus: "ERROR", crawlError: message, crawlStep: "Audit stopped by user" },
+    }),
+  ]);
+
+  return Response.json({ ok: true, status: "STOPPED", step: "Audit stopped by user" });
+}
+

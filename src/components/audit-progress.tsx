@@ -27,9 +27,10 @@ export function AuditProgress({ jobId, initial }: { jobId: string; initial: JobS
   const router = useRouter();
   const [job, setJob] = useState(initial);
   const [retrying, setRetrying] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
   useEffect(() => {
-    if (["DONE", "PARTIAL", "ERROR"].includes(job.status)) return;
+    if (["DONE", "PARTIAL", "ERROR", "STOPPED"].includes(job.status)) return;
     const timer = window.setInterval(async () => {
       const response = await fetch(`/api/audits/${jobId}`, { cache: "no-store" });
       if (!response.ok) return;
@@ -53,26 +54,66 @@ export function AuditProgress({ jobId, initial }: { jobId: string; initial: JobS
     setRetrying(false);
   }
 
+  async function stopAudit() {
+    setStopping(true);
+    try {
+      const response = await fetch(`/api/audits/${jobId}`, { method: "DELETE" });
+      const data = (await response.json()) as { status?: string; step?: string };
+      setJob((current) => ({
+        ...current,
+        status: data.status ?? "STOPPED",
+        step: data.step ?? "Audit stopped by user",
+      }));
+    } catch {
+      setJob((current) => ({ ...current, status: "STOPPED", step: "Audit stopped by user" }));
+    } finally {
+      setStopping(false);
+    }
+  }
+
   const finished = ["DONE", "PARTIAL"].includes(job.status);
+  const isStopped = job.status === "STOPPED" || job.step === "Audit stopped by user" || job.error === "Audit was stopped by user.";
   const providerError = job.requiresProvider;
   const modelError = job.requiresModelChange;
   const nextDocumentType = documentPipeline.find(([type]) => !job.documents.some((document) => document.type === type))?.[0];
-  const errorMessage = modelError
+  const errorMessage = isStopped
+    ? "Audit was stopped. You can resume processing, switch AI models, or add another company workspace."
+    : modelError
     ? "The selected AI model returned an error or is unsupported. Choose and verify another model, then retry using the saved website evidence."
     : providerError
     ? "Connect and verify a live AI provider to generate this company’s skill-backed documents."
     : job.error;
+
   return (
     <div className="form-card audit-progress-card">
       <p className="eyebrow">LIVE COMPANY AUDIT</p>
-      <h2>{job.status === "ERROR" ? modelError ? "Choose a different AI model." : providerError ? "Connect your AI provider." : "We hit a snag." : finished ? "Your workspace is ready." : `Learning ${job.companyName}.`}</h2>
-      <p className="form-intro">{job.status === "ERROR" ? errorMessage : finished ? "Opening the dashboard with your foundational intelligence. Background reports will continue compiling live." : job.step}</p>
+      <h2>
+        {job.status === "ERROR"
+          ? modelError
+            ? "Choose a different AI model."
+            : providerError
+            ? "Connect your AI provider."
+            : "We hit a snag."
+          : isStopped
+          ? "Audit paused."
+          : finished
+          ? "Your workspace is ready."
+          : `Learning ${job.companyName}.`}
+      </h2>
+      <p className="form-intro">
+        {job.status === "ERROR" || isStopped
+          ? errorMessage
+          : finished
+          ? "Opening the dashboard with your foundational intelligence. Background reports will continue compiling live."
+          : job.step}
+      </p>
       <div className="progress-orbit" style={{ "--progress": `${job.progress * 3.6}deg` } as React.CSSProperties}><div><strong>{job.progress}%</strong><span>{job.pagesRead} pages read</span></div></div>
       <div className="progress-track"><span style={{ width: `${job.progress}%` }} /></div>
       <div className="audit-checks"><div className={job.progress >= 8 ? "done" : ""}><span>01</span>Website safety check</div><div className={job.progress >= 28 ? "done" : ""}><span>02</span>Research crawl</div><div className={job.documents.length >= 1 ? "done" : ""}><span>03</span>Foundational intelligence ready</div><div className={job.documents.length >= documentPipeline.length ? "done" : ""}><span>04</span>Background report queue</div></div>
       <div className="document-pipeline"><div className="pipeline-heading"><strong>Sequential background report queue</strong><span>{job.documents.length}/{documentPipeline.length} ready</span></div>{documentPipeline.map(([type, label]) => { const ready = job.documents.some((document) => document.type === type); const running = !ready && type === nextDocumentType && job.progress >= 34 && job.status === "RUNNING"; return <div className={ready ? "ready" : running ? "running" : "queued"} key={type}><ModuleIcon type={type} size={15} /><strong>{label}</strong><small>{ready ? "Ready" : running ? "Generating" : "Queued"}</small><span>{ready ? "✓" : running ? "●" : "○"}</span></div>; })}</div>
       <div className="research-coverage"><span><strong>{job.pagesRead}</strong> pages read</span><span><strong>{job.agentsReady}</strong> agent results stored</span></div>
-      {job.status === "ERROR" ? (
+
+      {job.status === "ERROR" || isStopped ? (
         <div className="audit-actions-row">
           {modelError ? (
             <Link className="primary-button" href={`/settings/credits?reason=model&returnTo=${encodeURIComponent(`/onboarding/audit/${jobId}`)}`}>
@@ -84,14 +125,20 @@ export function AuditProgress({ jobId, initial }: { jobId: string; initial: JobS
             </Link>
           ) : (
             <button className="primary-button" type="button" disabled={retrying} onClick={retry}>
-              {retrying ? "Restarting…" : "Retry audit"} <span>↻</span>
+              {retrying ? "Restarting…" : isStopped ? "Resume audit" : "Retry audit"} <span>↻</span>
             </button>
           )}
+          <Link className="add-company-mid-btn" href="/onboarding/company?mode=add" title="Add another company workspace">
+            + Add another company
+          </Link>
           <LogoutButton className="logout-inline-btn" label="Sign out" />
         </div>
       ) : !finished ? (
         <div className="audit-running-controls">
           <div className="running-control-buttons">
+            <button className="stop-audit-btn" type="button" disabled={stopping} onClick={stopAudit} title="Stop current audit processing">
+              {stopping ? "Stopping…" : "Stop audit"} <span>⏹</span>
+            </button>
             <Link
               className="change-model-mid-btn"
               href={`/settings/credits?reason=model&returnTo=${encodeURIComponent(`/onboarding/audit/${jobId}`)}`}
@@ -99,11 +146,20 @@ export function AuditProgress({ jobId, initial }: { jobId: string; initial: JobS
             >
               Change AI model in-between <span>→</span>
             </Link>
+            <Link className="add-company-mid-btn" href="/onboarding/company?mode=add" title="Add another company workspace while processing">
+              + Add another company
+            </Link>
             <LogoutButton className="logout-inline-btn" label="Sign out" />
           </div>
-          <p className="submit-note">The workspace opens instantly once Document #1 is ready. You can switch models or sign out anytime.</p>
+          <p className="submit-note">The workspace opens instantly once Document #1 is ready. You can stop, switch models, add another company, or sign out anytime.</p>
         </div>
-      ) : null}
+      ) : (
+        <div className="audit-finished-controls">
+          <Link className="add-company-mid-btn" href="/onboarding/company?mode=add" title="Add another company workspace">
+            + Add another company workspace <span>→</span>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
