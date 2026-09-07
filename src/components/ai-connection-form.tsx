@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 
 const providers = [
   { value: "anthropic", label: "Anthropic", hint: "Claude", icon: "/provider-logos/anthropic.svg", recommendedModel: "claude-opus-5" },
-  { value: "openai", label: "OpenAI", hint: "ChatGPT", icon: "/provider-logos/openai.svg", recommendedModel: "gpt-5.4-mini" },
-  { value: "openrouter", label: "OpenRouter", hint: "Many models", icon: "/provider-logos/openrouter.svg", recommendedModel: "openai/gpt-5.4-mini" },
-  { value: "google", label: "Google", hint: "Gemini", icon: "/provider-logos/google-gemini.svg", recommendedModel: "gemini-3.6-flash" },
+  { value: "openai", label: "OpenAI", hint: "ChatGPT", icon: "/provider-logos/openai.svg", recommendedModel: "gpt-4o-mini" },
+  { value: "openrouter", label: "OpenRouter", hint: "Many models", icon: "/provider-logos/openrouter.svg", recommendedModel: "openai/gpt-4o-mini" },
+  { value: "google", label: "Google", hint: "Gemini", icon: "/provider-logos/google-gemini.svg", recommendedModel: "gemini-1.5-flash" },
 ] as const;
 
 export function AIConnectionForm({ returnTo = "/onboarding/company", initialProvider = "anthropic", initialModel, currentPreview, recoveryReason }: { returnTo?: string; initialProvider?: string; initialModel?: string | null; currentPreview?: string | null; recoveryReason?: "model" | null }) {

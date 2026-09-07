@@ -13,9 +13,9 @@ const providers: Record<ProviderName, LLMProvider> = {
 
 export const DEFAULT_MODELS: Record<ProviderName, string> = {
   anthropic: process.env.SMARK_MODEL_ANTHROPIC || "claude-opus-5",
-  openai: process.env.SMARK_MODEL_OPENAI || "gpt-5.4-mini",
-  openrouter: process.env.SMARK_MODEL_OPENROUTER || "openai/gpt-5.4-mini",
-  google: process.env.SMARK_MODEL_GOOGLE || "gemini-3.6-flash",
+  openai: process.env.SMARK_MODEL_OPENAI || "gpt-4o-mini",
+  openrouter: process.env.SMARK_MODEL_OPENROUTER || "openai/gpt-4o-mini",
+  google: process.env.SMARK_MODEL_GOOGLE || "gemini-1.5-flash",
 };
 
 export function getProvider(name: string): LLMProvider {
