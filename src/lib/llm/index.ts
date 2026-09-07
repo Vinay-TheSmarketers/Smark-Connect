@@ -23,4 +23,26 @@ export function getProvider(name: string): LLMProvider {
   return providers[name as ProviderName];
 }
 
+export async function completeWithFallback(
+  providerName: string,
+  params: import("./types").CompletionParams
+): Promise<string> {
+  const provider = getProvider(providerName);
+  try {
+    return await provider.complete(params);
+  } catch (error) {
+    const pName = providerName as ProviderName;
+    const defaultModel = DEFAULT_MODELS[pName] ?? params.model;
+    const isModelError = /model|not found|404|does not exist|invalid model|unsupported|supports long structured/i.test(
+      error instanceof Error ? error.message : ""
+    );
+    if (isModelError && params.model !== defaultModel) {
+      console.warn(`[LLM Fallback] Model "${params.model}" failed for provider "${providerName}". Automatically retrying with default model "${defaultModel}".`);
+      return await provider.complete({ ...params, model: defaultModel });
+    }
+    throw error;
+  }
+}
+
 export type { ProviderName } from "./types";
+

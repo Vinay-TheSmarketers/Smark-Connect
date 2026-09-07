@@ -1,5 +1,5 @@
 import { discoverCompanyLogo } from "../company-logo";
-import { getProvider } from "../llm";
+import { completeWithFallback, getProvider } from "../llm";
 import { decryptSecret } from "../crypto";
 import { extractJson } from "../llm/shared";
 import type { CompanyStrategicProfile, CompetitorProfile } from "./types";
@@ -425,7 +425,7 @@ ${liveDiscoveryContext}
 
 Apply the "competitor-alternatives" skill to identify the 5-6 exact direct competitor companies that prospects compare against this company. Return the structured JSON.`;
 
-    const raw = await getProvider(llmConfig.providerName).complete({
+    const raw = await completeWithFallback(llmConfig.providerName, {
       apiKey: decryptSecret(llmConfig.apiKeyEnc),
       model: llmConfig.model,
       system,

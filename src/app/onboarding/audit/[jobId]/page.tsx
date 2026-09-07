@@ -23,7 +23,7 @@ export default async function AuditPage({ params }: PageProps<"/onboarding/audit
   const credentialFailure = /api[ -]?key|provider|authentication|unauthorized/i.test(job.error ?? "");
   const providerWasReconnected = Boolean(user.llmVerifiedAt && job.completedAt && user.llmVerifiedAt > job.completedAt);
   const requiresProvider = user.demoMode || !user.llmVerifiedAt || !user.llmProvider || !user.llmApiKeyEnc || !user.llmModel || (credentialFailure && !providerWasReconnected);
-  const modelFailure = user.llmProvider === "openrouter" && /model returned no usable content|supports long structured responses|structured report support/i.test(job.error ?? "");
+  const modelFailure = /model|not found|does not exist|invalid model|unsupported|supports long structured/i.test(job.error ?? "");
   const requiresModelChange = modelFailure && !providerWasReconnected;
   return (
     <OnboardingLayout activeStep={2}>
