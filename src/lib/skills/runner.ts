@@ -6,7 +6,7 @@ import { completeWithFallback, getProvider } from "@/lib/llm";
 import { extractJson } from "@/lib/llm/shared";
 import { discoverCompanyLogo } from "@/lib/company-logo";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
-import { DOCUMENT_OUTPUT_RULES } from "@/lib/documents/presentation";
+import { documentMarkdown, DOCUMENT_OUTPUT_RULES } from "@/lib/documents/presentation";
 import { normalizeDocumentMarkdown } from "@/lib/documents/content";
 import { discoverLiveResearch, liveResearchAction, type LiveDiscoveryItem } from "@/lib/research/live-discovery";
 import { runRedditOpportunityPipeline } from "@/lib/reddit/discovery-pipeline";
@@ -105,10 +105,16 @@ export function estimateTokens(...parts: string[]): number {
   return Math.max(1, Math.ceil(parts.reduce((total, part) => total + part.length, 0) / 4));
 }
 
+function assertTokenBudget(user: { tokenBudget?: number; tokenUsed?: number }) {
+  if ((user.tokenBudget ?? 0) > 0 && (user.tokenUsed ?? 0) >= (user.tokenBudget ?? 0)) {
+    throw new Error("Your token budget has been reached. Update the workspace token limit before starting another generation.");
+  }
+}
+
 function normalizeAnalysis(value: SkillAnalysis): SkillAnalysis {
   return {
     ...value,
-    contentMarkdown: unwrapStructuredText(value.contentMarkdown),
+    contentMarkdown: documentMarkdown(unwrapStructuredText(value.contentMarkdown)),
     summary: unwrapStructuredText(value.summary).replace(/^#+\s+/gm, "").replace(/\s+/g, " ").slice(0, 180),
     findings: value.findings.map((finding) => ({
       ...finding,
@@ -129,7 +135,7 @@ function normalizeAnalysis(value: SkillAnalysis): SkillAnalysis {
 }
 
 function analysisFromMarkdown(raw: string, title: string): SkillAnalysis {
-  let markdown = unwrapStructuredText(raw);
+  let markdown = documentMarkdown(unwrapStructuredText(raw));
   if (markdown.length < 280) throw new Error(`The model response was too short to create a reliable document (${markdown.length} characters: ${markdown.slice(0, 120).replace(/\s+/g, " ") || "empty"}).`);
   if (!/^#\s+/m.test(markdown)) markdown = `# ${title}\n\n${markdown}`;
   const urls = Array.from(markdown.matchAll(/https?:\/\/[^\s)\]>]+/g), (match) => match[0].replace(/[.,;:]$/, "")).filter((url, index, values) => values.indexOf(url) === index).slice(0, 8);
@@ -549,11 +555,12 @@ export function appendCompleteResearchAppendix(markdown: string, args: { company
 export async function runCoreDocument(args: {
   definition: CoreDocumentDefinition;
   company: { id: string; name: string; websiteUrl: string; userId: string };
-  user: { llmProvider: string | null; llmApiKeyEnc: string | null; llmModel: string | null };
+  user: { llmProvider: string | null; llmApiKeyEnc: string | null; llmModel: string | null; tokenBudget?: number; tokenUsed?: number };
   evidence: string;
   researchTopics?: string[];
 }): Promise<{ analysis: SkillAnalysis; tokensUsed: number; execution: SkillExecutionManifest }> {
   if (!args.user.llmProvider || !args.user.llmApiKeyEnc || !args.user.llmModel) throw new Error("A verified AI provider is required.");
+  assertTokenBudget(args.user);
   const uploadedSources = await db.chatAttachment.findMany({
     where: { companyId: args.company.id, remembered: true },
     orderBy: { createdAt: "desc" },
@@ -591,12 +598,15 @@ export async function saveCoreAnalysis(args: {
   tokensUsed: number;
   execution: SkillExecutionManifest;
 }) {
-  const existing = await db.document.findUnique({ where: { companyId_type: { companyId: args.companyId, type: args.definition.type } } });
   const research = await db.company.findUnique({ where: { id: args.companyId }, include: { crawlPages: { orderBy: { fetchedAt: "desc" }, take: 48 }, pageSpeedAudits: { orderBy: { createdAt: "desc" }, take: 2 }, chatAttachments: { where: { remembered: true }, select: { title: true } } } });
-  const contentMarkdown = normalizeDocumentMarkdown(research ? appendCompleteResearchAppendix(args.analysis.contentMarkdown, { companyName: research.name, websiteUrl: research.websiteUrl, pages: research.crawlPages, pageSpeed: research.pageSpeedAudits }) : args.analysis.contentMarkdown);
+  const contentMarkdown = normalizeDocumentMarkdown(research ? appendCompleteResearchAppendix(documentMarkdown(args.analysis.contentMarkdown), { companyName: research.name, websiteUrl: research.websiteUrl, pages: research.crawlPages, pageSpeed: research.pageSpeedAudits }) : documentMarkdown(args.analysis.contentMarkdown));
   const completeSources = Array.from(new Set([...(research?.crawlPages.map((page) => page.url) ?? []), ...args.analysis.findings.flatMap((finding) => finding.sourceUrls)]));
   const competitors = args.analysis.findings.filter((finding) => finding.companyName && finding.officialWebsite).map((finding) => ({ companyName: finding.companyName, officialWebsite: finding.officialWebsite, logoUrl: finding.logoUrl, positioning: finding.evidence, competitiveAttributes: finding.competitiveAttributes }));
   await db.$transaction(async (tx) => {
+    const existing = await tx.document.findUnique({ where: { companyId_type: { companyId: args.companyId, type: args.definition.type } } });
+    // Locking is a persistence rule, not only a UI affordance. This protects
+    // documents from both on-demand generation and background audit reruns.
+    if (existing?.locked) return;
     if (existing) {
       await tx.documentVersion.create({ data: { documentId: existing.id, version: existing.version, contentMarkdown: existing.contentMarkdown, editPrompt: "Automatic company re-analysis", editMode: "regenerate", tokenEstimate: existing.tokenEstimate } });
     }
@@ -623,6 +633,10 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
   if (!company) throw new Error("Company not found.");
   if (company.user.demoMode) throw new Error("Demo Mode shows prepared agent results. Connect a real provider key to run a new analysis.");
   if (!company.user.llmProvider || !company.user.llmApiKeyEnc || !company.user.llmModel) throw new Error("Reconnect your AI provider in Settings.");
+  assertTokenBudget(company.user);
+  const agentConfig = await db.agentConfig.findUnique({ where: { companyId_agentType: { companyId: company.id, agentType: definition.type } } });
+  if (agentConfig?.enabled === false) throw new Error(`${definition.label} is disabled in Agent Settings.`);
+  const agentInstructions = agentConfig?.instructions?.trim();
   const run = await db.agentRun.create({ data: { companyId: company.id, agentType: definition.type, status: "RUNNING", skills: definition.skills as unknown as Prisma.InputJsonValue, startedAt: new Date() } });
   let liveItems: LiveDiscoveryItem[] = [];
   try {
@@ -957,7 +971,7 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
       websiteUrl: company.websiteUrl,
       title: definition.label,
       purpose: definition.description,
-      instructions: `${definition.instructions} Execute the mapped skill chain in order. Produce 5-6 detailed, actionable research findings specifically relevant to ${company.name} (${company.websiteUrl}) and its target market. For each finding, provide clean markdown with a clear title, evidence, impact, and action. Never output raw JSON strings, quotes, or trailing key-value properties.`,
+      instructions: `${definition.instructions}${agentInstructions ? `\n\nSAVED AGENT INSTRUCTIONS\n${agentInstructions}` : ""} Execute the mapped skill chain in order. Produce 5-6 detailed, actionable research findings specifically relevant to ${company.name} (${company.websiteUrl}) and its target market. For each finding, provide clean markdown with a clear title, evidence, impact, and action. Never output raw JSON strings, quotes, or trailing key-value properties.`,
       skills: definition.skills,
       evidence,
       outputKind: "agent",
@@ -1016,6 +1030,7 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
 export async function runCmoSynthesis(args: { companyId: string; userId: string }): Promise<void> {
   const company = await db.company.findFirst({ where: { id: args.companyId, userId: args.userId }, include: { user: true, documents: { where: { type: { in: CORE_DOCUMENTS.map((document) => document.type) } } }, chatAttachments: { where: { remembered: true }, orderBy: { createdAt: "desc" } } } });
   if (!company || company.user.demoMode || !company.user.llmProvider || !company.user.llmApiKeyEnc || !company.user.llmModel || company.documents.length === 0) return;
+  assertTokenBudget(company.user);
   const operation = getInternalOperation("ai-cmo-synthesis");
   const skills = operation.skills;
   const evidence = `${company.documents.map((document) => `${document.title}\n${document.contentMarkdown}`).join("\n\n===\n\n").slice(0, 90_000)}\n\n=== UPLOADED SOURCE DOCUMENTS ===\n\n${buildUploadedSourceEvidence(company.chatAttachments, 70_000) || "No uploaded source documents are available."}`;

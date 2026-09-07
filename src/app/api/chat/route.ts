@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     },
   });
   if (!company) return Response.json({ error: "Company not found." }, { status: 404 });
-  let session = parsed.data.sessionId ? await db.chatSession.findFirst({ where: { id: parsed.data.sessionId, companyId: company.id }, include: { messages: { orderBy: { createdAt: "asc" }, take: 12 } } }) : null;
+  let session = parsed.data.sessionId ? await db.chatSession.findFirst({ where: { id: parsed.data.sessionId, companyId: company.id }, include: { messages: { orderBy: { createdAt: "desc" }, take: 12 } } }) : null;
   if (!session) session = await db.chatSession.create({ data: { companyId: company.id, title: parsed.data.message.slice(0, 80) }, include: { messages: true } });
   await db.chatMessage.create({ data: { sessionId: session.id, role: "user", content: parsed.data.message } });
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     company.agentRuns.map((run) => `AGENT SIGNALS & OPPORTUNITIES — ${run.agentType}\n${JSON.stringify(run.output)}`).join("\n\n").slice(0, 30_000),
   ].filter(Boolean).join("\n\n---\n\n").slice(0, 150_000);
 
-  const history = session.messages.slice(-10).map((message) => ({ role: message.role === "assistant" ? "assistant" as const : "user" as const, content: message.content }));
+  const history = session.messages.slice().reverse().slice(-10).map((message) => ({ role: message.role === "assistant" ? "assistant" as const : "user" as const, content: message.content }));
   try {
     const operation = getInternalOperation("ai-cmo-chat");
     const embeddedSkills = await loadSkillPack(operation.skills, 48_000);

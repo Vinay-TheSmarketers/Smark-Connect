@@ -34,7 +34,19 @@ export function documentMarkdown(value: string): string {
     }
     return true;
   });
-  return lines.join("\n").replace(internalName, "analysis methodology").replace(/\n{3,}/g, "\n\n").trim();
+  // Source URLs are evidence and must never be changed just because a path
+  // happens to contain a local skill name (for example /seo-audit).
+  const urls: string[] = [];
+  const protectedText = lines.join("\n").replace(/https?:\/\/[^\s)\]>]+/gi, (url) => {
+    const token = `\u0000URL${urls.length}\u0000`;
+    urls.push(url);
+    return token;
+  });
+  return protectedText
+    .replace(internalName, "analysis methodology")
+    .replace(/\u0000URL(\d+)\u0000/g, (_, index) => urls[Number(index)] ?? "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export const DOCUMENT_OUTPUT_RULES = "Keep internal skill names, repository names, file paths, and skill provenance out of all report content. Cite external evidence, never the internal instruction files. Present frameworks under explicit headings (SWOT, PESTEL, TOWS, Funnel, Customer Journey, or 30/60/90-day Roadmap). For SWOT, PESTEL, and TOWS use a Markdown table with a first column identifying the category, followed by evidence, implications, and actions, or use category subheadings with bullets. For funnels, journeys, and roadmaps use a Markdown table whose first column is Stage, Phase, or Period and subsequent columns contain objectives, evidence, actions, and measures. The application converts these structures into framework visuals. Preserve source URLs and uncertainty. Never invent numerical values. Do not use ASCII art, Mermaid, raw SVG, or HTML for these frameworks.";

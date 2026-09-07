@@ -18,8 +18,10 @@ export async function GET(_request: Request, context: { params: Promise<{ jobId:
   }
   if (!job) return Response.json({ error: "Lighthouse audit job not found.", code: "NOT_FOUND" }, { status: 404 });
   if ((job.status === "QUEUED" || job.status === "RUNNING") && job.createdAt) {
-    const ageMs = Date.now() - job.createdAt.getTime();
-    if (ageMs > 180_000) {
+    const timeoutBase = job.status === "RUNNING" ? job.startedAt ?? job.createdAt : job.createdAt;
+    const maxAgeMs = job.status === "RUNNING" ? 210_000 : 10 * 60 * 1000;
+    const ageMs = Date.now() - timeoutBase.getTime();
+    if (ageMs > maxAgeMs) {
       job = await db.lighthouseAuditJob.update({
         where: { id: jobId },
         data: {

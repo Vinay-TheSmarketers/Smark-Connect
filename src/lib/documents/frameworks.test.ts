@@ -50,6 +50,11 @@ describe("framework document rendering", () => {
     expect(documentMarkdown("Applied skills: claude-seo-main/seo-audit\n\nEvidence remains")).toBe("Evidence remains");
   });
 
+  it("does not alter external source paths that happen to match skill names", () => {
+    const source = "[SEO audit source](https://example.com/seo-audit)";
+    expect(documentMarkdown(source)).toBe(source);
+  });
+
   it("preserves closing code fences in ordinary reports", () => {
     expect(unwrapMarkdown("```markdown\n# Report\n```" )).toBe("# Report");
     expect(unwrapMarkdown("# Report\n\n```example\ncontent\n```" )).toMatch(/```$/);

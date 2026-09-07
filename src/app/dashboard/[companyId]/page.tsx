@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { createCompanyContext } from "@/lib/company-brief";
 import { newestRunPerAgent } from "@/lib/agents/latest-runs";
+import { withoutSkillProvenance } from "@/lib/documents/public";
 
 export default async function DashboardPage({ params }: PageProps<"/dashboard/[companyId]">) {
   const user = await requireUser();
@@ -35,7 +36,10 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
     company: { id: company.id, name: company.name, websiteUrl: company.websiteUrl, logoUrl: company.logoUrl, category: company.category, description: company.description, companyContext, lastAuditedAt: company.lastAuditedAt?.toISOString() ?? null },
     companies,
     user: { name: user.name, email: user.email, llmProvider: user.llmProvider, llmKeyPreview: user.llmKeyPreview, demoMode: user.demoMode, tokenBudget: user.tokenBudget, tokenUsed: user.tokenUsed },
-    documents: company.documents.map((document) => ({ ...document, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() })),
+    documents: company.documents.map((document) => {
+      const publicDocument = withoutSkillProvenance(document);
+      return { ...publicDocument, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() };
+    }),
     agents: latestAgents.map((run) => ({ id: run.id, agentType: run.agentType, status: run.status, summary: run.summary, output: run.output, sources: run.sources, skills: run.skills, confidence: run.confidence, tokensUsed: run.tokensUsed, error: run.error, createdAt: run.createdAt.toISOString() })),
     integrations: company.integrations.map((integration) => ({ provider: integration.provider, status: integration.status, connectedAt: integration.connectedAt?.toISOString() ?? null })),
     agentConfigs: company.agentConfigs.map((config) => ({ agentType: config.agentType, config: config.config })),

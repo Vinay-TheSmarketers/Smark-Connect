@@ -132,6 +132,17 @@ async function renderPageWithBrowser(url: URL): Promise<CrawledPage | null> {
     try {
       const page = await browser.newPage();
       await page.setUserAgent("SmarkConnectAuditBot/1.0 (+https://smarkconnect.local)");
+      await page.setRequestInterception(true);
+      page.on("request", async (request) => {
+        try {
+          const target = new URL(request.url());
+          if (["data:", "blob:", "about:"].includes(target.protocol)) return await request.continue();
+          await assertPublicUrl(target);
+          await request.continue();
+        } catch {
+          await request.abort("blockedbyclient");
+        }
+      });
       await page.goto(url.href, { waitUntil: "networkidle2", timeout: 20_000 });
       const html = await page.content();
       const $ = load(html);
@@ -162,14 +173,16 @@ export async function crawlWebsite(input: URL, maxPages = 48, onProgress?: (page
   }
   const origin = new URL(home.url).origin;
   const results: CrawledPage[] = [];
-  const seen = new Set<string>();
+  // Queued URLs and retained pages are distinct. Marking a URL as seen before
+  // fetching previously caused every successful linked page to be discarded.
+  const retained = new Set<string>();
   const queued = new Set<string>();
   const queue: string[] = [];
 
   const addResult = (page: CrawledPage): boolean => {
     const cleanUrl = normalizedCandidate(page.url, origin) ?? page.url;
-    if (seen.has(cleanUrl)) return false;
-    seen.add(cleanUrl);
+    if (retained.has(cleanUrl)) return false;
+    retained.add(cleanUrl);
     results.push({ ...page, url: cleanUrl });
     return true;
   };
@@ -179,7 +192,7 @@ export async function crawlWebsite(input: URL, maxPages = 48, onProgress?: (page
   const enqueue = (hrefs: string[]) => {
     for (const href of hrefs) {
       const candidate = normalizedCandidate(href, origin);
-      if (!candidate || seen.has(candidate) || queued.has(candidate)) continue;
+      if (!candidate || retained.has(candidate) || queued.has(candidate)) continue;
       queued.add(candidate);
       queue.push(candidate);
     }
@@ -192,7 +205,7 @@ export async function crawlWebsite(input: URL, maxPages = 48, onProgress?: (page
 
   while (queue.length && results.length < maxPages) {
     const batch = queue.splice(0, Math.min(6, maxPages - results.length));
-    batch.forEach((href) => { queued.delete(href); seen.add(href); });
+    batch.forEach((href) => { queued.delete(href); });
     const settled = await Promise.allSettled(batch.map((href) => crawlPage(new URL(href))));
     for (const result of settled) {
       if (result.status !== "fulfilled" || result.value.wordCount < 10) continue;

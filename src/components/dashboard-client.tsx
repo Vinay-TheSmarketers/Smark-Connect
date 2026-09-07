@@ -11,7 +11,6 @@ import { Activity, AlertTriangle, Bot, Check, CheckCircle2, ChevronDown, Chevron
 import { StreamingTerminal, type TerminalLog } from "./streaming-terminal";
 import { AGENT_DEFINITIONS, EXTENDED_DOCUMENTS, getDocumentDefinition } from "@/lib/skills/registry";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
-import { formatSkillName } from "@/lib/skills/format";
 import { evaluateLinkedInOpportunity, evaluateRedditCandidate, evaluateXOpportunity, scoreOpportunity, type RedditActionFeedOpportunity } from "@/lib/signals/store";
 import { RedditOpportunityFeed } from "./reddit-opportunity-feed";
 import { InstagramOpportunityFeed } from "./instagram-opportunity-feed";
@@ -137,10 +136,6 @@ function ConnectionStrip({ data }: { data: DashboardData }) {
   ];
   if (!connections.length) return <span className="connection-strip empty"><span className="connection-dot" /> No live APIs</span>;
   return <div className="connection-strip" aria-label="Connected platforms"><strong>{connections.some((item) => item.status === "live") ? "LIVE" : "DEMO"}</strong>{connections.slice(0, 5).map((item, index) => <span className={item.status} title={`${platformLabels[item.provider] ?? item.provider} · ${item.status === "live" ? "live API connected" : "demo data only"}`} key={`${item.provider}-${index}`}><PlatformMark provider={item.provider} />{platformLabels[item.provider] ?? item.provider}</span>)}{connections.length > 5 && <em>+{connections.length - 5}</em>}</div>;
-}
-
-function SkillChainPreview({ skills }: { skills: Array<{ repository: string; skill: string; phase?: string; reason?: string }> }) {
-  return <details className="skill-chain-preview"><summary aria-label={`${skills.length}-step workflow`}>Workflow <span>{skills.length}</span></summary><ol>{skills.map((skill, index) => <li key={`${skill.repository}-${skill.skill}`}><span>{index + 1}</span><div><strong>{formatSkillName(skill.skill)}</strong><small>{skill.phase ?? skill.repository}{skill.reason ? ` · ${skill.reason}` : ""}</small></div></li>)}</ol></details>;
 }
 
 function findings(output: unknown): Finding[] {
@@ -1080,7 +1075,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   <div>
                     <strong>{definition.title}</strong>
                     <small>{queued ? "Queued · select + to prioritize" : document ? "Complete" : "Awaiting generation"}</small>
-                    <SkillChainPreview skills={definition.skills} />
                   </div>
                   {document ? (
                     <button type="button" className="document-open-btn" onClick={() => setSelectedDocument(document)} title="Open document" aria-label="Open document">
@@ -1356,7 +1350,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             </button>
             {open && <div className="agent-output">
               <div className="agent-output-toolbar">
-                <SkillChainPreview skills={AGENT_DEFINITIONS.find((agent) => agent.type === type)?.skills ?? []} />
                 <button
                   type="button"
                   className="agent-refresh-btn"
@@ -1483,7 +1476,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
     {selectedDocument && <DocumentWorkspace key={`${selectedDocument.id}-${selectedDocument.version}`} document={selectedDocument} onClose={() => setSelectedDocument(null)} onUpdate={updateDocument} />}
     {showSources && <SourceDrawer companyName={data.company.name} sources={sources} uploading={sourceUploading} dragActive={sourceDragActive} error={sourceError} inputRef={sourceInputRef} onClose={() => setShowSources(false)} onFiles={(files) => void uploadSourceFiles(files)} onDragActive={setSourceDragActive} onRemove={(source) => void removeSource(source)} />}
-    {agentTray && <div className="drawer-backdrop agent-tray-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setAgentTray(false); }}><section className="agent-tray"><header><div><p className="eyebrow">SKILL-GOVERNED SPECIALISTS</p><h2>Add an agent</h2><span>Every agent executes a validated sequence of local skill files before returning output.</span></div><button onClick={() => setAgentTray(false)}>×</button></header><div>{AGENT_DEFINITIONS.filter((agent) => agent.optional).map((agent) => <article key={agent.type}><AgentLogo type={agent.type} fallback="✦" /><div><strong>{agent.label}</strong><p>{agent.description}</p><SkillChainPreview skills={agent.skills} /></div><button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(agent.type)}>{runningAgent === agent.type ? <RefreshCw className="spin" size={13} /> : <Sparkles size={13} />}{runningAgent === agent.type ? "Running" : "Run analysis"}</button></article>)}</div>{agentError && <p className="form-error">{agentError}</p>}</section></div>}
+    {agentTray && <div className="drawer-backdrop agent-tray-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setAgentTray(false); }}><section className="agent-tray"><header><div><p className="eyebrow">MARKETING SPECIALISTS</p><h2>Add an agent</h2><span>Each agent uses verified company evidence to produce practical next steps.</span></div><button onClick={() => setAgentTray(false)}>×</button></header><div>{AGENT_DEFINITIONS.filter((agent) => agent.optional).map((agent) => <article key={agent.type}><AgentLogo type={agent.type} fallback="✦" /><div><strong>{agent.label}</strong><p>{agent.description}</p></div><button type="button" disabled={Boolean(runningAgent)} onClick={() => runAgent(agent.type)}>{runningAgent === agent.type ? <RefreshCw className="spin" size={13} /> : <Sparkles size={13} />}{runningAgent === agent.type ? "Running" : "Run analysis"}</button></article>)}</div>{agentError && <p className="form-error">{agentError}</p>}</section></div>}
     {showReportsCatalog && (() => {
       const filteredReports = EXTENDED_DOCUMENTS.filter((def) => {
         if (catalogCategory === "all") return true;
@@ -1565,7 +1558,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                         {document ? (
                           <span className="rec-model-pill ready">v{document.version} Ready</span>
                         ) : (
-                          <span className="rec-model-pill">Workflow {definition.skills.length}</span>
+                          <span className="rec-model-pill">Ready to generate</span>
                         )}
                         <ChevronRight size={14} className="vendor-row-arrow" />
                       </div>
@@ -1583,16 +1576,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                       </div>
                       <div>
                         <h3>{selectedCatalogDefinition.title}</h3>
-                        <span className="detail-tag">Skill-Governed Workflow</span>
+                        <span className="detail-tag">Evidence-led workflow</span>
                       </div>
                     </div>
 
                     <p className="vendor-detail-desc">{selectedCatalogDefinition.purpose}</p>
 
                     <div className="vendor-spec-pills">
-                      <span className="spec-pill">
-                        <Sparkles size={11} className="spec-icon" /> {selectedCatalogDefinition.skills.length} Skills Chained
-                      </span>
                       {selectedCatalogDocument && (
                         <span className="spec-pill ready">
                           <CheckCircle2 size={11} className="check-mark" /> Version {selectedCatalogDocument.version} Active
@@ -1600,10 +1590,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                       )}
                     </div>
 
-                    <div className="vendor-capabilities">
-                      <span className="capabilities-label">EXECUTED SKILL PIPELINE</span>
-                      <SkillChainPreview skills={selectedCatalogDefinition.skills} />
-                    </div>
                   </div>
 
                   <div className="vendor-detail-action-wrap">

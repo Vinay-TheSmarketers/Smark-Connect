@@ -1,4 +1,4 @@
-import { DOCUMENT_OUTPUT_RULES } from "@/lib/documents/presentation";
+import { documentMarkdown, DOCUMENT_OUTPUT_RULES } from "@/lib/documents/presentation";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireApiUser } from "@/lib/auth-helpers";
@@ -10,6 +10,7 @@ import { getDocumentDefinition, getInternalOperation, mergeSkillChains } from "@
 import { appendCompleteResearchAppendix, estimateTokens } from "@/lib/skills/runner";
 import { unwrapStructuredText } from "@/lib/text-format";
 import { normalizeDocumentMarkdown } from "@/lib/documents/content";
+import { withoutSkillProvenance } from "@/lib/documents/public";
 import { buildUploadedSourceEvidence } from "@/lib/sources/content";
 
 const actionSchema = z.object({ action: z.enum(["lock", "unlock"]) });
@@ -27,7 +28,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ docum
   if (actionParsed.success) {
     const isLocking = actionParsed.data.action === "lock";
     const updated = await db.document.update({ where: { id: document.id }, data: { locked: isLocking } });
-    return Response.json({ document: { ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() } });
+    const safeDocument = withoutSkillProvenance(updated);
+    return Response.json({ document: { ...safeDocument, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() } });
   }
 
   const editParsed = editSchema.safeParse(body);
@@ -36,6 +38,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ docum
   if (document.locked) return Response.json({ error: "Unlock this document before editing it." }, { status: 409 });
   if (user.demoMode) return Response.json({ error: "Demo Mode preserves the prepared documents. Connect a real provider key to edit with AI." }, { status: 409 });
   if (!user.llmProvider || !user.llmApiKeyEnc || !user.llmModel) return Response.json({ error: "Reconnect your AI provider in Settings." }, { status: 403 });
+  if (user.tokenBudget > 0 && user.tokenUsed >= user.tokenBudget) return Response.json({ error: "Your token budget has been reached. Update the workspace token limit before editing a document." }, { status: 403 });
 
   const definition = getDocumentDefinition(document.type);
   if (!definition) return Response.json({ error: "This document type has no mapped skill chain and cannot be edited." }, { status: 409 });
@@ -58,15 +61,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ docum
   try {
     const rawMarkdown = unwrapStructuredText(await getProvider(user.llmProvider).complete({ apiKey: decryptSecret(user.llmApiKeyEnc), model: user.llmModel, system: `${system} ${DOCUMENT_OUTPUT_RULES}`, messages: [{ role: "user", content: prompt }], maxTokens: editParsed.data.focused ? 5000 : 8000, temperature: 0.2 }));
     if (editParsed.data.focused && rawMarkdown.length < document.contentMarkdown.length * .55) throw new Error("The provider returned only a fragment. The original document was preserved; try a more specific edit or a larger-output model.");
-    const contentMarkdown = normalizeDocumentMarkdown(appendCompleteResearchAppendix(rawMarkdown, { companyName: document.company.name, websiteUrl: document.company.websiteUrl, pages: document.company.crawlPages, pageSpeed: document.company.pageSpeedAudits }));
+    const contentMarkdown = normalizeDocumentMarkdown(appendCompleteResearchAppendix(documentMarkdown(rawMarkdown), { companyName: document.company.name, websiteUrl: document.company.websiteUrl, pages: document.company.crawlPages, pageSpeed: document.company.pageSpeedAudits }));
     const tokenEstimate = estimateTokens(system, prompt, contentMarkdown);
     const updated = await db.$transaction(async (tx) => {
-      await tx.documentVersion.create({ data: { documentId: document.id, version: document.version, contentMarkdown: document.contentMarkdown, editPrompt: editParsed.data.prompt, editMode: editParsed.data.focused ? "focused" : "regenerate", tokenEstimate } });
+      const current = await tx.document.findUnique({ where: { id: document.id } });
+      if (!current || current.locked) throw new Error("This document was locked while the edit was running. The original was preserved.");
+      await tx.documentVersion.create({ data: { documentId: current.id, version: current.version, contentMarkdown: current.contentMarkdown, editPrompt: editParsed.data.prompt, editMode: editParsed.data.focused ? "focused" : "regenerate", tokenEstimate } });
       const next = await tx.document.update({ where: { id: document.id }, data: { contentMarkdown, skillProvenance: skillChain as unknown as Prisma.InputJsonValue, tokenEstimate, version: { increment: 1 }, metadata: { ...((document.metadata as Record<string, unknown> | null) ?? {}), generationMode: "live-skill-edit", skillExecution: { status: "verified", executedAt: new Date().toISOString(), provider: user.llmProvider, model: user.llmModel, steps: executionSteps }, lastEditPrompt: editParsed.data.prompt, lastEditMode: editParsed.data.focused ? "focused" : "regenerate" } as Prisma.InputJsonValue } });
       await tx.user.update({ where: { id: user.id }, data: { tokenUsed: { increment: tokenEstimate } } });
       return next;
     });
-    return Response.json({ document: { ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() } });
+    const safeDocument = withoutSkillProvenance(updated);
+    return Response.json({ document: { ...safeDocument, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "The document could not be edited." }, { status: 400 });
   }

@@ -28,7 +28,6 @@ export type WorkspaceDocument = {
   type: string;
   contentMarkdown: string;
   metadata: unknown;
-  skillProvenance: unknown;
   tokenEstimate: number;
   version: number;
   locked?: boolean;

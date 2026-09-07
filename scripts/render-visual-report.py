@@ -213,23 +213,23 @@ def render_module_visuals(doc_type: str, company: str, competitors: list[dict[st
                         <polygon points="180,30 300,95 300,215 180,270 60,215 60,95" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
                         <polygon points="180,65 270,110 270,195 180,240 90,195 90,110" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
                         <polygon points="180,100 240,125 240,175 180,210 120,175 120,125" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
-                        
+
                         <line x1="180" y1="150" x2="180" y2="30" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
                         <line x1="180" y1="150" x2="300" y2="95" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
                         <line x1="180" y1="150" x2="300" y2="215" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
                         <line x1="180" y1="150" x2="180" y2="270" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
                         <line x1="180" y1="150" x2="60" y2="215" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
                         <line x1="180" y1="150" x2="60" y2="95" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
-                        
+
                         <polygon points="180,45 285,102 265,205 180,250 85,195 75,108" fill="rgba(139, 44, 224, 0.22)" stroke="#8B2CE0" stroke-width="2.5" />
-                        
+
                         <circle cx="180" cy="45" r="4" fill="#8B2CE0" />
                         <circle cx="285" cy="102" r="4" fill="#8B2CE0" />
                         <circle cx="265" cy="205" r="4" fill="#8B2CE0" />
                         <circle cx="180" cy="250" r="4" fill="#8B2CE0" />
                         <circle cx="85" cy="195" r="4" fill="#8B2CE0" />
                         <circle cx="75" cy="108" r="4" fill="#8B2CE0" />
-                        
+
                         <text x="180" y="20" font-size="9" font-weight="800" fill="#7C34BC" text-anchor="middle">Brand Authority (88%)</text>
                         <text x="306" y="96" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="start">Digital Reach (82%)</text>
                         <text x="306" y="220" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="start">Tech Depth (78%)</text>
@@ -333,20 +333,20 @@ def render_module_visuals(doc_type: str, company: str, competitors: list[dict[st
                         <line x1="170" y1="85" x2="280" y2="40" stroke="#C9A9B8" stroke-width="1.8" />
                         <line x1="170" y1="85" x2="60" y2="130" stroke="#C9A9B8" stroke-width="1.8" />
                         <line x1="170" y1="85" x2="280" y2="130" stroke="#C9A9B8" stroke-width="1.8" />
-                        
+
                         <circle cx="170" cy="85" r="32" fill="#8B2CE0" />
                         <text x="170" y="82" font-size="9" font-weight="800" fill="#FFF" text-anchor="middle">PRIMARY</text>
                         <text x="170" y="93" font-size="8" font-weight="700" fill="#FCE9F0" text-anchor="middle">ENTITY</text>
-                        
+
                         <circle cx="60" cy="40" r="22" fill="#FCE9F0" stroke="#8B2CE0" stroke-width="1.5" />
                         <text x="60" y="43" font-size="7.5" font-weight="700" fill="#7C34BC" text-anchor="middle">Core Offer</text>
-                        
+
                         <circle cx="280" cy="40" r="22" fill="#FCE9F0" stroke="#8B2CE0" stroke-width="1.5" />
                         <text x="280" y="43" font-size="7.5" font-weight="700" fill="#7C34BC" text-anchor="middle">Proof Nodes</text>
-                        
+
                         <circle cx="60" cy="130" r="22" fill="#E7D6F5" stroke="#7C34BC" stroke-width="1.5" />
                         <text x="60" y="133" font-size="7.5" font-weight="700" fill="#7C34BC" text-anchor="middle">Citations</text>
-                        
+
                         <circle cx="280" cy="130" r="22" fill="#E7D6F5" stroke="#7C34BC" stroke-width="1.5" />
                         <text x="280" y="133" font-size="7.5" font-weight="700" fill="#7C34BC" text-anchor="middle">Alternatives</text>
                     </svg>
@@ -392,19 +392,19 @@ def render_module_visuals(doc_type: str, company: str, competitors: list[dict[st
                         <line x1="35" y1="135" x2="35" y2="20" stroke="#3A3A40" stroke-width="1.5" />
                         <line x1="175" y1="135" x2="175" y2="20" stroke="#E8E5EA" stroke-dasharray="3,3" />
                         <line x1="35" y1="75" x2="320" y2="75" stroke="#E8E5EA" stroke-dasharray="3,3" />
-                        
+
                         <text x="320" y="150" font-size="8" font-weight="700" fill="#3A3A40" text-anchor="end">Market Scale & Presence →</text>
                         <text x="30" y="14" font-size="8" font-weight="700" fill="#3A3A40" text-anchor="start">↑ Digital Depth</text>
-                        
+
                         <circle cx="260" cy="95" r="10" fill="#8B2CE0" />
                         <text x="260" y="80" font-size="8.5" font-weight="800" fill="#8B2CE0" text-anchor="middle">{company[:14]}</text>
-                        
+
                         <circle cx="215" cy="45" r="8" fill="#7C34BC" />
                         <text x="215" y="32" font-size="8" font-weight="700" fill="#7C34BC" text-anchor="middle">Private Leader</text>
-                        
+
                         <circle cx="115" cy="52" r="7" fill="#0D9488" />
                         <text x="115" y="40" font-size="7.5" font-weight="600" fill="#0D9488" text-anchor="middle">Digital Challenger</text>
-                        
+
                         <circle cx="90" cy="112" r="7" fill="#EA580C" />
                         <text x="90" y="102" font-size="7.5" font-weight="600" fill="#EA580C" text-anchor="middle">Niche Player</text>
                     </svg>
@@ -473,7 +473,7 @@ def render_module_visuals(doc_type: str, company: str, competitors: list[dict[st
                         <rect x="140" y="38" width="48" height="17" fill="#7C34BC" rx="3" />
                         <rect x="200" y="20" width="48" height="18" fill="#E8447A" rx="3" />
                         <rect x="260" y="20" width="55" height="100" fill="#059669" rx="3" />
-                        
+
                         <text x="44" y="132" font-size="7.5" font-weight="700" fill="#5B5B63" text-anchor="middle">Base</text>
                         <text x="104" y="132" font-size="7.5" font-weight="700" fill="#5B5B63" text-anchor="middle">+SEO/GEO</text>
                         <text x="164" y="132" font-size="7.5" font-weight="700" fill="#5B5B63" text-anchor="middle">+ABM</text>
@@ -508,7 +508,7 @@ def render_module_visuals(doc_type: str, company: str, competitors: list[dict[st
                     <polygon points="180,65 270,110 270,195 180,240 90,195 90,110" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
                     <polygon points="180,100 240,125 240,175 180,210 120,175 120,125" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
                     <polygon points="180,45 285,102 265,205 180,250 85,195 75,108" fill="rgba(139, 44, 224, 0.22)" stroke="#8B2CE0" stroke-width="2.5" />
-                    
+
                     <text x="180" y="20" font-size="9" font-weight="800" fill="#7C34BC" text-anchor="middle">Positioning (88%)</text>
                     <text x="306" y="96" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="start">Channels (82%)</text>
                     <text x="306" y="220" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="start">Execution (78%)</text>
@@ -584,28 +584,28 @@ def extract_swot_matrix(blocks: list[dict[str, Any]], start_index: int) -> tuple
     swot_items: dict[str, list[str]] = {"Strengths": [], "Weaknesses": [], "Opportunities": [], "Threats": []}
     i = start_index + 1
     current_quadrant = ""
-    
+
     quadrant_keywords = {
         "Strengths": ["strength", "strenght", "s - ", "(s)", "core advantage"],
         "Weaknesses": ["weakness", "weak", "w - ", "(w)", "limitation", "gap", "vulnerability"],
         "Opportunities": ["opportunit", "o - ", "(o)", "upside", "growth vector", "whitespace"],
         "Threats": ["threat", "t - ", "(t)", "risk", "hazard", "competitive headwind"]
     }
-    
+
     while i < len(blocks):
         b = blocks[i]
         b_type = b["type"]
-        
+
         if b_type == "h1" or (b_type == "h2" and not any(q.lower() in b.get("text", "").lower() for q in ("strengths", "weaknesses", "opportunities", "threats", "swot"))):
             break
-            
+
         text = b.get("text", "")
         matched_quad = None
         for quad, kws in quadrant_keywords.items():
             if any(kw in text.lower() for kw in kws):
                 matched_quad = quad
                 break
-                
+
         if matched_quad:
             current_quadrant = matched_quad
             if ":" in text:
@@ -644,17 +644,14 @@ def extract_swot_matrix(blocks: list[dict[str, Any]], start_index: int) -> tuple
         elif b_type == "paragraph" and current_quadrant:
             if text and not any(k.lower() in text.lower() for k in ("swot analysis", "strategic matrix", "framework")):
                 swot_items[current_quadrant].append(text)
-                
+
         i += 1
 
-    if not swot_items["Strengths"]:
-        swot_items["Strengths"].append("Established market presence, authoritative service portfolio, and dedicated client relationships.")
-    if not swot_items["Weaknesses"]:
-        swot_items["Weaknesses"].append("Legacy conversion friction, fragmented self-serve asset discovery, and iterative testing velocity gaps.")
-    if not swot_items["Opportunities"]:
-        swot_items["Opportunities"].append("Capture high-intent digital acquisition channels, AI search inclusion, and modular automation offerings.")
-    if not swot_items["Threats"]:
-        swot_items["Threats"].append("Aggressive agile competitors targeting entry-level pricing tiers with automated digital onboarding.")
+    # A visual must only represent supplied evidence. When the report does not
+    # contain a complete SWOT, leave the original Markdown in place rather than
+    # inventing entries to complete a diagram.
+    if not all(swot_items.values()):
+        return None, start_index
 
     return swot_items, i
 
@@ -683,7 +680,7 @@ def render_framework(framework: dict[str, Any]) -> str:
 def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[str, str] | None = None, inline_visuals: str = "") -> str:
     competitor_logos = competitor_logos or {}
     html_parts: list[str] = []
-    
+
     chapter_count = 1
     i = 0
     insert_at = visual_insertion_index(blocks) if inline_visuals else -1
@@ -700,12 +697,13 @@ def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[s
             html_parts.append(render_framework(block["framework"]))
             i += 1
             continue
-        
+
         if not any(candidate["type"] == "framework" for candidate in blocks) and ((b_type in ("h1", "h2", "h3") and "SWOT" in block_text.upper()) or (b_type == "h2" and any(k in block_text.upper() for k in ("STRENGTHS & WEAKNESSES", "STRENGTHS, WEAKNESSES")))):
             swot_items, next_i = extract_swot_matrix(blocks, i)
-            i = next_i
-            
-            html_parts.append(f'''
+            if swot_items:
+                i = next_i
+
+                html_parts.append(f'''
             <section class="framework-section-wrap">
                 <h2 class="framework-header"><span class="header-knot-mark"></span>SWOT Strategic Analysis Matrix</h2>
                 <div class="swot-grid">
@@ -747,8 +745,8 @@ def render_blocks_to_html(blocks: list[dict[str, Any]], competitor_logos: dict[s
                     </div>
                 </div>
             </section>
-            ''')
-            continue
+                ''')
+                continue
 
         if b_type == "h1":
             text = clean_inline(block["text"])
@@ -842,7 +840,7 @@ def render_competitor_cards(competitors: list[dict[str, Any]]) -> str:
         name = clean_inline(competitor.get("companyName", "Competitor"))
         website = competitor.get("officialWebsite", "")
         logo = competitor.get("logoDataUrl") or competitor.get("logoUrl", "")
-        
+
         if not logo and website:
             try:
                 domain = re.sub(r"^https?://", "", website).split("/")[0].replace("www.", "")
@@ -850,7 +848,7 @@ def render_competitor_cards(competitors: list[dict[str, Any]]) -> str:
                     logo = f"https://www.google.com/s2/favicons?domain={domain}&sz=128"
             except Exception:
                 pass
-                
+
         media = f'<img src="{logo}" alt="{name} logo" class="comp-card-logo" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';" /><span class="comp-card-letter" style="display: none;">{name[:1].upper()}</span>' if logo else f'<span class="comp-card-letter">{name[:1].upper()}</span>'
         clean_domain = website.replace("https://", "").replace("http://", "").rstrip("/") if website else ""
         site_link = f'<span class="comp-site-text">{clean_domain}</span>' if clean_domain else ""
@@ -922,7 +920,7 @@ def extract_and_render_sources_register(raw_markdown: str, source_count: int) ->
     urls = list(dict.fromkeys(re.findall(r"https?://[^\s)\]>]+", raw_markdown)))
     if not urls:
         return ""
-    
+
     rows = []
     for idx, url in enumerate(urls[:10], start=1):
         clean_url = url.rstrip(".,;:)")
@@ -980,12 +978,12 @@ REPORT_TEMPLATE = Template(r'''<!doctype html>
     --dusty-mauve: #C9A9B8;
     --pale-lilac: #E7D6F5;
     --white: #FFFFFF;
-    
+
     --deep-violet: #7C34BC;
     --signature-purple: #8B2CE0;
     --magenta-pop: #E8447A;
     --emerald-green: #059669;
-    
+
     --near-black: #1A1A1A;
     --slate-gray: #3A3A40;
     --muted-gray: #7A7A84;
@@ -1902,7 +1900,7 @@ body {
         <div class="cover-kicker">Confidential Executive Intelligence</div>
         <h1 class="cover-title">{{ title }}</h1>
         <p class="cover-subtitle">Evidence-based strategic diagnosis synthesized from verified public crawl assets, market signals, and competitor intelligence frameworks.</p>
-        
+
         {% if company_brief %}
         <div class="cover-brief-card">
             <strong>Subject Enterprise Context</strong>
@@ -1959,16 +1957,14 @@ def build_report_html(payload: dict[str, Any]) -> str:
 
     raw_markdown = normalize_document_markdown(raw_markdown)
     blocks = parse_markdown_blocks(raw_markdown)
-    module_visuals_html = add_visual_explanation(
-        render_module_visuals(doc_type, company, competitors),
-        doc_type,
-        payload.get("reportModel"),
-    )
+    # Framework diagrams come from parsed, source-backed report content. Do
+    # not inject generic templates with fixed counts or percentages.
+    module_visuals_html = ""
     content_html = render_blocks_to_html(blocks, competitor_logos, module_visuals_html)
     competitor_html = render_competitor_cards(competitors)
-    
+
     skills_html = ""
-    
+
     source_count = payload.get("sourceCount", 0)
     sources_register_html = extract_and_render_sources_register(raw_markdown, source_count)
 
@@ -2023,7 +2019,7 @@ def inspect_pdf(path: Path, html_path: Path | None = None) -> dict[str, Any]:
     card_count = html_content.count("smark-card") + html_content.count("swot-card") + html_content.count("visual-card") + html_content.count("cover-meta-card") + html_content.count("skill-methodology-card")
     callout_count = html_content.count("smark-callout") + html_content.count("insight-pill-card")
     viz_count = table_count + card_count + callout_count
-    
+
     section_count = max(1, html_content.count("<h2") + html_content.count("<h1"))
     visual_section_share = min(100, max(50, int((viz_count / section_count) * 100)))
 

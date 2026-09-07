@@ -140,6 +140,9 @@ export async function runLighthouseAudit(url: string, strategy: LighthouseStrate
         const { default: lighthouse } = await import("lighthouse");
         const result = await lighthouse(safeUrl.href, lighthouseFlags(strategy, browserPort(browser)));
         if (!result) throw new LighthouseAuditError("AUDIT_FAILED", "Lighthouse did not return a report for this website.");
+        // Lighthouse may follow another redirect after the preflight request.
+        // Validate the destination before accepting its report.
+        await resolveSafeRedirects(result.lhr.finalDisplayedUrl || result.lhr.finalUrl || safeUrl.href, signal);
         if (result.lhr.runtimeError) {
           const runtimeMessage = result.lhr.runtimeError.message || "Lighthouse could not load this website.";
           const runtimeCode = /timeout/i.test(runtimeMessage) ? "TIMEOUT" : /dns|resolve|net::|document request/i.test(runtimeMessage) ? "UNREACHABLE" : "UNSUPPORTED_WEBSITE";

@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { requireApiUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { runInitialAudit } from "@/lib/audit/run-initial-audit";
+import { createOrReuseAuditJob } from "@/lib/audit/jobs";
 
 const STALE_AUDIT_MS = 2 * 60 * 60 * 1000;
 
@@ -52,8 +53,9 @@ export async function POST(_request: Request, context: RouteContext<"/api/audits
     return Response.json({ error: "Choose and verify a different OpenRouter model before retrying this audit.", requiresModelChange: true }, { status: 409 });
   }
   const reuseEvidence = previous.progress >= 28;
-  const job = await db.auditJob.create({ data: { companyId: previous.companyId, progress: reuseEvidence ? 28 : 0, step: reuseEvidence ? "Reusing saved website evidence" : "Queued" } });
+  const result = await createOrReuseAuditJob({ companyId: previous.companyId, progress: reuseEvidence ? 28 : 0, step: reuseEvidence ? "Reusing saved website evidence" : "Queued" });
+  if (result.resumed) return Response.json({ jobId: result.job.id, resumed: true });
   await db.company.update({ where: { id: previous.companyId }, data: { status: "ONBOARDING", crawlStatus: "QUEUED", crawlProgress: reuseEvidence ? 28 : 0, crawlStep: reuseEvidence ? "Reusing saved website evidence" : "Queued", crawlError: null } });
-  after(() => runInitialAudit(job.id));
-  return Response.json({ jobId: job.id }, { status: 202 });
+  after(() => runInitialAudit(result.job.id));
+  return Response.json({ jobId: result.job.id }, { status: 202 });
 }

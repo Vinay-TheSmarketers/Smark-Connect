@@ -1,4 +1,5 @@
 ﻿import "server-only";
+import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { extractCompanyMemory, type CompanyMemory } from "@/lib/reddit/company-memory";
@@ -71,9 +72,9 @@ export async function runXOpportunityPipeline(args: {
   const uniqueSignals = Array.from(deduplicatedSignalsMap.values());
   const rawOpportunities: XOpportunity[] = [];
 
-  for (let i = 0; i < uniqueSignals.length; i++) {
-    const sig = uniqueSignals[i];
-    const oppId = `x_opp_${args.companyId.slice(0, 6)}_${i}_${sig.source}`;
+  for (const sig of uniqueSignals) {
+    const identity = [args.companyId, sig.source, sig.sourceUrl ?? "", sig.topic, sig.opportunityType].join("\n").toLowerCase();
+    const oppId = `x_opp_${createHash("sha256").update(identity).digest("hex").slice(0, 18)}`;
     if (processedIds.has(oppId)) continue;
 
     let format: XPostFormat = "SINGLE_POST";

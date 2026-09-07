@@ -12,14 +12,16 @@ async function setProgress(jobId: string, companyId: string, progress: number, s
 }
 
 export async function runInitialAudit(jobId: string): Promise<void> {
+  const claimed = await db.auditJob.updateMany({
+    where: { id: jobId, status: "QUEUED" },
+    data: { status: "RUNNING", attempts: { increment: 1 }, startedAt: new Date(), error: null },
+  });
+  if (!claimed.count) return;
   const job = await db.auditJob.findUnique({ where: { id: jobId }, include: { company: { include: { user: true, crawlPages: { orderBy: { fetchedAt: "desc" }, take: 48 }, pageSpeedAudits: { orderBy: { createdAt: "desc" }, take: 2 } } } } });
   if (!job) return;
   const { company } = job;
   try {
-    await db.$transaction([
-      db.auditJob.update({ where: { id: jobId }, data: { status: "RUNNING", attempts: { increment: 1 }, startedAt: new Date(), error: null } }),
-      db.company.update({ where: { id: company.id }, data: { crawlStatus: "RUNNING", crawlError: null } }),
-    ]);
+    await db.company.update({ where: { id: company.id }, data: { crawlStatus: "RUNNING", crawlError: null } });
 
     if (company.user.demoMode) throw new Error("Demo Mode cannot run a live company audit. Connect and verify a real AI provider first.");
     if (!company.user.llmVerifiedAt || !company.user.llmProvider || !company.user.llmApiKeyEnc || !company.user.llmModel) throw new Error("A verified AI provider is required before starting an audit.");
@@ -97,17 +99,12 @@ export async function runInitialAudit(jobId: string): Promise<void> {
 
     const evidence = buildEvidencePack({ companyName: company.name, websiteUrl: company.websiteUrl, pages, pageSpeed });
     const researchTopics = deriveResearchTopics(pages, company.name);
-    const completedDocumentTypes = new Set(
-      reuseEvidence
-        ? (await db.document.findMany({ where: { companyId: company.id }, select: { type: true } })).map((document) => document.type)
-        : [],
-    );
+    // Reuse the evidence snapshot but regenerate every report. Existing
+    // documents can be from another audit and are never evidence that this
+    // job completed them.
+    const completedDocumentTypes = new Set<typeof AUDIT_DOCUMENT_QUEUE[number]["type"]>();
     const documentFailures: Array<{ title: string; error: unknown }> = [];
-    let documentsProcessed = completedDocumentTypes.size;
-
-    if (completedDocumentTypes.size >= 1) {
-      await db.company.update({ where: { id: company.id }, data: { status: "ACTIVE" } });
-    }
+    let documentsProcessed = 0;
 
     await setProgress(jobId, company.id, 34, "Starting the priority report queue with competitor maps and company intelligence");
     for (const [index, definition] of AUDIT_DOCUMENT_QUEUE.entries()) {

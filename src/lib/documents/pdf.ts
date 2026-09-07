@@ -27,17 +27,26 @@ function pythonExecutable() {
   return existsSync(projectPython) ? projectPython : process.platform === "win32" ? "python" : "python3";
 }
 
-function runRenderer(executable: string, script: string, payload: Record<string, unknown>) {
+const REPORT_RENDER_TIMEOUT_MS = 120_000;
+
+function runRenderer(executable: string, script: string, payload: Record<string, unknown>, timeoutMs = REPORT_RENDER_TIMEOUT_MS) {
   return new Promise<Record<string, unknown>>((resolve, reject) => {
     const child = spawn(executable, [script], { cwd: process.cwd(), stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     let stdout = "";
     let stderr = "";
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, timeoutMs);
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => { stdout += chunk; });
     child.stderr.on("data", (chunk: string) => { stderr += chunk; });
-    child.on("error", reject);
+    child.on("error", (error) => { clearTimeout(timer); reject(error); });
     child.on("close", (code) => {
+      clearTimeout(timer);
+      if (timedOut) return reject(new Error("Visual report rendering exceeded the 120-second limit."));
       if (code !== 0) return reject(new Error(`Visual report renderer failed${stderr.trim() ? `: ${stderr.trim().slice(-1600)}` : ` with exit code ${code}`}`));
       try { resolve(JSON.parse(stdout.trim().split(/\r?\n/).filter(Boolean).at(-1) ?? "") as Record<string, unknown>); }
       catch { reject(new Error(`Visual report renderer returned an invalid receipt: ${stdout.slice(-800)}`)); }
@@ -79,6 +88,7 @@ export async function createVisualReport(args: VisualReportArgs): Promise<Visual
       qa = { passes: 1, final };
     }
     if (qa.final.pageCount < 1) throw new Error("Visual report QA did not produce any pages.");
+    if (qa.final.issues.length) throw new Error(`Visual report QA failed: ${qa.final.issues.join("; ")}`);
     const result = { pdf: await readFile(outputPdf), html: await readFile(outputHtml), qa };
     if (reportCache.size >= 8) reportCache.delete(reportCache.keys().next().value ?? "");
     reportCache.set(cacheKey, result);

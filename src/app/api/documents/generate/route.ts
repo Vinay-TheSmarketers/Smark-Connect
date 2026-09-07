@@ -4,6 +4,7 @@ import { requireApiUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { ALL_DOCUMENTS, getDocumentDefinition } from "@/lib/skills/registry";
 import { buildEvidencePack, deriveResearchTopics, runCoreDocument, saveCoreAnalysis } from "@/lib/skills/runner";
+import { withoutSkillProvenance } from "@/lib/documents/public";
 
 const allowed = ALL_DOCUMENTS.map((document) => document.type) as [string, ...string[]];
 const schema = z.object({ companyId: z.string().min(1), documentType: z.enum(allowed) });
@@ -29,5 +30,7 @@ export async function POST(request: Request) {
     return Response.json({ error: `No document was saved because the required skill chain could not complete: ${error instanceof Error ? error.message : "unknown generation error"}` }, { status: 400 });
   }
   const document = await db.document.findUnique({ where: { companyId_type: { companyId: company.id, type: definition.type } } });
-  return Response.json({ document: document ? { ...document, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() } : null });
+  if (!document) return Response.json({ document: null });
+  const safeDocument = withoutSkillProvenance(document);
+  return Response.json({ document: { ...safeDocument, createdAt: document.createdAt.toISOString(), updatedAt: document.updatedAt.toISOString() } });
 }
