@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 const providers = [
-  { value: "anthropic", label: "Anthropic", hint: "Claude", icon: "/provider-logos/anthropic.svg", recommendedModel: "claude-haiku-4-5" },
+  { value: "anthropic", label: "Anthropic", hint: "Claude", icon: "/provider-logos/anthropic.svg", recommendedModel: "claude-opus-5" },
   { value: "openai", label: "OpenAI", hint: "ChatGPT", icon: "/provider-logos/openai.svg", recommendedModel: "gpt-5.4-mini" },
   { value: "openrouter", label: "OpenRouter", hint: "Many models", icon: "/provider-logos/openrouter.svg", recommendedModel: "openai/gpt-5.4-mini" },
   { value: "google", label: "Google", hint: "Gemini", icon: "/provider-logos/google-gemini.svg", recommendedModel: "gemini-3.6-flash" },
