@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ModuleIcon } from "./module-icon";
+import { LogoutButton } from "./logout-button";
 
 type JobState = { status: string; progress: number; step: string; error?: string | null; requiresProvider: boolean; requiresModelChange: boolean; companyId: string; companyName: string; pagesRead: number; agentsReady: number; documents: Array<{ type: string; title: string }> };
 
@@ -71,12 +72,38 @@ export function AuditProgress({ jobId, initial }: { jobId: string; initial: JobS
       <div className="audit-checks"><div className={job.progress >= 8 ? "done" : ""}><span>01</span>Website safety check</div><div className={job.progress >= 28 ? "done" : ""}><span>02</span>Research crawl</div><div className={job.documents.length >= 1 ? "done" : ""}><span>03</span>Foundational intelligence ready</div><div className={job.documents.length >= documentPipeline.length ? "done" : ""}><span>04</span>Background report queue</div></div>
       <div className="document-pipeline"><div className="pipeline-heading"><strong>Sequential background report queue</strong><span>{job.documents.length}/{documentPipeline.length} ready</span></div>{documentPipeline.map(([type, label]) => { const ready = job.documents.some((document) => document.type === type); const running = !ready && type === nextDocumentType && job.progress >= 34 && job.status === "RUNNING"; return <div className={ready ? "ready" : running ? "running" : "queued"} key={type}><ModuleIcon type={type} size={15} /><strong>{label}</strong><small>{ready ? "Ready" : running ? "Generating" : "Queued"}</small><span>{ready ? "✓" : running ? "●" : "○"}</span></div>; })}</div>
       <div className="research-coverage"><span><strong>{job.pagesRead}</strong> pages read</span><span><strong>{job.agentsReady}</strong> agent results stored</span></div>
-      {job.status === "ERROR" && (modelError
-        ? <Link className="primary-button" href={`/settings/credits?reason=model&returnTo=${encodeURIComponent(`/onboarding/audit/${jobId}`)}`}>Change AI model<span>→</span></Link>
-        : providerError
-        ? <Link className="primary-button" href="/settings/credits">Connect provider<span>→</span></Link>
-        : <button className="primary-button" type="button" disabled={retrying} onClick={retry}>{retrying ? "Restarting…" : "Retry audit"}<span>↻</span></button>)}
-      {!finished && job.status !== "ERROR" && <p className="submit-note">The workspace opens instantly once Document #1 is ready. The remaining queue continues on the server seamlessly.</p>}
+      {job.status === "ERROR" ? (
+        <div className="audit-actions-row">
+          {modelError ? (
+            <Link className="primary-button" href={`/settings/credits?reason=model&returnTo=${encodeURIComponent(`/onboarding/audit/${jobId}`)}`}>
+              Change AI model <span>→</span>
+            </Link>
+          ) : providerError ? (
+            <Link className="primary-button" href="/settings/credits">
+              Connect provider <span>→</span>
+            </Link>
+          ) : (
+            <button className="primary-button" type="button" disabled={retrying} onClick={retry}>
+              {retrying ? "Restarting…" : "Retry audit"} <span>↻</span>
+            </button>
+          )}
+          <LogoutButton className="logout-inline-btn" label="Sign out" />
+        </div>
+      ) : !finished ? (
+        <div className="audit-running-controls">
+          <div className="running-control-buttons">
+            <Link
+              className="change-model-mid-btn"
+              href={`/settings/credits?reason=model&returnTo=${encodeURIComponent(`/onboarding/audit/${jobId}`)}`}
+              title="Stuck or taking too long? Switch to a faster AI model anytime"
+            >
+              Change AI model in-between <span>→</span>
+            </Link>
+            <LogoutButton className="logout-inline-btn" label="Sign out" />
+          </div>
+          <p className="submit-note">The workspace opens instantly once Document #1 is ready. You can switch models or sign out anytime.</p>
+        </div>
+      ) : null}
     </div>
   );
 }

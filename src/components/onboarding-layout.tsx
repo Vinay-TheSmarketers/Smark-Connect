@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Brand } from "./brand";
+import { LogoutButton } from "./logout-button";
 
 const steps = [
   { number: "01", label: "Connect AI" },
@@ -10,7 +11,14 @@ const steps = [
 export function OnboardingLayout({ activeStep, children }: { activeStep: number; children: ReactNode }) {
   return (
     <main className="onboarding-shell">
-      <header className="topbar"><Brand /><div className="topbar-status"><span className="status-dot" /> Secure onboarding</div><span className="secure-label">BYOK · encrypted</span></header>
+      <header className="topbar">
+        <Brand />
+        <div className="topbar-status"><span className="status-dot" /> Secure onboarding</div>
+        <div className="topbar-actions">
+          <span className="secure-label">BYOK · encrypted</span>
+          <LogoutButton className="logout-nav-btn" label="Sign out" />
+        </div>
+      </header>
       <section className="onboarding-frame">
         <aside className="progress-panel" aria-label="Onboarding progress">
           <p className="eyebrow">SET UP YOUR AI CMO</p>
