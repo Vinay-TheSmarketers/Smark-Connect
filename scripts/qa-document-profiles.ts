@@ -3,16 +3,16 @@ import path from "node:path";
 import { createVisualReport } from "../src/lib/documents/pdf";
 
 const profiles = [
-  ["COMPANY_INTELLIGENCE", "Company Intelligence"],
+  ["COMPANY_INTELLIGENCE", "Company and Product Intelligence"],
   ["SEO_AUDIT", "SEO Audit"],
   ["GEO_AUDIT", "GEO and AI Visibility Audit"],
-  ["COMPETITOR_ANALYSIS", "Competitor Analysis"],
+  ["COMPETITOR_ANALYSIS", "Competitive Landscape and Comparison Playbook"],
   ["AUDIENCE_ANALYSIS", "Audience and ICP Research"],
-  ["CONTENT_AUDIT", "Content Audit and Strategy"],
+  ["CONTENT_AUDIT", "Content Audit and Full-Funnel Strategy"],
   ["MARKETING_STRATEGY", "Integrated Marketing Strategy"],
   ["DESIGN_GUIDE", "Brand and Visual Design Guide"],
-  ["CONTENT_STRATEGY", "Full-Funnel Content Strategy"],
-  ["PRODUCT_INFO", "Offer and Product Intelligence"],
+  ["SOCIAL_BATCH_PLAN", "Social Batch Publishing Plan and Agent Pack"],
+  ["SHORT_FORM_VIDEO_BLUEPRINT", "Short-Form Video and UGC Agent Blueprint"],
 ] as const;
 
 function sampleMarkdown(title: string) {

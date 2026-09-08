@@ -127,7 +127,7 @@ export async function createExecutivePptx({ model, manifest }: PresentationArgs)
     slide.addShape("line", { x: 8.55, y: 1.94, w: 3.65, h: 0, line: { color: COLORS.pink, width: 3 } });
     slide.addText("WHAT LEADERSHIP SHOULD RETAIN", { x: 8.55, y: 2.2, w: 3.65, h: 0.55, fontFace: "Arial", fontSize: 16, bold: true, color: COLORS.violet, margin: 0, fit: "shrink" });
     const linked = model.recommendations.filter((recommendation) => recommendation.findingIds.includes(finding.id)).slice(0, 3);
-    const implications = (linked.length ? linked : model.recommendations.slice(0, 3)).map((item) => `${item.id}  ${shorten(item.detail, 115)}`);
+    const implications = linked.map((item) => `${item.id}  ${shorten(item.detail, 115)}`);
     slide.addText(implications.length ? implications.map((text) => ({ text, options: { bullet: { indent: 16 }, breakLine: true } })) : [{ text: "Validate the finding against the next available first-party data source.", options: { bullet: { indent: 16 } } }], { x: 8.48, y: 3.0, w: 3.8, h: 2.45, fontFace: "Arial", fontSize: 17, color: COLORS.slate, margin: 0.06, breakLine: false, fit: "shrink", paraSpaceAfter: 12 });
     slide.addText(`CONFIDENCE  ${finding.confidence.toUpperCase()}`, { x: 8.55, y: 5.82, w: 3.45, h: 0.28, fontFace: "Arial", fontSize: 10, bold: true, color: priorityColor(finding.confidence), margin: 0, charSpacing: 1.2 });
     addNotes(slide, model);

@@ -22,7 +22,7 @@ import {
 
 const moduleKinds: Record<string, { Icon: LucideIcon; className: string; label: string }> = {
   // Core Documents & Associated Agents
-  COMPANY_INTELLIGENCE: { Icon: Building2, className: "company", label: "Company Intelligence" },
+  COMPANY_INTELLIGENCE: { Icon: Building2, className: "company", label: "Company and Product Intelligence" },
   AI_CMO: { Icon: ChartNoAxesCombined, className: "cmo", label: "AI CMO" },
   SEO_AUDIT: { Icon: SearchCheck, className: "seo", label: "SEO Audit" },
   SEO: { Icon: SearchCheck, className: "seo", label: "SEO Audit Agent" },
@@ -42,8 +42,8 @@ const moduleKinds: Record<string, { Icon: LucideIcon; className: string; label: 
   CAMPAIGN_PLANNER: { Icon: Compass, className: "strategy", label: "Integrated Marketing Strategy" },
   DESIGN_GUIDE: { Icon: Palette, className: "design", label: "Brand and Visual Design Guide" },
   CREATIVE_VISUAL: { Icon: Palette, className: "design", label: "Brand and Visual Design Guide" },
-  CONTENT_STRATEGY: { Icon: Layers, className: "content-strategy", label: "Full-Funnel Content Strategy" },
-  PRODUCT_INFO: { Icon: Boxes, className: "product", label: "Offer and Product Intelligence" },
+  CONTENT_STRATEGY: { Icon: Layers, className: "content-strategy", label: "Content Audit and Full-Funnel Strategy (legacy)" },
+  PRODUCT_INFO: { Icon: Boxes, className: "product", label: "Company and Product Intelligence (legacy)" },
   STRATEGIC_INTELLIGENCE: { Icon: Sparkles, className: "strategic", label: "Strategic Intelligence Report" },
 
   PAGE_CRO_AUDIT: { Icon: Target, className: "cro", label: "Landing Page & Hero CRO Audit" },
@@ -57,9 +57,9 @@ const moduleKinds: Record<string, { Icon: LucideIcon; className: string; label: 
   EMAIL_LIFECYCLE_PLAYBOOK: { Icon: Files, className: "content", label: "Email Lifecycle & Lead Nurture Architecture" },
   LEAD_MAGNET_STRATEGY: { Icon: Boxes, className: "product", label: "Lead Magnet & Free Tool Strategy" },
   PAID_ADS_PLAYBOOK: { Icon: Compass, className: "strategy", label: "Multi-Channel Paid Ads Playbook" },
-  COMPETITOR_COMPARISON_PLAYBOOK: { Icon: Swords, className: "competitor", label: "Competitor Comparison Landing Page Playbook" },
-  SOCIAL_BATCH_PLAN: { Icon: Files, className: "content", label: "Social Media Batch Content & Calendar Plan" },
-  SHORT_FORM_VIDEO_BLUEPRINT: { Icon: Palette, className: "design", label: "Short-Form Video & UGC Creative Blueprint" },
+  COMPETITOR_COMPARISON_PLAYBOOK: { Icon: Swords, className: "competitor", label: "Competitive Landscape and Comparison Playbook (legacy)" },
+  SOCIAL_BATCH_PLAN: { Icon: Files, className: "content", label: "Social Batch Publishing Plan and Agent Pack" },
+  SHORT_FORM_VIDEO_BLUEPRINT: { Icon: Palette, className: "design", label: "Short-Form Video and UGC Agent Blueprint" },
   BRAND_STORYTELLING_GUIDE: { Icon: Building2, className: "company", label: "Brand Storytelling & Founder Thought Leadership" },
   ANALYTICS_TRACKING_BLUEPRINT: { Icon: Sparkles, className: "strategic", label: "Analytics Tracking & Attribution Blueprint" },
 };

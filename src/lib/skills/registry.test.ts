@@ -1,13 +1,21 @@
 import { AgentType, DocumentType } from "@prisma/client";
 import { describe, expect, it, vi } from "vitest";
 import { buildResearchQueries } from "../research/live-discovery";
-import { AGENT_DEFINITIONS, ALL_DOCUMENTS, AUDIT_DOCUMENT_QUEUE, AUDIT_PRIORITY_DOCUMENT_TYPES, INTERNAL_OPERATIONS } from "./registry";
+import { AGENT_DEFINITIONS, ALL_DOCUMENTS, AUDIT_DOCUMENT_QUEUE, AUDIT_PRIORITY_DOCUMENT_TYPES, INTERNAL_OPERATIONS, LEGACY_DOCUMENT_ALIASES, getDocumentDefinition } from "./registry";
 
 vi.mock("server-only", () => ({}));
 
 describe("skill operation registry", () => {
   it("maps every document, agent, and internal operation to ordered real skill steps", () => {
-    expect(ALL_DOCUMENTS.map((item) => item.type).sort()).toEqual(Object.values(DocumentType).sort());
+    const visibleDocumentTypes = ALL_DOCUMENTS.map((item) => item.type);
+    const legacyTypes = Object.keys(LEGACY_DOCUMENT_ALIASES) as DocumentType[];
+    expect([...visibleDocumentTypes, ...legacyTypes].sort()).toEqual(Object.values(DocumentType).sort());
+    expect(visibleDocumentTypes).not.toContain("PRODUCT_INFO");
+    expect(visibleDocumentTypes).not.toContain("CONTENT_STRATEGY");
+    expect(visibleDocumentTypes).not.toContain("COMPETITOR_COMPARISON_PLAYBOOK");
+    expect(getDocumentDefinition("PRODUCT_INFO")).toMatchObject({ type: "COMPANY_INTELLIGENCE" });
+    expect(getDocumentDefinition("CONTENT_STRATEGY")).toMatchObject({ type: "CONTENT_AUDIT" });
+    expect(getDocumentDefinition("COMPETITOR_COMPARISON_PLAYBOOK")).toMatchObject({ type: "COMPETITOR_ANALYSIS" });
     expect(AGENT_DEFINITIONS.map((item) => item.type).sort()).toEqual(Object.values(AgentType).sort());
     const operations = [...ALL_DOCUMENTS, ...AGENT_DEFINITIONS, ...Object.values(INTERNAL_OPERATIONS)];
     for (const operation of operations) {
@@ -27,6 +35,20 @@ describe("skill operation registry", () => {
     expect(competitor.skills.at(-1)).toMatchObject({ repository: "social-media-skills", skill: "analytics-and-reporting", phase: "reporting" });
   });
 
+  it("keeps the five requested merged experiences complete", () => {
+    const company = ALL_DOCUMENTS.find((item) => item.type === "COMPANY_INTELLIGENCE")!;
+    const content = ALL_DOCUMENTS.find((item) => item.type === "CONTENT_AUDIT")!;
+    const competitor = ALL_DOCUMENTS.find((item) => item.type === "COMPETITOR_ANALYSIS")!;
+    const social = ALL_DOCUMENTS.find((item) => item.type === "SOCIAL_BATCH_PLAN")!;
+    const video = ALL_DOCUMENTS.find((item) => item.type === "SHORT_FORM_VIDEO_BLUEPRINT")!;
+    const skills = (item: typeof company) => item.skills.map((step) => step.skill);
+    expect(skills(company)).toEqual(expect.arrayContaining(["pricing-strategy", "sales-enablement"]));
+    expect(skills(content)).toEqual(expect.arrayContaining(["content-audit", "content-calendar"]));
+    expect(skills(competitor)).toEqual(expect.arrayContaining(["competitor-analysis", "competitor-alternatives"]));
+    expect(skills(social)).toEqual(expect.arrayContaining(["batch-content-plan", "linkedin-post-writer", "reels-script", "story-writer"]));
+    expect(skills(video)).toEqual(expect.arrayContaining(["short-form-video-script", "ugc-and-influencer", "scripting-and-storyboarding"]));
+  });
+
   it("queues every report sequentially with competitor and company intelligence first", () => {
     expect(AUDIT_PRIORITY_DOCUMENT_TYPES).toEqual(["COMPETITOR_ANALYSIS", "COMPANY_INTELLIGENCE"]);
     expect(AUDIT_DOCUMENT_QUEUE.map((document) => document.type)).toEqual([
@@ -38,8 +60,6 @@ describe("skill operation registry", () => {
       "AUDIENCE_ANALYSIS",
       "CONTENT_AUDIT",
       "DESIGN_GUIDE",
-      "CONTENT_STRATEGY",
-      "PRODUCT_INFO",
     ]);
     expect(AUDIT_DOCUMENT_QUEUE[2]).toMatchObject({ type: "MARKETING_STRATEGY", title: "Strategic Intelligence Report" });
   });

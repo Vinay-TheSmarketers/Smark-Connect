@@ -3,6 +3,7 @@ import ExcelJS, { type Cell, type Fill, type Font, type Worksheet } from "excelj
 import type { ArtifactManifest, ReportDataModel } from "../artifacts/types";
 import { parseMarkdown, type DocumentBlock } from "./content";
 import { createOffPageSeoXlsx } from "./off-page-xlsx";
+import { matchWorkbookSheet, uniqueTableHeaders, workbookRowHeight, workbookSheetLabel, workbookCellValue } from "./workbook-layout";
 
 const PURPLE = "8B2CE0";
 const VIOLET = "7030B5";
@@ -55,8 +56,8 @@ function tableSafe(value: string): string {
 
 function setBaseSheet(sheet: Worksheet) {
   sheet.properties.defaultRowHeight = 19;
-  sheet.views = [{ state: "frozen", ySplit: 4, showGridLines: false }];
-  sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.25, right: 0.25, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 } };
+  sheet.views = [{ state: "frozen", ySplit: 5, showGridLines: false }];
+  sheet.pageSetup = { orientation: "landscape", paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "1:5", margins: { left: 0.25, right: 0.25, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 } };
   sheet.headerFooter.oddHeader = `&L&8THE SMARKETERS / SMARK CONNECT&R&8${sheet.name}`;
   sheet.headerFooter.oddFooter = "&L&8Evidence-led AI CMO workbook&R&8Page &P of &N";
 }
@@ -121,15 +122,16 @@ function sourceUrls(markdown: string): string[] {
 }
 
 function addOverview(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, modules: WorkbookModule[]) {
-  const sheet = workbook.addWorksheet("Overview", { properties: { tabColor: { argb: PURPLE } } });
+  const name = args.manifest?.requiredSheets.find((name) => /summary/i.test(name)) ?? "Overview";
+  const sheet = workbook.getWorksheet(name) ?? workbook.addWorksheet(name, { properties: { tabColor: { argb: PURPLE } } });
   setBaseSheet(sheet);
-  addSheetHeader(sheet, { title: args.title, subtitle: "Decision-ready workbook: narrative modules, structured tables, and a source register.", companyName: args.companyName });
+  addSheetHeader(sheet, { title: args.title, subtitle: "Review the findings, open the working tables, then assign and track actions. Blank inputs are not measured zeros.", companyName: args.companyName });
   setColumnWidths(sheet, [22, 28, 62, 16, 16, 16, 16, 16]);
 
   const facts = [
     ["UPDATED", args.updatedAt],
     ["MODULES", modules.length],
-    ["SOURCES", args.sourceCount],
+    ["SOURCES", new Set(modules.flatMap((module) => sourceUrls(module.markdown))).size],
     ["FORMAT", "XLSX · editable and filterable"],
   ] as Array<[string, string | number | Date]>;
   facts.forEach(([label, value], index) => {
@@ -174,7 +176,7 @@ function addOverview(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, modules:
 
 function addNarrativeSheet(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, module: WorkbookModule, moduleIndex: number) {
   const blocks = parseMarkdown(module.markdown);
-  const sheet = workbook.addWorksheet(uniqueSheetName(workbook, module.title), { properties: { tabColor: { argb: moduleIndex % 2 ? PINK : VIOLET } } });
+  const sheet = workbook.addWorksheet(uniqueSheetName(workbook, modulesNoteName(moduleIndex)), { properties: { tabColor: { argb: moduleIndex % 2 ? PINK : VIOLET } } });
   setBaseSheet(sheet);
   addSheetHeader(sheet, { title: module.title, subtitle: "Evidence → interpretation → decision → confidence → validation → measurement", companyName: args.companyName });
   setColumnWidths(sheet, [7, 30, 72, 24, 18, 18, 18, 18]);
@@ -198,10 +200,11 @@ function addNarrativeSheet(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, mo
     }
     if (block.type === "table") {
       tableIndex += 1;
-      const tableSheet = workbook.addWorksheet(uniqueSheetName(workbook, `${module.title.slice(0, 16)} · ${section.slice(0, 12)}`), { properties: { tabColor: { argb: BLUE } } });
+      const matched = matchWorkbookSheet(section, args.manifest?.requiredSheets ?? [], workbook.worksheets.filter((item) => item.rowCount > 0).map((item) => item.name));
+      const tableSheet = (matched ? workbook.getWorksheet(matched) : undefined) ?? workbook.addWorksheet(uniqueSheetName(workbook, matched ?? section), { properties: { tabColor: { argb: BLUE } } });
       setBaseSheet(tableSheet);
       addSheetHeader(tableSheet, { title: section, subtitle: `${module.title} · structured, filterable export`, companyName: args.companyName });
-      const headers = block.rows[0].map((value, index) => value || `Column ${index + 1}`);
+      const headers = uniqueTableHeaders(block.rows[0]);
       const dataRows = block.rows.slice(1).map((values) => headers.map((_, index) => values[index] ?? ""));
       tableSheet.addTable({ name: tableSafe(`Module_${moduleIndex + 1}_Table_${tableIndex}`), ref: "A5", headerRow: true, totalsRow: false, style: { theme: "TableStyleLight1", showRowStripes: false }, columns: headers.map((name) => ({ name })), rows: dataRows });
       styleDataTable(tableSheet, 5, headers.length, dataRows.length);
@@ -209,7 +212,13 @@ function addNarrativeSheet(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, mo
         const longest = Math.max(headers[index].length, ...dataRows.slice(0, 60).map((values) => String(values[index] ?? "").length));
         tableSheet.getColumn(index + 1).width = Math.min(52, Math.max(13, Math.ceil(longest * 0.78)));
       });
-      tableSheet.getRows(6, Math.max(1, dataRows.length))?.forEach((tableRow) => { tableRow.height = 34; tableRow.eachCell(applyCellBase); });
+      tableSheet.getRows(6, Math.max(1, dataRows.length))?.forEach((tableRow) => { tableRow.eachCell(applyCellBase); });
+      dataRows.forEach((values, index) => values.forEach((value, column) => {
+        const cell = tableSheet.getCell(index + 6, column + 1);
+        const typed = workbookCellValue(value, headers[column]);
+        cell.value = typed.value;
+        if (typed.numFmt) cell.numFmt = typed.numFmt;
+      }));
       sheet.mergeCells(row, 1, row, 8);
       const reference = sheet.getCell(row, 1);
       reference.value = { text: `Open structured table: ${tableSheet.name}`, hyperlink: `#'${tableSheet.name.replace(/'/g, "''")}'!A1` };
@@ -231,14 +240,17 @@ function addNarrativeSheet(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, mo
     cell.font = { name: "Arial", size: 10, color: { argb: block.type === "quote" ? INK : SLATE }, italic: block.type === "quote" };
     cell.alignment = { vertical: "top", wrapText: true };
     if (block.type === "quote") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLUSH } };
-    sheet.getRow(row).height = Math.min(92, Math.max(23, 18 + Math.ceil(block.text.length / 115) * 15));
+    sheet.getRow(row).height = Math.min(409, Math.max(28, 18 + Math.ceil(block.text.length / 115) * 15));
     row += 1;
   }
-  sheet.autoFilter = { from: "A4", to: "H4" };
+  sheet.pageSetup.printTitlesRow = "1:3";
 }
 
+function modulesNoteName(index: number) { return index ? `Research Notes ${index + 1}` : "Research Notes"; }
+
 function addSources(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, modules: WorkbookModule[]) {
-  const sheet = workbook.addWorksheet(uniqueSheetName(workbook, "Source Register"), { properties: { tabColor: { argb: PINK } } });
+  const name = args.manifest?.requiredSheets.find((name) => /source_register/i.test(name)) ?? "Source Register";
+  const sheet = workbook.getWorksheet(name) ?? workbook.addWorksheet(name, { properties: { tabColor: { argb: PINK } } });
   setBaseSheet(sheet);
   addSheetHeader(sheet, { title: "Source Register", subtitle: "URLs preserved from the generated document evidence. Verify freshness before execution.", companyName: args.companyName });
   setColumnWidths(sheet, [8, 28, 72, 18, 18, 18, 18, 18]);
@@ -257,49 +269,38 @@ function addSources(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, modules: 
   });
 }
 
-function addArtifactManifest(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, manifest: ArtifactManifest) {
-  const sheet = workbook.addWorksheet(uniqueSheetName(workbook, "Artifact Manifest"), { properties: { tabColor: { argb: VIOLET } } });
-  setBaseSheet(sheet);
-  addSheetHeader(sheet, { title: "Artifact Manifest", subtitle: "The routing contract shared by the PDF, PPTX, and XLSX renderers.", companyName: args.companyName });
-  const rows = (["pdf", "pptx", "xlsx"] as const).map((format) => {
-    const item = manifest.decisions[format];
-    return [format.toUpperCase(), item.requirement.toUpperCase(), item.enabled ? "YES" : "NO", format === manifest.primaryArtifact ? "PRIMARY" : "SUPPORTING", item.reason];
-  });
-  sheet.addTable({ name: "Artifact_Output_Manifest", ref: "A5", headerRow: true, totalsRow: false, style: { theme: "TableStyleMedium4", showRowStripes: true }, columns: ["Format", "Requirement", "Enabled", "Role", "Routing reason"].map((name) => ({ name })), rows });
-  styleDataTable(sheet, 5, 5, rows.length);
-  setColumnWidths(sheet, [14, 17, 12, 16, 78, 16, 16, 16]);
-  sheet.getRows(6, rows.length)?.forEach((row) => { row.height = 34; row.eachCell(applyCellBase); });
-  const details = [
-    ["Report type", manifest.reportType],
-    ["Visual theme", manifest.theme],
-    ["Target slides", manifest.targetSlides],
-    ["Required visuals", manifest.requiredVisuals.join(", ")],
-    ["Required workbook sheets", manifest.requiredSheets.join(", ") || "None"],
-    ["Appendix required", manifest.appendixRequired ? "YES" : "NO"],
-  ];
-  details.forEach(([label, value], index) => {
-    const row = 11 + index;
-    sheet.getCell(row, 1).value = label;
-    sheet.getCell(row, 1).font = { name: "Arial", size: 9, bold: true, color: { argb: VIOLET } };
-    sheet.mergeCells(row, 2, row, 5);
-    sheet.getCell(row, 2).value = value;
-    applyCellBase(sheet.getCell(row, 2));
-  });
-}
-
 function addActionTracker(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, model: ReportDataModel) {
-  const sheet = workbook.addWorksheet(uniqueSheetName(workbook, "Action Tracker"), { properties: { tabColor: { argb: PINK } } });
+  const name = args.manifest?.requiredSheets.find((name) => /action_tracker|priority_backlog/i.test(name)) ?? "Action Tracker";
+  const sheet = workbook.getWorksheet(name) ?? workbook.addWorksheet(name, { properties: { tabColor: { argb: PINK } } });
   setBaseSheet(sheet);
   sheet.views = [{ state: "frozen", ySplit: 5, xSplit: 2, showGridLines: false }];
-  addSheetHeader(sheet, { title: "Action Tracker", subtitle: "Assign, sequence, validate, and update every recommendation using the same IDs shown in the PDF and PPTX.", companyName: args.companyName });
+  addSheetHeader(sheet, { title: "Action Tracker", subtitle: "Update owners, status and dates. Evidence links appear only where the recommendation cites a source.", companyName: args.companyName });
   const recommendations = model.recommendations.length ? model.recommendations : [{ id: "VALIDATE-001", priority: "unrated" as const, title: "Validate the action plan", detail: "Add structured recommendations to the source report before assigning work.", findingIds: [] }];
-  const rows = recommendations.map((item, index) => [item.id, item.priority.toUpperCase(), item.detail, "", "Not started", "", item.findingIds.join(", "), model.lineage[index]?.sourceId ?? "", { formula: `IF(B${index + 6}="HIGH",3,IF(B${index + 6}="MEDIUM",2,IF(B${index + 6}="LOW",1,0)))` }, 0]);
-  const columns = ["Recommendation ID", "Priority", "Recommendation", "Owner", "Status", "Due Date", "Finding IDs", "Source ID", "Priority Score", "Progress"];
+  const rows = recommendations.map((item, index) => {
+    const row = index + 6;
+    const owner = item.detail.match(/(?:^|;\s*)Owner:\s*([^;]+)/i)?.[1]?.trim() || null;
+    const dueDate = item.detail.match(/(?:due date|due):\s*(\d{4}-\d{2}-\d{2})/i)?.[1];
+    const suppliedStatus = item.detail.match(/(?:^|;\s*)Status:\s*([^;]+)/i)?.[1]?.trim();
+    const status = ["Not started", "In progress", "Blocked", "Complete"].find((value) => value.toLowerCase() === suppliedStatus?.toLowerCase()) ?? "Not started";
+    const evidenceUrls = model.lineage.filter((link) => link.recommendationId === item.id)
+      .map((link) => model.sources.find((source) => source.id === link.sourceId)?.url).filter(Boolean).join("\n") || null;
+    return [item.id, item.priority.toUpperCase(), item.detail, owner, status,
+      dueDate ? workbookCellValue(dueDate, "Due date").value : null,
+      item.findingIds.join(", ") || null, evidenceUrls,
+      { formula: `IF(B${row}="HIGH",3,IF(B${row}="MEDIUM",2,IF(B${row}="LOW",1,"")))`, result: ({ high: 3, medium: 2, low: 1, unrated: "" } as const)[item.priority] },
+      { formula: `IF(E${row}="Complete",1,IF(E${row}="Not started",0,""))`, result: status === "Complete" ? 1 : status === "Not started" ? 0 : "" },
+    ];
+  });
+  const columns = ["Recommendation ID", "Priority", "Recommendation", "Owner", "Status", "Due Date", "Finding IDs", "Evidence URLs", "Priority Score", "Progress"];
   sheet.addTable({ name: "Workbook_Action_Tracker", ref: "A5", headerRow: true, totalsRow: false, style: { theme: "TableStyleMedium4", showRowStripes: true }, columns: columns.map((name) => ({ name })), rows });
   styleDataTable(sheet, 5, columns.length, rows.length);
   setColumnWidths(sheet, [20, 13, 62, 20, 18, 16, 20, 14, 16, 14]);
   sheet.getRows(6, rows.length)?.forEach((row) => { row.height = 42; row.eachCell(applyCellBase); });
   for (let row = 6; row < 6 + rows.length; row += 1) {
+    for (const column of [4, 5, 6]) {
+      sheet.getCell(row, column).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F3F5FF" } };
+      sheet.getCell(row, column).font = { name: "Arial", size: 10, color: { argb: "2453A6" } };
+    }
     sheet.getCell(row, 5).dataValidation = { type: "list", allowBlank: false, formulae: ['"Not started,In progress,Blocked,Complete"'] };
     sheet.getCell(row, 6).numFmt = "yyyy-mm-dd";
     sheet.getCell(row, 9).numFmt = "0";
@@ -309,19 +310,6 @@ function addActionTracker(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, mod
     { type: "containsText", priority: 1, operator: "containsText", text: "HIGH", style: { font: { color: { argb: "FFFFFF" }, bold: true }, fill: { type: "pattern", pattern: "solid", bgColor: { argb: "C8425B" }, fgColor: { argb: "C8425B" } } } },
     { type: "containsText", priority: 2, operator: "containsText", text: "MEDIUM", style: { font: { color: { argb: "FFFFFF" }, bold: true }, fill: { type: "pattern", pattern: "solid", bgColor: { argb: "D88918" }, fgColor: { argb: "D88918" } } } },
   ] });
-}
-
-function addLineage(workbook: ExcelJS.Workbook, args: SpreadsheetArgs, model: ReportDataModel) {
-  const sheet = workbook.addWorksheet(uniqueSheetName(workbook, "Data Lineage"), { properties: { tabColor: { argb: BLUE } } });
-  setBaseSheet(sheet);
-  addSheetHeader(sheet, { title: "Data Lineage", subtitle: "Trace findings and recommendations back to source IDs and across all generated artifacts.", companyName: args.companyName });
-  const rows = model.lineage.map((item) => [item.sourceId ?? "", item.findingId ?? "", item.recommendationId ?? "", item.artifactReferences.pdf ?? "", item.artifactReferences.pptx ?? "", item.artifactReferences.xlsx ?? ""]);
-  const safeRows = rows.length ? rows : [["", "", "", "No lineage available", "No lineage available", "No lineage available"]];
-  const columns = ["Source ID", "Finding ID", "Recommendation ID", "PDF reference", "PPTX reference", "XLSX reference"];
-  sheet.addTable({ name: "Workbook_Data_Lineage", ref: "A5", headerRow: true, totalsRow: false, style: { theme: "TableStyleLight1", showRowStripes: false }, columns: columns.map((name) => ({ name })), rows: safeRows });
-  styleDataTable(sheet, 5, columns.length, safeRows.length);
-  setColumnWidths(sheet, [14, 16, 20, 30, 30, 34]);
-  sheet.getRows(6, safeRows.length)?.forEach((row) => { row.height = 28; row.eachCell(applyCellBase); });
 }
 
 export async function createBrandedXlsx(args: SpreadsheetArgs): Promise<Buffer> {
@@ -337,20 +325,37 @@ export async function createBrandedXlsx(args: SpreadsheetArgs): Promise<Buffer> 
   workbook.created = args.updatedAt;
   workbook.modified = args.updatedAt;
   workbook.calcProperties.fullCalcOnLoad = true;
+  for (const name of args.manifest?.requiredSheets ?? []) workbook.addWorksheet(name);
 
   const modules = args.modules?.length ? args.modules : [{ type: "DOCUMENT", title: args.title, markdown: args.markdown }];
   addOverview(workbook, args, modules);
-  if (args.manifest) addArtifactManifest(workbook, args, args.manifest);
   if (args.reportModel) addActionTracker(workbook, args, args.reportModel);
   modules.forEach((module, index) => addNarrativeSheet(workbook, args, module, index));
-  if (args.reportModel) addLineage(workbook, args, args.reportModel);
   addSources(workbook, args, modules);
+
+  for (const required of args.manifest?.requiredSheets ?? []) {
+    const sheet = workbook.getWorksheet(required)!;
+    if (sheet.rowCount) continue;
+    setBaseSheet(sheet);
+    addSheetHeader(sheet, { title: workbookSheetLabel(required), subtitle: "No matching structured records were supplied in this report. Add verified records or regenerate with the missing evidence.", companyName: args.companyName });
+    sheet.getCell("A5").value = "Data unavailable";
+    sheet.getCell("A5").font = { name: "Arial", bold: true, color: { argb: SLATE } };
+    sheet.getColumn(1).width = 40;
+  }
 
   workbook.eachSheet((sheet) => {
     sheet.eachRow((row) => row.eachCell((cell) => {
       if (!cell.font) cell.font = { name: "Arial", size: 10, color: { argb: SLATE } };
     }));
     sheet.getCell("A1").note = "Generated from Smark Connect document evidence. Source URLs and confidence boundaries should be reviewed before execution.";
+    sheet.eachRow((row, index) => {
+      if (index < 5 || row.getCell(1).isMerged || row.getCell(2).isMerged) return;
+      const values: string[] = [];
+      const widths: number[] = [];
+      row.eachCell({ includeEmpty: true }, (cell, column) => { values[column - 1] = cell.text; widths[column - 1] = sheet.getColumn(column).width ?? 30; });
+      row.height = workbookRowHeight(values, widths);
+    });
+    sheet.pageSetup.printArea = `A1:${sheet.getRow(5).cellCount > 0 ? sheet.getColumn(Math.max(8, sheet.columnCount)).letter : "H"}${sheet.rowCount}`;
   });
   const output = await workbook.xlsx.writeBuffer();
   return Buffer.from(output);

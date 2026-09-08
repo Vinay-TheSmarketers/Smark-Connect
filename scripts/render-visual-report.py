@@ -77,7 +77,7 @@ def clean_inline(value: str) -> str:
         value = value.replace(broken, repaired)
     value = re.sub(r"(?:â[^\w\s]{1,4})+", " · ", value)
     value = re.sub(r"!\[([^]]*)\]\([^)]*\)", r"\1", value)
-    value = re.sub(r"\[([^]]+)\]\((https?://[^)]+)\)", r'<span class="smark-cite-link" title="\2">\1</span>', value)
+    value = re.sub(r"\[([^]]+)\]\((https?://[^)]+)\)", r'<a class="smark-cite-link" href="\2">\1</a>', value)
     value = re.sub(r"[\u2500-\u259f\ufffd]+", " · ", value)
     value = re.sub(r"(?:\s*·\s*){2,}", " · ", value)
     value = re.sub(r"[\u2013\u2014]", " - ", value)
@@ -149,7 +149,7 @@ def parse_markdown_blocks(markdown: str) -> list[dict[str, Any]]:
             for t_line in table_lines:
                 if re.match(r"^\s*\|?[-:\s|]+\|?\s*$", t_line):
                     continue
-                cells = [cell.strip() for cell in t_line.split("|")]
+                cells = [cell.strip().replace(r"\|", "|") for cell in re.split(r"(?<!\\)\|", t_line)]
                 if cells and not cells[0]:
                     cells = cells[1:]
                 if cells and not cells[-1]:
@@ -192,375 +192,6 @@ def parse_markdown_blocks(markdown: str) -> list[dict[str, Any]]:
         blocks.append({"type": "paragraph", "text": " ".join(p_lines)})
 
     return blocks
-
-
-def render_module_visuals(doc_type: str, company: str, competitors: list[dict[str, Any]] | None = None) -> str:
-    competitors = competitors or []
-    doc_type = doc_type.upper()
-
-    if "COMPANY" in doc_type or doc_type == "COMPANY_INTELLIGENCE":
-        return f'''
-        <section class="visual-framework-panel">
-            <div class="panel-header">
-                <span class="framework-kicker">STRATEGIC ARCHITECTURE · CAPABILITY BENCHMARK</span>
-                <h2 class="framework-header"><span class="header-knot-mark"></span>Organizational Capability Maturity & Growth Vectors</h2>
-                <p class="panel-sub">Multi-dimensional operational maturity diagnostic across market authority, conversion ops, digital reach, and technology moats.</p>
-            </div>
-            <div class="visual-split-grid">
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Capability Dimension Radar (0 to 100 Benchmark)</h4>
-                    <svg viewBox="0 0 360 270" class="svg-visual-lg">
-                        <polygon points="180,30 300,95 300,215 180,270 60,215 60,95" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
-                        <polygon points="180,65 270,110 270,195 180,240 90,195 90,110" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
-                        <polygon points="180,100 240,125 240,175 180,210 120,175 120,125" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
-
-                        <line x1="180" y1="150" x2="180" y2="30" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
-                        <line x1="180" y1="150" x2="300" y2="95" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
-                        <line x1="180" y1="150" x2="300" y2="215" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
-                        <line x1="180" y1="150" x2="180" y2="270" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
-                        <line x1="180" y1="150" x2="60" y2="215" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
-                        <line x1="180" y1="150" x2="60" y2="95" stroke="#C9A9B8" stroke-width="1" stroke-dasharray="3,3" />
-
-                        <polygon points="180,45 285,102 265,205 180,250 85,195 75,108" fill="rgba(139, 44, 224, 0.22)" stroke="#8B2CE0" stroke-width="2.5" />
-
-                        <circle cx="180" cy="45" r="4" fill="#8B2CE0" />
-                        <circle cx="285" cy="102" r="4" fill="#8B2CE0" />
-                        <circle cx="265" cy="205" r="4" fill="#8B2CE0" />
-                        <circle cx="180" cy="250" r="4" fill="#8B2CE0" />
-                        <circle cx="85" cy="195" r="4" fill="#8B2CE0" />
-                        <circle cx="75" cy="108" r="4" fill="#8B2CE0" />
-
-                        <text x="180" y="20" font-size="9" font-weight="800" fill="#7C34BC" text-anchor="middle">Brand Authority (88%)</text>
-                        <text x="306" y="96" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="start">Digital Reach (82%)</text>
-                        <text x="306" y="220" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="start">Tech Depth (78%)</text>
-                        <text x="180" y="280" font-size="9" font-weight="800" fill="#7C34BC" text-anchor="middle">Conversion Ops (72%)</text>
-                        <text x="54" y="220" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="end">Content Ecosystem (80%)</text>
-                        <text x="54" y="96" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="end">Market Moat (85%)</text>
-                    </svg>
-                </div>
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Departmental Maturity & Action Quadrants</h4>
-                    <div class="matrix-2x2">
-                        <div class="m2-cell cell-leader">
-                            <strong>Marketing & Growth</strong>
-                            <span>High Maturity · Primary Scale Vector</span>
-                            <small>ABM, Organic Authority, Demand Capture</small>
-                        </div>
-                        <div class="m2-cell cell-challenger">
-                            <strong>Tech & Automation</strong>
-                            <span>Advanced · Accelerating Pipeline</span>
-                            <small>HubSpot RevOps, Autonomous Agents</small>
-                        </div>
-                        <div class="m2-cell cell-niche">
-                            <strong>Conversion Ops</strong>
-                            <span>Optimized · Targeted Intervention</span>
-                            <small>Funnel Velocity, Mid-Stage Proof</small>
-                        </div>
-                        <div class="m2-cell cell-emerging">
-                            <strong>Field & Partner Ecosystem</strong>
-                            <span>Established · Continuous Expansion</span>
-                            <small>Strategic Alliances, Channel Co-Marketing</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        '''
-
-    if "SEO" in doc_type or doc_type == "SEO_AUDIT":
-        return f'''
-        <section class="visual-framework-panel">
-            <div class="panel-header">
-                <span class="framework-kicker">ORGANIC SEARCH ARCHITECTURE · INDEXING TOPOLOGY</span>
-                <h2 class="framework-header"><span class="header-knot-mark"></span>Site Architecture Treemap & Search Tier Distribution</h2>
-                <p class="panel-sub">Crawl efficiency, page hierarchy distribution, and search tier query visibility across indexable assets.</p>
-            </div>
-            <div class="visual-split-grid">
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Site Architecture & Crawl Depth Treemap</h4>
-                    <div class="treemap-container">
-                        <div class="tm-node tm-main" style="flex: 4; background: #8B2CE0; color: #FFF;">
-                            <strong>Core Products & Solutions</strong>
-                            <small>45% Traffic Share · Tier 1 Depth</small>
-                        </div>
-                        <div class="tm-node tm-col" style="flex: 3; display: flex; flex-direction: column; gap: 6px;">
-                            <div style="flex: 2; background: #7C34BC; color: #FFF; padding: 8px; border-radius: 6px;">
-                                <strong>Solutions & Use Cases</strong>
-                                <small>28% Share · High Intent</small>
-                            </div>
-                            <div style="flex: 1; background: #FCE9F0; color: #7C34BC; padding: 6px; border-radius: 6px;">
-                                <strong>Comparison Hubs (18%)</strong>
-                            </div>
-                        </div>
-                        <div class="tm-node tm-aside" style="flex: 2; background: #FAF8FC; border: 1px solid #E8E5EA; padding: 8px; border-radius: 6px;">
-                            <strong style="color: #3A3A40;">Resources & Guides</strong>
-                            <small style="color: #8E8E97;">9% Share · Educational</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Keyword Intent & SERP Tier Distribution</h4>
-                    <svg viewBox="0 0 340 130" class="svg-visual">
-                        <rect x="10" y="25" width="70" height="34" fill="#8B2CE0" rx="4" />
-                        <rect x="85" y="25" width="115" height="34" fill="#7C34BC" rx="4" />
-                        <rect x="205" y="25" width="75" height="34" fill="#C9A9B8" rx="4" />
-                        <rect x="285" y="25" width="45" height="34" fill="#E8E5EA" rx="4" />
-                        <text x="45" y="46" font-size="9" font-weight="800" fill="#FFF" text-anchor="middle">Top 3 (22%)</text>
-                        <text x="142" y="46" font-size="9" font-weight="800" fill="#FFF" text-anchor="middle">Page 1 / Pos 4-10 (40%)</text>
-                        <text x="242" y="46" font-size="8.5" font-weight="700" fill="#3A3A40" text-anchor="middle">Page 2 (24%)</text>
-                        <text x="307" y="46" font-size="8" font-weight="700" fill="#8E8E97" text-anchor="middle">P3+ (14%)</text>
-                        <text x="10" y="86" font-size="8.5" font-weight="700" fill="#7C34BC">Commercial & Informational Queries: 1,480 Indexed Entities</text>
-                        <text x="10" y="104" font-size="8" font-weight="600" fill="#5B5B63">Focus: Convert high-volume Page 2 comparison queries into Top 3 rankings.</text>
-                    </svg>
-                </div>
-            </div>
-        </section>
-        '''
-
-    if "GEO" in doc_type or doc_type == "GEO_AUDIT":
-        return f'''
-        <section class="visual-framework-panel">
-            <div class="panel-header">
-                <span class="framework-kicker">GENERATIVE ENGINE OPTIMIZATION · AI CITATION MAP</span>
-                <h2 class="framework-header"><span class="header-knot-mark"></span>Semantic Entity Knowledge Graph & AI Engine Inclusion</h2>
-                <p class="panel-sub">Entity disambiguation, verified proof node links, and citation inclusion benchmark across generative LLM search engines.</p>
-            </div>
-            <div class="visual-split-grid">
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Semantic Entity Node-Link Graph</h4>
-                    <svg viewBox="0 0 340 170" class="svg-visual">
-                        <line x1="170" y1="85" x2="60" y2="40" stroke="#C9A9B8" stroke-width="1.8" />
-                        <line x1="170" y1="85" x2="280" y2="40" stroke="#C9A9B8" stroke-width="1.8" />
-                        <line x1="170" y1="85" x2="60" y2="130" stroke="#C9A9B8" stroke-width="1.8" />
-                        <line x1="170" y1="85" x2="280" y2="130" stroke="#C9A9B8" stroke-width="1.8" />
-
-                        <circle cx="170" cy="85" r="32" fill="#8B2CE0" />
-                        <text x="170" y="82" font-size="9" font-weight="800" fill="#FFF" text-anchor="middle">PRIMARY</text>
-                        <text x="170" y="93" font-size="8" font-weight="700" fill="#FCE9F0" text-anchor="middle">ENTITY</text>
-
-                        <circle cx="60" cy="40" r="22" fill="#FCE9F0" stroke="#8B2CE0" stroke-width="1.5" />
-                        <text x="60" y="43" font-size="7.5" font-weight="700" fill="#7C34BC" text-anchor="middle">Core Offer</text>
-
-                        <circle cx="280" cy="40" r="22" fill="#FCE9F0" stroke="#8B2CE0" stroke-width="1.5" />
-                        <text x="280" y="43" font-size="7.5" font-weight="700" fill="#7C34BC" text-anchor="middle">Proof Nodes</text>
-
-                        <circle cx="60" cy="130" r="22" fill="#E7D6F5" stroke="#7C34BC" stroke-width="1.5" />
-                        <text x="60" y="133" font-size="7.5" font-weight="700" fill="#7C34BC" text-anchor="middle">Citations</text>
-
-                        <circle cx="280" cy="130" r="22" fill="#E7D6F5" stroke="#7C34BC" stroke-width="1.5" />
-                        <text x="280" y="133" font-size="7.5" font-weight="700" fill="#7C34BC" text-anchor="middle">Alternatives</text>
-                    </svg>
-                </div>
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Generative Engine Citability Benchmark</h4>
-                    <div class="heatmap-grid">
-                        <div class="hm-cell hm-high">
-                            <strong>Perplexity AI</strong>
-                            <span>94% Inclusion Rate · Direct Citation</span>
-                        </div>
-                        <div class="hm-cell hm-high">
-                            <strong>ChatGPT Search</strong>
-                            <span>88% Citability · Synthesis Anchor</span>
-                        </div>
-                        <div class="hm-cell hm-mid">
-                            <strong>Claude 3.7 / Reasoning</strong>
-                            <span>84% Reference · Deep Context</span>
-                        </div>
-                        <div class="hm-cell hm-mid">
-                            <strong>Google Gemini Live</strong>
-                            <span>80% Citability · Multi-Source Grounding</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        '''
-
-    if "COMPETITOR" in doc_type or doc_type == "COMPETITOR_ANALYSIS":
-        return f'''
-        <section class="visual-framework-panel">
-            <div class="panel-header">
-                <span class="framework-kicker">COMPETITIVE INTELLIGENCE · MARKET POSITIONING</span>
-                <h2 class="framework-header"><span class="header-knot-mark"></span>Strategic Market Positioning & Feature Parity Matrix</h2>
-                <p class="panel-sub">Market footprint scale versus digital capability depth, highlighting competitive whitespace and feature parity.</p>
-            </div>
-            <div class="visual-split-grid">
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Market Presence vs Digital Feature Depth</h4>
-                    <svg viewBox="0 0 340 170" class="svg-visual">
-                        <line x1="35" y1="135" x2="320" y2="135" stroke="#3A3A40" stroke-width="1.5" />
-                        <line x1="35" y1="135" x2="35" y2="20" stroke="#3A3A40" stroke-width="1.5" />
-                        <line x1="175" y1="135" x2="175" y2="20" stroke="#E8E5EA" stroke-dasharray="3,3" />
-                        <line x1="35" y1="75" x2="320" y2="75" stroke="#E8E5EA" stroke-dasharray="3,3" />
-
-                        <text x="320" y="150" font-size="8" font-weight="700" fill="#3A3A40" text-anchor="end">Market Scale & Presence →</text>
-                        <text x="30" y="14" font-size="8" font-weight="700" fill="#3A3A40" text-anchor="start">↑ Digital Depth</text>
-
-                        <circle cx="260" cy="95" r="10" fill="#8B2CE0" />
-                        <text x="260" y="80" font-size="8.5" font-weight="800" fill="#8B2CE0" text-anchor="middle">{company[:14]}</text>
-
-                        <circle cx="215" cy="45" r="8" fill="#7C34BC" />
-                        <text x="215" y="32" font-size="8" font-weight="700" fill="#7C34BC" text-anchor="middle">Private Leader</text>
-
-                        <circle cx="115" cy="52" r="7" fill="#0D9488" />
-                        <text x="115" y="40" font-size="7.5" font-weight="600" fill="#0D9488" text-anchor="middle">Digital Challenger</text>
-
-                        <circle cx="90" cy="112" r="7" fill="#EA580C" />
-                        <text x="90" y="102" font-size="7.5" font-weight="600" fill="#EA580C" text-anchor="middle">Niche Player</text>
-                    </svg>
-                </div>
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Harvey Ball Feature Parity Matrix</h4>
-                    <table class="harvey-table">
-                        <thead><tr><th>Capability</th><th>{company[:9]}</th><th>Private Leader</th><th>Digital Challenger</th></tr></thead>
-                        <tbody>
-                            <tr><td>Direct Onboarding</td><td>● Full Native</td><td>● High</td><td>● Instant</td></tr>
-                            <tr><td>Product Breadth</td><td>● Enterprise</td><td>◕ Advanced</td><td>◐ Moderate</td></tr>
-                            <tr><td>Search Dominance</td><td>● Market Lead</td><td>◕ Strong</td><td>◐ Emerging</td></tr>
-                            <tr><td>API & Integrations</td><td>● Comprehensive</td><td>● Advanced</td><td>◔ Niche</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-        '''
-
-    if "AUDIENCE" in doc_type or doc_type == "AUDIENCE_ANALYSIS":
-        return f'''
-        <section class="visual-framework-panel">
-            <div class="panel-header">
-                <span class="framework-kicker">ICP & BUYER DYNAMICS · DECISION FLOW</span>
-                <h2 class="framework-header"><span class="header-knot-mark"></span>Buyer Decision Journey Flow & Motivation Divergence</h2>
-                <p class="panel-sub">Full-funnel buyer transition velocity paired with key positive motivators versus decision friction barriers.</p>
-            </div>
-            <div class="visual-split-grid">
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Full-Funnel Buyer Transition Flow</h4>
-                    <svg viewBox="0 0 340 140" class="svg-visual">
-                        <path d="M15,25 C90,25 90,40 170,40 C250,40 250,55 325,55 L325,95 C250,95 250,105 170,105 C90,105 90,120 15,120 Z" fill="rgba(139, 44, 224, 0.18)" stroke="#8B2CE0" stroke-width="1.8" />
-                        <text x="30" y="75" font-size="8.5" font-weight="800" fill="#8B2CE0">Awareness (100%)</text>
-                        <text x="170" y="75" font-size="8.5" font-weight="800" fill="#7C34BC" text-anchor="middle">Evaluation (52%)</text>
-                        <text x="310" y="78" font-size="8.5" font-weight="800" fill="#059669" text-anchor="end">Decision (22%)</text>
-                    </svg>
-                </div>
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Key Motivators vs Decision Friction Barriers</h4>
-                    <div class="diverging-bar-list">
-                        <div class="div-row"><span>Institutional Trust & Proof</span><div class="bar-pos" style="width: 86%;">+86% Driver</div></div>
-                        <div class="div-row"><span>Turnkey Workflow Integration</span><div class="bar-pos" style="width: 74%;">+74% Driver</div></div>
-                        <div class="div-row"><span>Procurement & Security Review</span><div class="bar-neg" style="width: 58%;">-58% Friction</div></div>
-                        <div class="div-row"><span>Unclear Variable Pricing Tiers</span><div class="bar-neg" style="width: 50%;">-50% Friction</div></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        '''
-
-    if "MARKETING" in doc_type or doc_type == "MARKETING_STRATEGY":
-        return f'''
-        <section class="visual-framework-panel">
-            <div class="panel-header">
-                <span class="framework-kicker">GO-TO-MARKET STRATEGY · PIPELINE WATERFALL</span>
-                <h2 class="framework-header"><span class="header-knot-mark"></span>Pipeline Revenue Waterfall & Multi-Channel Gantt</h2>
-                <p class="panel-sub">Cumulative impact modeling across SEO/GEO, ABM outbound, and paid media sprints with 6-month execution milestones.</p>
-            </div>
-            <div class="visual-split-grid">
-                <div class="visual-card">
-                    <h4 class="card-mini-title">Cumulative Pipeline Revenue Waterfall</h4>
-                    <svg viewBox="0 0 340 140" class="svg-visual">
-                        <rect x="20" y="75" width="48" height="45" fill="#3A3A40" rx="3" />
-                        <rect x="80" y="55" width="48" height="20" fill="#8B2CE0" rx="3" />
-                        <rect x="140" y="38" width="48" height="17" fill="#7C34BC" rx="3" />
-                        <rect x="200" y="20" width="48" height="18" fill="#E8447A" rx="3" />
-                        <rect x="260" y="20" width="55" height="100" fill="#059669" rx="3" />
-
-                        <text x="44" y="132" font-size="7.5" font-weight="700" fill="#5B5B63" text-anchor="middle">Base</text>
-                        <text x="104" y="132" font-size="7.5" font-weight="700" fill="#5B5B63" text-anchor="middle">+SEO/GEO</text>
-                        <text x="164" y="132" font-size="7.5" font-weight="700" fill="#5B5B63" text-anchor="middle">+ABM</text>
-                        <text x="224" y="132" font-size="7.5" font-weight="700" fill="#5B5B63" text-anchor="middle">+Paid CRO</text>
-                        <text x="287" y="132" font-size="8" font-weight="800" fill="#059669" text-anchor="middle">Target Total</text>
-                    </svg>
-                </div>
-                <div class="visual-card">
-                    <h4 class="card-mini-title">6-Month Implementation Roadmap</h4>
-                    <div class="gantt-container">
-                        <div class="gt-track"><span class="gt-lbl">Core Tech & Tracking</span><div class="gt-bar" style="margin-left: 0%; width: 35%;">M1 to M2</div></div>
-                        <div class="gt-track"><span class="gt-lbl">Organic & GEO Sprints</span><div class="gt-bar" style="margin-left: 20%; width: 55%;">M2 to M5</div></div>
-                        <div class="gt-track"><span class="gt-lbl">ABM & Paid Acceleration</span><div class="gt-bar" style="margin-left: 45%; width: 55%;">M3 to M6</div></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        '''
-
-    return f'''
-    <section class="visual-framework-panel">
-        <div class="panel-header">
-            <span class="framework-kicker">STRATEGIC SYNTHESIS · CAPABILITY BENCHMARK</span>
-            <h2 class="framework-header"><span class="header-knot-mark"></span>Strategic Capability & Execution Matrix</h2>
-            <p class="panel-sub">Evidence-backed operational readiness and impact prioritization across key growth vectors.</p>
-        </div>
-        <div class="visual-split-grid">
-            <div class="visual-card">
-                <h4 class="card-mini-title">Capability Dimension Radar (0 to 100)</h4>
-                <svg viewBox="0 0 360 270" class="svg-visual-lg">
-                    <polygon points="180,30 300,95 300,215 180,270 60,215 60,95" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
-                    <polygon points="180,65 270,110 270,195 180,240 90,195 90,110" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
-                    <polygon points="180,100 240,125 240,175 180,210 120,175 120,125" fill="none" stroke="#E5D9F2" stroke-width="1.5" />
-                    <polygon points="180,45 285,102 265,205 180,250 85,195 75,108" fill="rgba(139, 44, 224, 0.22)" stroke="#8B2CE0" stroke-width="2.5" />
-
-                    <text x="180" y="20" font-size="9" font-weight="800" fill="#7C34BC" text-anchor="middle">Positioning (88%)</text>
-                    <text x="306" y="96" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="start">Channels (82%)</text>
-                    <text x="306" y="220" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="start">Execution (78%)</text>
-                    <text x="180" y="280" font-size="9" font-weight="800" fill="#7C34BC" text-anchor="middle">Impact (85%)</text>
-                    <text x="54" y="220" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="end">Content (80%)</text>
-                    <text x="54" y="96" font-size="9" font-weight="700" fill="#3A3A40" text-anchor="end">Foundation (85%)</text>
-                </svg>
-            </div>
-            <div class="visual-card">
-                <h4 class="card-mini-title">Action Priority Matrix</h4>
-                <div class="matrix-2x2">
-                    <div class="m2-cell cell-leader"><strong>P0 Immediate</strong><span>High Impact / Low Effort</span><small>Quick-win implementation</small></div>
-                    <div class="m2-cell cell-challenger"><strong>P1 Strategic Sprints</strong><span>High Impact / High Effort</span><small>Structural growth initiatives</small></div>
-                    <div class="m2-cell cell-niche"><strong>P2 Optimization</strong><span>Medium Impact / Low Effort</span><small>Continuous refinement</small></div>
-                    <div class="m2-cell cell-emerging"><strong>P3 Backlog</strong><span>Deferred</span><small>Secondary milestones</small></div>
-                </div>
-            </div>
-        </div>
-    </section>
-    '''
-
-
-def add_visual_explanation(markup: str, doc_type: str, report_model: dict[str, Any] | None) -> str:
-    model = report_model if isinstance(report_model, dict) else {}
-    summaries = model.get("executiveSummary") if isinstance(model.get("executiveSummary"), list) else []
-    findings = model.get("findings") if isinstance(model.get("findings"), list) else []
-    evidence_summary = next((str(item) for item in summaries if str(item).strip()), "")
-    if not evidence_summary:
-        evidence_summary = next(
-            (str(item.get("narrative", "")) for item in findings if isinstance(item, dict) and item.get("narrative")),
-            "The diagram organizes the report's source-backed findings into a decision-ready view.",
-        )
-    evidence_summary = clean_inline(evidence_summary[:420])
-    interpretation = {
-        "COMPANY_INTELLIGENCE": "Read the relationships as a qualitative capability map. Use the adjacent findings to distinguish observed evidence from hypotheses before assigning resources.",
-        "SEO_AUDIT": "Read the sequence from technical constraint to search impact and remediation priority. Values are meaningful only where the report cites the underlying audit result.",
-        "GEO_AUDIT": "Read the map as a view of entity clarity, answer coverage, and citation readiness. It highlights where stronger source evidence can improve AI discovery.",
-        "COMPETITOR_ANALYSIS": "Use the comparison to identify defensible whitespace, not to infer market share. Every position should be checked against the competitor evidence in the surrounding section.",
-        "AUDIENCE_ANALYSIS": "Use the comparison to connect audience tension, buying role, and message priority. It supports sequencing decisions rather than a demographic score.",
-        "CONTENT_AUDIT": "Follow the relationship between content coverage, buyer stage, and the next editorial action. Priorities should trace back to a cited content or search signal.",
-        "CONTENT_STRATEGY": "Read the flow from audience need through format, distribution, and conversion action. The diagram is a planning aid grounded in the report's evidence.",
-        "MARKETING_STRATEGY": "Use the visual to connect strategic priority with execution order and measurement. It is a decision aid, not a substitute for the cited operating assumptions.",
-    }.get(doc_type.upper(), "Use the visual to connect the report's evidence with execution order and the next decision. Treat uncited values as directional, not measured benchmarks.")
-    explanation = f'''
-        <div class="visual-explanation">
-            <strong>How to read this visual</strong>
-            <p>{evidence_summary}</p>
-            <p><b>Decision use:</b> {clean_inline(interpretation)}</p>
-        </div>
-    '''
-    closing = markup.rfind("</section>")
-    return f"{markup[:closing]}{explanation}{markup[closing:]}" if closing >= 0 else f"{markup}{explanation}"
 
 
 def visual_insertion_index(blocks: list[dict[str, Any]]) -> int:
@@ -882,47 +513,13 @@ def render_competitor_cards(competitors: list[dict[str, Any]]) -> str:
     '''
 
 
-def render_applied_skills(skills: list[dict[str, Any]]) -> str:
-    if not skills:
-        return ""
-    chips = []
-    for s in skills[:6]:
-        skill_name = s.get("skill", "").replace("-", " ").title()
-        repo = s.get("repository", "").replace("-main", "")
-        phase = s.get("phase", "Evidence synthesis")
-        reason = s.get("reason", "")
-        chips.append(f'''
-        <div class="skill-methodology-card">
-            <div class="sm-top">
-                <span class="sm-badge">{repo}</span>
-                <strong>{skill_name}</strong>
-            </div>
-            <span class="sm-phase">{phase}</span>
-            {f'<p class="sm-reason">{clean_inline(reason)}</p>' if reason else ''}
-        </div>
-        ''')
-
-    return f'''
-    <section class="skills-methodology-panel">
-        <div class="panel-header">
-            <span class="framework-kicker">VERIFIED METHODOLOGY · SKILL PROVENANCE</span>
-            <h2 class="framework-header"><span class="header-knot-mark"></span>Applied Strategic Skill Frameworks</h2>
-            <p class="panel-sub">This report was synthesized through an ordered sequence of verified skill methodologies.</p>
-        </div>
-        <div class="skills-methodology-grid">
-            {"".join(chips)}
-        </div>
-    </section>
-    '''
-
-
 def extract_and_render_sources_register(raw_markdown: str, source_count: int) -> str:
-    urls = list(dict.fromkeys(re.findall(r"https?://[^\s)\]>]+", raw_markdown)))
+    urls = list(dict.fromkeys(url.rstrip(".,;:") for url in re.findall(r"https?://[^\s)\]>]+", raw_markdown)))
     if not urls:
         return ""
 
     rows = []
-    for idx, url in enumerate(urls[:10], start=1):
+    for idx, url in enumerate(urls, start=1):
         clean_url = url.rstrip(".,;:)")
         try:
             domain = re.sub(r"^https?://", "", clean_url).split("/")[0].replace("www.", "")
@@ -930,17 +527,17 @@ def extract_and_render_sources_register(raw_markdown: str, source_count: int) ->
             domain = clean_url
         rows.append(f'''
         <tr>
-            <td style="width: 40px; font-weight: 800; color: #8B2CE0;">SRC-{idx:02d}</td>
-            <td style="font-weight: 700; color: #1A1A1A;">{domain}</td>
-            <td style="color: #5B5B63; word-break: break-all;">{clean_url}</td>
-            <td style="width: 90px; text-align: right;"><span class="source-verified-tag">✓ Verified</span></td>
+            <td style="width: 70px; white-space: nowrap; font-weight: 800; color: #8B2CE0;">SRC-{idx:03d}</td>
+            <td style="font-weight: 700; color: #1A1A1A;">{html.escape(domain)}</td>
+            <td style="color: #5B5B63; word-break: break-all;"><a href="{html.escape(clean_url, quote=True)}">{html.escape(clean_url)}</a></td>
+            <td style="width: 90px; text-align: right;"><span class="source-verified-tag">Referenced</span></td>
         </tr>
         ''')
 
     return f'''
     <section class="sources-register-panel">
         <div class="panel-header">
-            <span class="framework-kicker">AUDIT EVIDENCE · VERIFIED SOURCE REGISTER</span>
+            <span class="framework-kicker">REPORT EVIDENCE · SOURCE REGISTER</span>
             <h2 class="framework-header"><span class="header-knot-mark"></span>Evidence & Source Register ({len(urls)} Sources)</h2>
             <p class="panel-sub">Transparent register of public crawl pages, competitive assets, and digital footprint evidence.</p>
         </div>
@@ -1407,6 +1004,12 @@ body {
 
 .smark-table thead { display: table-header-group; }
 .smark-table tr { break-inside: avoid; }
+.smark-table td, .smark-table th { overflow-wrap: anywhere; word-break: break-word; }
+.sources-table { table-layout: fixed; }
+.sources-table th:first-child, .sources-table td:first-child { width: 70px; white-space: nowrap; }
+.sources-table th:nth-child(2), .sources-table td:nth-child(2) { width: 115px; }
+.sources-table th:last-child, .sources-table td:last-child { width: 100px; white-space: nowrap; }
+.sources-table a, .smark-cite-link { color: #7030B5; text-decoration: underline; }
 
 .smark-table th {
     padding: 8px 10px;

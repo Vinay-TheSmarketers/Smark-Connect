@@ -13968,3 +13968,16 @@ html[data-theme="dark"] .agents-pane .agent-output :where(
   .document-body { padding: 12px; }
   .document-page { padding: 30px 20px; }
 }
+
+/* Keep every supported download reachable on compact screens. */
+.document-actions [data-primary="true"] { order: -1; color: white; background: var(--purple); border-color: var(--purple); }
+.document-actions { flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .document-toolbar { flex-wrap: wrap; gap: 12px; }
+  .document-actions > a:not(:first-child), .document-actions .spreadsheet-action { display: flex; }
+  .document-actions a, .document-actions button { min-height: 36px; font-size: 11px; }
+}
+.document-actions .office-download { width: auto; padding: 0 10px; }
+.document-actions .office-download:disabled, .spreadsheet-callout button:disabled { opacity: .6; cursor: wait; }
+.spreadsheet-callout button { padding: 8px 10px; border: 0; border-radius: 8px; color: white; background: #138260; font-size: 11px; font-weight: 700; cursor: pointer; }
+@media (max-width: 760px) { .document-actions .spreadsheet-action { display: flex; } .spreadsheet-callout button { grid-column: 2; justify-self: start; } }

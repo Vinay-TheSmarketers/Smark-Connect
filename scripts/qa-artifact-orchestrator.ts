@@ -52,14 +52,13 @@ async function main() {
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(xlsx as unknown as Parameters<typeof workbook.xlsx.load>[0]);
-  const manifestSheet = workbook.getWorksheet("Artifact Manifest");
-  const tracker = workbook.getWorksheet("Action Tracker");
-  const lineage = workbook.getWorksheet("Data Lineage");
-  check(manifestSheet && tracker && lineage, "Workbook is missing the manifest, action tracker, or lineage sheet.");
+  const tracker = workbook.getWorksheet("05_Priority_Backlog");
+  check(manifest.requiredSheets.every((name) => workbook.getWorksheet(name)), "Workbook is missing configured sheets.");
+  check(tracker, "Workbook is missing the action tracker.");
   check(tracker.views[0]?.state === "frozen", "Action tracker headers are not frozen.");
   check(tracker.getCell("A6").value === "SEO-001", "Recommendation IDs are not preserved in the action tracker.");
   check(typeof tracker.getCell("I6").value === "object" && tracker.getCell("I6").formula?.includes("IF"), "Priority score is not formula-driven.");
-  check(lineage.getCell("C6").value === "SEO-001", "Recommendation lineage is inconsistent.");
+  check(tracker.getCell("H6").value === "" || tracker.getCell("H6").value === null, "Uncited recommendations must not be assigned unrelated source URLs.");
   let formulaErrors = 0;
   workbook.eachSheet((sheet) => sheet.eachRow((row) => row.eachCell((cell) => {
     if (typeof cell.value === "string" && /^#(?:REF!|DIV\/0!|VALUE!|NAME\?|N\/A)$/.test(cell.value)) formulaErrors += 1;

@@ -1,7 +1,7 @@
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { AgentType, DocumentType } from "@prisma/client";
-import { AGENT_DEFINITIONS, ALL_DOCUMENTS, INTERNAL_OPERATIONS, type SkillRepository } from "../src/lib/skills/registry";
+import { AGENT_DEFINITIONS, ALL_DOCUMENTS, INTERNAL_OPERATIONS, LEGACY_DOCUMENT_ALIASES, type SkillRepository } from "../src/lib/skills/registry";
 
 const roots: Record<Exclude<SkillRepository, "local">, string> = {
   "claude-seo": "claude-seo-main",
@@ -10,7 +10,7 @@ const roots: Record<Exclude<SkillRepository, "local">, string> = {
 };
 
 async function main() {
-  const missingDocuments = Object.values(DocumentType).filter((type) => !ALL_DOCUMENTS.some((document) => document.type === type));
+  const missingDocuments = Object.values(DocumentType).filter((type) => !ALL_DOCUMENTS.some((document) => document.type === type) && !LEGACY_DOCUMENT_ALIASES[type]);
   const missingAgents = Object.values(AgentType).filter((type) => !AGENT_DEFINITIONS.some((agent) => agent.type === type));
   if (missingDocuments.length || missingAgents.length) throw new Error(`Unmapped operations:\nDocuments: ${missingDocuments.join(", ") || "none"}\nAgents: ${missingAgents.join(", ") || "none"}`);
   const operations = [...ALL_DOCUMENTS, ...AGENT_DEFINITIONS, ...Object.values(INTERNAL_OPERATIONS)];

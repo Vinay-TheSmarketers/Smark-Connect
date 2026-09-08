@@ -10,6 +10,7 @@ export type SkillExecutionStep = SkillRef & {
   digest: string;
   charactersProvided: number;
   references: string[];
+  omittedReferences?: string[];
 };
 
 const repositoryDirectories: Record<Exclude<SkillRepository, "local">, string> = {
@@ -39,19 +40,27 @@ async function loadOneSkill(ref: SkillRef, budget: number, index: number): Promi
     const main = await readFile(skillPath, "utf8");
     const references: string[] = [];
     const referenceFiles: string[] = [];
-    for (const relativePath of referencedMarkdown(main).slice(0, 4)) {
+    const omittedReferences: string[] = [];
+    let remaining = Math.max(0, budget - main.length - 800);
+    for (const relativePath of referencedMarkdown(main)) {
       try {
         const content = await readFile(path.join(skillDirectory, relativePath), "utf8");
-        references.push(`DEPENDENCY: ${relativePath}\n${content}`);
-        referenceFiles.push(relativePath);
+        const dependency = `DEPENDENCY: ${relativePath}\n${content}`;
+        if (dependency.length <= remaining) {
+          references.push(dependency);
+          referenceFiles.push(relativePath);
+          remaining -= dependency.length + 2;
+        } else omittedReferences.push(relativePath);
       } catch {
         references.push(`DEPENDENCY UNAVAILABLE: ${relativePath}`);
         referenceFiles.push(`${relativePath} (unavailable)`);
       }
     }
     const source = path.relative(process.cwd(), skillPath).replaceAll("\\", "/");
-    const loadedSource = [main, ...references].join("\n\n");
-    const content = `SKILL CHAIN STEP ${index + 1}\nPHASE: ${ref.phase}\nSKILL: ${ref.repository}/${ref.skill}\nROLE IN THIS OPERATION: ${ref.reason}\nSOURCE: ${source}\nSHA256: ${createHash("sha256").update(loadedSource).digest("hex")}\n\n${loadedSource}`.slice(0, budget);
+    const loadedSource = [main, ...references, ...(omittedReferences.length ? [`SUPPLEMENTAL REFERENCES NOT INCLUDED (context budget): ${omittedReferences.join(", ")}. Do not claim to have read them.`] : [])].join("\n\n");
+    // Never truncate governing instructions or the quality steps at the end of a chain.
+    // The budget is a target for supplemental references, not permission to cut SKILL.md.
+    const content = `SKILL CHAIN STEP ${index + 1}\nPHASE: ${ref.phase}\nSKILL: ${ref.repository}/${ref.skill}\nROLE IN THIS OPERATION: ${ref.reason}\nSOURCE: ${source}\nSHA256: ${createHash("sha256").update(loadedSource).digest("hex")}\n\n${loadedSource}`;
     return {
       content,
       step: {
@@ -61,6 +70,7 @@ async function loadOneSkill(ref: SkillRef, budget: number, index: number): Promi
         digest: createHash("sha256").update(loadedSource).digest("hex"),
         charactersProvided: content.length,
         references: referenceFiles,
+        omittedReferences,
       },
     };
   } catch (error) {
@@ -71,7 +81,7 @@ async function loadOneSkill(ref: SkillRef, budget: number, index: number): Promi
 export async function loadSkillPackWithManifest(refs: SkillRef[], maxCharacters = 64_000): Promise<{ content: string; steps: SkillExecutionStep[] }> {
   if (!refs.length) throw new Error("This operation has no mapped skill chain and cannot run.");
   const unique = refs.filter((ref, index, values) => values.findIndex((candidate) => candidate.repository === ref.repository && candidate.skill === ref.skill) === index);
-  const perSkillBudget = Math.max(4_800, Math.floor(maxCharacters / unique.length));
+  const perSkillBudget = Math.max(0, Math.floor(maxCharacters / unique.length));
   const loaded: string[] = [];
   const steps: SkillExecutionStep[] = [];
   for (const [index, ref] of unique.entries()) {
@@ -79,7 +89,7 @@ export async function loadSkillPackWithManifest(refs: SkillRef[], maxCharacters 
     loaded.push(result.content);
     steps.push(result.step);
   }
-  return { content: loaded.join("\n\n===== NEXT EMBEDDED SKILL =====\n\n").slice(0, maxCharacters), steps };
+  return { content: loaded.join("\n\n===== NEXT EMBEDDED SKILL =====\n\n"), steps };
 }
 
 export async function loadSkillPack(refs: SkillRef[], maxCharacters = 64_000): Promise<string> {

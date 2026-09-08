@@ -9,16 +9,14 @@ import { LogoutButton } from "./logout-button";
 type JobState = { status: string; progress: number; step: string; error?: string | null; requiresProvider: boolean; requiresModelChange: boolean; companyId: string; companyName: string; pagesRead: number; agentsReady: number; documents: Array<{ type: string; title: string }> };
 
 const documentPipeline = [
-  ["COMPETITOR_ANALYSIS", "Competitor Landscape and Maps"],
-  ["COMPANY_INTELLIGENCE", "Company Intelligence"],
+  ["COMPETITOR_ANALYSIS", "Competitive Landscape and Comparison Playbook"],
+  ["COMPANY_INTELLIGENCE", "Company and Product Intelligence"],
   ["MARKETING_STRATEGY", "Strategic Intelligence Report"],
   ["SEO_AUDIT", "SEO Audit"],
   ["GEO_AUDIT", "GEO and AI Visibility"],
   ["AUDIENCE_ANALYSIS", "Audience Analysis"],
-  ["CONTENT_AUDIT", "Content Audit and Strategy"],
+  ["CONTENT_AUDIT", "Content Audit and Full-Funnel Strategy"],
   ["DESIGN_GUIDE", "Brand and Visual Design Guide"],
-  ["CONTENT_STRATEGY", "Full-Funnel Content Strategy"],
-  ["PRODUCT_INFO", "Offer and Product Intelligence"],
 ] as const;
 
 const priorityDocumentTypes = ["COMPETITOR_ANALYSIS", "COMPANY_INTELLIGENCE"] as const;

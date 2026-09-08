@@ -115,7 +115,6 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
           type: {
             in: [
               "COMPANY_INTELLIGENCE",
-              "PRODUCT_INFO",
               "AUDIENCE_ANALYSIS",
               "COMPETITOR_ANALYSIS",
               "MARKETING_STRATEGY",
@@ -146,7 +145,6 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
   const docMap = new Map(company.documents.map((doc) => [doc.type, doc.contentMarkdown]));
   const uploadedSourceText = company.chatAttachments.map((source) => `# ${source.title}\n\n${source.content}`).join("\n\n").slice(0, 80_000);
   const companyIntel = `${docMap.get("COMPANY_INTELLIGENCE") || ""}\n\n${uploadedSourceText}`;
-  const productInfo = `${docMap.get("PRODUCT_INFO") || ""}\n\n${uploadedSourceText}`;
   const audienceDoc = `${docMap.get("AUDIENCE_ANALYSIS") || ""}\n\n${uploadedSourceText}`;
   const competitorDoc = `${docMap.get("COMPETITOR_ANALYSIS") || ""}\n\n${uploadedSourceText}`;
   const strategyDoc = `${docMap.get("MARKETING_STRATEGY") || ""}\n\n${uploadedSourceText}`;
@@ -180,7 +178,7 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
 
   // 2. Products & Services (derived from documents or real crawl page titles/content)
   const productSection =
-    extractSection(productInfo, ["Products", "Services", "Offerings", "Core Offer", "What We Offer"]) ||
+    extractSection(companyIntel, ["Products", "Services", "Offerings", "Core Offer", "What We Offer"]) ||
     extractSection(companyIntel, ["Offer", "Products and Services", "Capabilities"]);
   let productsAndServices = extractBulletPoints(productSection, 8);
 
@@ -206,7 +204,7 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
   }
 
   // 3. Features & Capabilities
-  const featureSection = extractSection(productInfo, ["Features", "Key Capabilities", "Capabilities", "Key Features"]);
+  const featureSection = extractSection(companyIntel, ["Features", "Key Capabilities", "Capabilities", "Key Features"]);
   let featuresAndCapabilities = extractBulletPoints(featureSection, 8);
   if (featuresAndCapabilities.length === 0) {
     featuresAndCapabilities = strategicProfile.productServiceCategories.slice(0, 6);
@@ -261,7 +259,7 @@ export async function extractCompanyMemory(companyId: string): Promise<CompanyMe
   // 7. Differentiators
   const diffSection =
     extractSection(companyIntel, ["Differentiators", "Competitive Advantage", "Why Us", "Proof Ladder"]) ||
-    extractSection(productInfo, ["Differentiators", "Value Proposition"]);
+    extractSection(companyIntel, ["Differentiators", "Value Proposition"]);
   let differentiators = extractBulletPoints(diffSection, 6);
   if (differentiators.length === 0) {
     differentiators = strategicProfile.differentiators.slice(0, 6);

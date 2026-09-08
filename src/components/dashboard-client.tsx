@@ -61,7 +61,7 @@ function safeHostname(url: string | null | undefined): string {
 }
 
 const coreDocumentOrder = ["COMPETITOR_ANALYSIS", "COMPANY_INTELLIGENCE", "SEO_AUDIT", "GEO_AUDIT", "AUDIENCE_ANALYSIS", "CONTENT_AUDIT"];
-const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Company Intelligence", SEO_AUDIT: "SEO Audit", GEO_AUDIT: "GEO and AI Visibility", COMPETITOR_ANALYSIS: "Competitor Analysis", AUDIENCE_ANALYSIS: "Audience Analysis", CONTENT_AUDIT: "Content Audit and Strategy" };
+const coreDocumentLabels: Record<string, string> = { COMPANY_INTELLIGENCE: "Company and Product Intelligence", SEO_AUDIT: "SEO Audit", GEO_AUDIT: "GEO and AI Visibility", COMPETITOR_ANALYSIS: "Competitive Landscape and Comparison Playbook", AUDIENCE_ANALYSIS: "Audience Analysis", CONTENT_AUDIT: "Content Audit and Full-Funnel Strategy" };
 const queuedDocumentTypes = [...coreDocumentOrder, ...EXTENDED_DOCUMENTS.map((definition) => definition.type)];
 const primaryAgents = [
   ["REDDIT", "Reddit", "r/", "Discovered discussions ready"],
@@ -683,7 +683,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     return initial;
   });
 
-  const DEFAULT_EXTENDED_TYPES = useMemo(() => ["MARKETING_STRATEGY", "DESIGN_GUIDE", "CONTENT_STRATEGY", "PRODUCT_INFO"], []);
+  const DEFAULT_EXTENDED_TYPES = useMemo(() => ["MARKETING_STRATEGY", "DESIGN_GUIDE", "SOCIAL_BATCH_PLAN", "SHORT_FORM_VIDEO_BLUEPRINT"], []);
   const visibleExtendedDocuments = useMemo(() => {
     return EXTENDED_DOCUMENTS.filter(
       (definition) => DEFAULT_EXTENDED_TYPES.includes(definition.type) || documents.some((d) => d.type === definition.type)
@@ -1483,8 +1483,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         if (catalogCategory === "cro") return ["PAGE_CRO_AUDIT", "ONBOARDING_CRO_AUDIT", "AB_TEST_ROADMAP"].includes(def.type);
         if (catalogCategory === "seo") return ["TOPIC_CLUSTER_BLUEPRINT", "PSEO_BLUEPRINT", "BACKLINK_OUTREACH_BLUEPRINT", "LOCAL_SEO_AUDIT"].includes(def.type);
         if (catalogCategory === "outbound") return ["COLD_OUTBOUND_PLAYBOOK", "EMAIL_LIFECYCLE_PLAYBOOK", "LEAD_MAGNET_STRATEGY"].includes(def.type);
-        if (catalogCategory === "growth") return ["PAID_ADS_PLAYBOOK", "COMPETITOR_COMPARISON_PLAYBOOK", "MARKETING_STRATEGY"].includes(def.type);
-        if (catalogCategory === "content") return ["CONTENT_STRATEGY", "SOCIAL_BATCH_PLAN", "SHORT_FORM_VIDEO_BLUEPRINT", "BRAND_STORYTELLING_GUIDE", "DESIGN_GUIDE", "PRODUCT_INFO"].includes(def.type);
+        if (catalogCategory === "growth") return ["PAID_ADS_PLAYBOOK", "COMPETITOR_ANALYSIS", "MARKETING_STRATEGY"].includes(def.type);
+        if (catalogCategory === "content") return ["SOCIAL_BATCH_PLAN", "SHORT_FORM_VIDEO_BLUEPRINT", "BRAND_STORYTELLING_GUIDE", "DESIGN_GUIDE"].includes(def.type);
         if (catalogCategory === "analytics") return ["ANALYTICS_TRACKING_BLUEPRINT"].includes(def.type);
         return true;
       });

@@ -13,6 +13,11 @@ const DEFAULT_PROFILE: ArtifactProfile = {
   appendixRequired: true,
 };
 
+function workbookProfile(sheets: string[], theme: ArtifactProfile["theme"] = "growth-strategy"): ArtifactProfile {
+  return { ...DEFAULT_PROFILE, xlsx: "required", primaryArtifact: "xlsx", pptx: "disabled", theme,
+    requiredSheets: ["01_Summary", ...sheets, "90_Action_Tracker", "99_Source_Register"] };
+}
+
 export const ARTIFACT_PROFILES: Record<string, ArtifactProfile> = {
   COMPANY_INTELLIGENCE: {
     ...DEFAULT_PROFILE,
@@ -52,18 +57,11 @@ export const ARTIFACT_PROFILES: Record<string, ArtifactProfile> = {
   CONTENT_AUDIT: {
     ...DEFAULT_PROFILE,
     xlsx: "required",
+    primaryArtifact: "xlsx",
     theme: "growth-strategy",
     targetSlides: 17,
     requiredVisuals: ["content-funnel", "pillar-cluster-map", "content-gap-matrix", "editorial-roadmap"],
     requiredSheets: ["01_Summary", "02_Content_Inventory", "03_Content_Gaps", "04_Content_Ideas", "05_Priority_Backlog", "06_Source_Register"],
-  },
-  CONTENT_STRATEGY: {
-    ...DEFAULT_PROFILE,
-    xlsx: "required",
-    theme: "growth-strategy",
-    targetSlides: 18,
-    requiredVisuals: ["topic-ecosystem", "content-funnel", "channel-distribution", "content-roadmap"],
-    requiredSheets: ["01_Summary", "02_Content_Calendar", "03_Content_Ideas", "04_Content_Pillars", "05_Keyword_Map", "06_Channel_Strategy", "07_Performance", "08_Source_Register"],
   },
   MARKETING_STRATEGY: {
     ...DEFAULT_PROFILE,
@@ -71,11 +69,6 @@ export const ARTIFACT_PROFILES: Record<string, ArtifactProfile> = {
     targetSlides: 22,
     requiredVisuals: ["executive-dashboard", "cross-functional-priority-map", "integrated-roadmap"],
     requiredSheets: ["01_Summary", "02_Campaigns", "03_Channels", "04_Experiments", "05_Roadmap", "06_KPIs", "07_Owners", "08_Source_Register"],
-  },
-  PRODUCT_INFO: {
-    ...DEFAULT_PROFILE,
-    theme: "customer-intelligence",
-    requiredVisuals: ["offer-value-stack", "proof-ladder", "objection-map", "package-comparison"],
   },
   DESIGN_GUIDE: {
     ...DEFAULT_PROFILE,
@@ -117,7 +110,31 @@ export const ARTIFACT_PROFILES: Record<string, ArtifactProfile> = {
     ],
     appendixRequired: false,
   },
+  PAGE_CRO_AUDIT: { ...DEFAULT_PROFILE, theme: "technical-diagnostic" },
+  ONBOARDING_CRO_AUDIT: { ...DEFAULT_PROFILE, theme: "customer-intelligence" },
+  AB_TEST_ROADMAP: workbookProfile(["02_Experiments", "03_Measurement"]),
+  TOPIC_CLUSTER_BLUEPRINT: workbookProfile(["02_Topic_Map", "03_Internal_Links"], "search-intelligence"),
+  PSEO_BLUEPRINT: workbookProfile(["02_Page_Templates", "03_Data_Schema", "04_Rollout"], "search-intelligence"),
+  LOCAL_SEO_AUDIT: { ...DEFAULT_PROFILE, xlsx: "required", theme: "search-intelligence" },
+  COLD_OUTBOUND_PLAYBOOK: { ...DEFAULT_PROFILE, theme: "customer-intelligence" },
+  EMAIL_LIFECYCLE_PLAYBOOK: { ...DEFAULT_PROFILE, theme: "customer-intelligence" },
+  LEAD_MAGNET_STRATEGY: { ...DEFAULT_PROFILE, theme: "growth-strategy" },
+  PAID_ADS_PLAYBOOK: workbookProfile(["02_Campaigns", "03_Ad_Variants", "04_Budget"], "performance-analytics"),
+  SOCIAL_BATCH_PLAN: workbookProfile(["02_Content_Calendar", "03_Post_Drafts", "04_Carousels"]),
+  SHORT_FORM_VIDEO_BLUEPRINT: { ...DEFAULT_PROFILE, theme: "growth-strategy" },
+  BRAND_STORYTELLING_GUIDE: { ...DEFAULT_PROFILE, xlsx: "disabled", requiredSheets: [] },
+  ANALYTICS_TRACKING_BLUEPRINT: workbookProfile(["02_Event_Taxonomy", "03_UTM_Registry", "04_KPI_Definitions"], "performance-analytics"),
 };
+
+const REPORT_TYPE_ALIASES: Record<string, string> = {
+  PRODUCT_INFO: "COMPANY_INTELLIGENCE",
+  CONTENT_STRATEGY: "CONTENT_AUDIT",
+  COMPETITOR_COMPARISON_PLAYBOOK: "COMPETITOR_ANALYSIS",
+};
+
+export function canonicalReportType(reportType: string): string {
+  return REPORT_TYPE_ALIASES[reportType] ?? reportType;
+}
 
 type RoutingInput = {
   reportType: string;
@@ -152,7 +169,7 @@ function structuredSignals(input: RoutingInput) {
 }
 
 export function getArtifactProfile(reportType: string): ArtifactProfile {
-  return ARTIFACT_PROFILES[reportType] ?? DEFAULT_PROFILE;
+  return ARTIFACT_PROFILES[canonicalReportType(reportType)] ?? DEFAULT_PROFILE;
 }
 
 export function resolveArtifactManifest(input: RoutingInput): ArtifactManifest {
@@ -182,7 +199,7 @@ export function resolveArtifactManifest(input: RoutingInput): ArtifactManifest {
   });
 
   return {
-    reportType: input.reportType,
+    reportType: canonicalReportType(input.reportType),
     primaryArtifact: profile.primaryArtifact,
     theme: profile.theme,
     targetSlides: profile.targetSlides,

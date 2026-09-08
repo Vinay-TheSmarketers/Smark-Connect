@@ -58,7 +58,7 @@ export async function collectInstagramSignals(
     }
   });
 
-  // 2. Extract signals from documents (SEO_AUDIT, GEO_AUDIT, COMPETITOR_ANALYSIS, AUDIENCE_ANALYSIS, CONTENT_STRATEGY)
+  // 2. Extract signals from documents (SEO_AUDIT, GEO_AUDIT, COMPETITOR_ANALYSIS, AUDIENCE_ANALYSIS, CONTENT_AUDIT)
   const documents = await db.document.findMany({
     where: { companyId },
     select: { type: true, title: true, contentMarkdown: true },

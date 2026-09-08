@@ -43,33 +43,13 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
-function SinglePdfProgressBar({ progress, stageLabel }: { progress: number; stageLabel: string }) {
-  return (
-    <div className="single-pdf-loader-container" role="status" aria-live="polite">
-      <div className="single-pdf-loader-card">
-        <div className="pdf-loader-header">
-          <div className="pdf-loader-icon-wrap">
-            <Sparkles className="pulse-icon" size={18} />
-          </div>
-          <div className="pdf-loader-titles">
-            <strong>Generating Smarketers A4 Executive PDF</strong>
-            <small>{stageLabel}</small>
-          </div>
-          <span className="pdf-loader-percent">{Math.min(100, Math.round(progress))}%</span>
-        </div>
-        
-        <div className="single-progress-track">
-          <div className="single-progress-fill" style={{ width: `${Math.min(100, progress)}%` }} />
-        </div>
-
-        <div className="pdf-loader-footer-note">
-          <span>Preparing your executive report</span>
-        </div>
-      </div>
+function SinglePdfProgressBar() {
+  return <div className="single-pdf-loader-container" role="status" aria-live="polite">
+    <div className="single-pdf-loader-card"><RefreshCw className="spin" size={22} />
+      <strong>Preparing your PDF</strong><p>Formatting the report and checking the exported pages. This can take a moment.</p>
     </div>
-  );
+  </div>;
 }
-
 export function DocumentWorkspace({
   document,
   onClose,
@@ -84,10 +64,10 @@ export function DocumentWorkspace({
   const [focused, setFocused] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [exporting, setExporting] = useState<"xlsx" | "pptx" | null>(null);
+  const [exportError, setExportError] = useState("");
   const [prompt, setPrompt] = useState("");
   const [pdfState, setPdfState] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [pdfProgress, setPdfProgress] = useState(0);
-  const [pdfStageLabel, setPdfStageLabel] = useState("Synthesizing A4 HTML & CSS print layout...");
   const [pdfError, setPdfError] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
   const pdfUrlRef = useRef("");
@@ -121,25 +101,7 @@ export function DocumentWorkspace({
   async function generatePdf(download = false) {
     if (pdfState === "loading") return;
     setPdfState("loading");
-    setPdfProgress(12);
-    setPdfStageLabel("Synthesizing A4 HTML & CSS print layout...");
     setPdfError("");
-
-    const progressTimer = window.setInterval(() => {
-      setPdfProgress((current) => {
-        if (current < 35) {
-          setPdfStageLabel("Applying Smarketers brand architecture & typography...");
-          return current + 8;
-        } else if (current < 65) {
-          setPdfStageLabel("Rasterizing vector diagrams, matrices, and tables...");
-          return current + 6;
-        } else if (current < 92) {
-          setPdfStageLabel("Compiling high-resolution A4 PDF document...");
-          return current + 4;
-        }
-        return current;
-      });
-    }, 280);
 
     try {
       const response = await fetch(`/api/documents/${document.id}/export?format=pdf&preview=1`, { cache: "no-store" });
@@ -155,12 +117,6 @@ export function DocumentWorkspace({
       pdfUrlRef.current = nextUrl;
       setPdfUrl(nextUrl);
 
-      // Finish single progress bar to 100%
-      window.clearInterval(progressTimer);
-      setPdfProgress(100);
-      setPdfStageLabel("PDF Ready!");
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
       setPdfState("ready");
 
       if (download) {
@@ -174,7 +130,7 @@ export function DocumentWorkspace({
         link.remove();
       }
     } catch (cause) {
-      window.clearInterval(progressTimer);
+
       setPdfState("error");
       setPdfError(cause instanceof Error ? cause.message : "The PDF could not be generated.");
     }
@@ -183,6 +139,32 @@ export function DocumentWorkspace({
   function openPdfPreview() {
     setTab("pdf");
     if (pdfState === "idle" || pdfState === "error") void generatePdf(false);
+  }
+
+  async function downloadOffice(format: "xlsx" | "pptx") {
+    if (exporting) return;
+    setExporting(format);
+    setExportError("");
+    try {
+      const response = await fetch(`/api/documents/${document.id}/export?format=${format}`, { cache: "no-store" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `The ${format.toUpperCase()} could not be prepared.`);
+      }
+      const blob = await response.blob();
+      const expected = format === "xlsx" ? "spreadsheetml.sheet" : "presentationml.presentation";
+      if (!blob.type.includes(expected)) throw new Error("The download returned an unexpected file type. Please retry.");
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = window.document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${document.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "report"}.${format}`;
+      window.document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+    } catch (cause) {
+      setExportError(cause instanceof Error ? cause.message : "The download could not be prepared.");
+    } finally { setExporting(null); }
   }
 
   async function editDocument(event: FormEvent<HTMLFormElement>) {
@@ -225,30 +207,31 @@ export function DocumentWorkspace({
             <span>
               <strong>{document.title}</strong>
               <small>
-                Version {document.version} · {formatNumber(document.tokenEstimate)} tokens on last generation
+                Version {document.version} · Updated {new Date(document.updatedAt).toLocaleDateString()}
               </small>
             </span>
 
           </div>
           <div className="document-actions">
             {pptxEnabled && (
-              <a href={`/api/documents/${document.id}/export?format=pptx`}>
-                <Presentation size={14} /> PPTX
-              </a>
+              <button className="office-download" type="button" disabled={Boolean(exporting)} data-primary={artifactManifest.primaryArtifact === "pptx"} onClick={() => void downloadOffice("pptx")}>
+                <Presentation size={14} /> {exporting === "pptx" ? "Preparing PPTX" : "PPTX"}
+              </button>
             )}
             {xlsxEnabled && (
-              <a className="spreadsheet-action" href={`/api/documents/${document.id}/export?format=xlsx`}>
-                <FileSpreadsheet size={14} /> XLSX
-              </a>
+              <button type="button" disabled={Boolean(exporting)} data-primary={artifactManifest.primaryArtifact === "xlsx"} className="spreadsheet-action office-download" onClick={() => void downloadOffice("xlsx")}>
+                <FileSpreadsheet size={14} /> {exporting === "xlsx" ? "Preparing XLSX" : "XLSX"}
+              </button>
             )}
             {pdfEnabled && (
               <button
                 className="generate-pdf-action"
+                data-primary={artifactManifest.primaryArtifact === "pdf"}
                 type="button"
                 disabled={pdfState === "loading"}
                 onClick={() => void generatePdf(true)}
               >
-                <Download size={14} /> {pdfState === "loading" ? "Preparing PDF" : "Generate PDF"}
+                <Download size={14} /> {pdfState === "loading" ? "Preparing PDF" : "Download PDF"}
               </button>
             )}
             <button type="button" onClick={onClose} aria-label="Close document">
@@ -275,13 +258,15 @@ export function DocumentWorkspace({
         </div>
 
         <div className="document-body">
+          {exportError && <p className="form-error" role="alert">{exportError}</p>}
+          {pdfState === "error" && tab !== "pdf" && <p className="form-error" role="alert">{pdfError}</p>}
           {tab === "document" ? (
             <>
               <div className="artifact-route">
                 <div>
-                  <strong>Artifact route</strong>
+                  <strong>Download options</strong>
                   <span>
-                    {artifactManifest.theme.replace(/-/g, " ")} · {artifactManifest.primaryArtifact.toUpperCase()} primary
+                    {artifactManifest.primaryArtifact === "xlsx" ? "Excel workbook recommended for this working plan" : artifactManifest.primaryArtifact === "pptx" ? "Presentation recommended for this visual guide" : "PDF recommended for reading and sharing"}
                   </span>
                 </div>
                 {(["pdf", "pptx", "xlsx"] as const).filter((format) => artifactManifest.decisions[format].enabled).map((format) => (
@@ -292,7 +277,7 @@ export function DocumentWorkspace({
                   >
                     {format.toUpperCase()}
                     <small>
-                      {artifactManifest.decisions[format].requirement}
+                      {artifactManifest.primaryArtifact === format ? "Recommended" : "Also available"}
                     </small>
                   </em>
                 ))}
@@ -304,13 +289,12 @@ export function DocumentWorkspace({
                 <div className="spreadsheet-callout">
                   <FileSpreadsheet size={17} />
                   <div>
-                    <strong>Operational workbook included</strong>
+                    <strong>{artifactManifest.primaryArtifact === "xlsx" ? "Your plan is an Excel workbook" : "Editable workbook available"}</strong>
                     <span>
-                      Work with filterable tables, recommendation IDs, owners, status, formulas, source links, and
-                      lineage.
+                      Open the working tables, assign actions, track progress, and review the supporting sources.
                     </span>
                   </div>
-                  <a href={`/api/documents/${document.id}/export?format=xlsx`}>Generate XLSX</a>
+                  <button type="button" disabled={Boolean(exporting)} onClick={() => void downloadOffice("xlsx")}>{exporting === "xlsx" ? "Preparing XLSX" : "Download XLSX"}</button>
                 </div>
               )}
 
@@ -355,7 +339,7 @@ export function DocumentWorkspace({
           ) : (
             <div className="pdf-preview-stage">
               {(pdfState === "loading" || pdfState === "idle") && (
-                <SinglePdfProgressBar progress={pdfProgress} stageLabel={pdfStageLabel} />
+                <SinglePdfProgressBar />
               )}
               {pdfState === "error" && (
                 <div className="pdf-preview-error" role="alert">

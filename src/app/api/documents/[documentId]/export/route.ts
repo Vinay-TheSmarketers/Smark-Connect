@@ -10,7 +10,7 @@ import { fetchCompanyLogoAsset } from "@/lib/company-logo";
 import { CORE_DOCUMENTS } from "@/lib/skills/registry";
 import { createCompanyBrief } from "@/lib/company-brief";
 import { buildReportDataModel } from "@/lib/artifacts/model";
-import { isArtifactEnabled, resolveArtifactManifest } from "@/lib/artifacts/config";
+import { canonicalReportType, isArtifactEnabled, resolveArtifactManifest } from "@/lib/artifacts/config";
 import type { ArtifactFormat } from "@/lib/artifacts/types";
 
 export const runtime = "nodejs";
@@ -35,19 +35,29 @@ export async function GET(request: Request, context: { params: Promise<{ documen
   if (!document) return Response.json({ error: "Document not found." }, { status: 404 });
   const url = new URL(request.url);
   const requestedFormat = url.searchParams.get("format");
-  const format = requestedFormat === "docx" || requestedFormat === "html" || requestedFormat === "xlsx" || requestedFormat === "pptx" ? requestedFormat : "pdf";
+  if (requestedFormat && !["pdf", "pptx", "xlsx", "docx", "html"].includes(requestedFormat)) {
+    return Response.json({ error: "Choose PDF, PPTX, XLSX, DOCX, or HTML." }, { status: 400 });
+  }
   const disposition = url.searchParams.get("preview") === "1" ? "inline" : "attachment";
   const metadata = (document.metadata as ReportMetadata | null) ?? {};
   const competitors = Array.isArray(metadata.competitors) ? metadata.competitors : [];
   const documentManifest = resolveArtifactManifest({ reportType: document.type, markdown: document.contentMarkdown, metadata, competitorCount: competitors.length });
+  const format = requestedFormat || documentManifest.primaryArtifact;
   if ((format === "pdf" || format === "pptx" || format === "xlsx") && !isArtifactEnabled(documentManifest, format as ArtifactFormat)) {
     return Response.json({ error: documentManifest.decisions[format as ArtifactFormat].reason, manifest: documentManifest }, { status: 409 });
   }
   // Support company-wide master dossier compilation (18-22 pages across all modules)
   const includeAllModules = url.searchParams.get("scope") === "company" || (document.type as string) === "STRATEGIC_INTELLIGENCE";
-  const coreOrder = new Map(CORE_DOCUMENTS.map((definition, index) => [definition.type, index]));
+  const coreOrder = new Map<string, number>(CORE_DOCUMENTS.map((definition, index) => [definition.type, index]));
   const siblingDocuments = includeAllModules ? await db.document.findMany({ where: { companyId: document.companyId }, orderBy: { updatedAt: "desc" } }) : [];
-  const coreDocuments = siblingDocuments.filter((item) => coreOrder.has(item.type)).sort((left, right) => (coreOrder.get(left.type) ?? 99) - (coreOrder.get(right.type) ?? 99));
+  const coreByCanonicalType = new Map<string, typeof siblingDocuments[number]>();
+  for (const item of siblingDocuments) {
+    const canonicalType = canonicalReportType(item.type);
+    if (!coreOrder.has(canonicalType)) continue;
+    const previous = coreByCanonicalType.get(canonicalType);
+    if (!previous || item.updatedAt > previous.updatedAt) coreByCanonicalType.set(canonicalType, item);
+  }
+  const coreDocuments = Array.from(coreByCanonicalType.values()).sort((left, right) => (coreOrder.get(canonicalReportType(left.type)) ?? 99) - (coreOrder.get(canonicalReportType(right.type)) ?? 99));
   const modules = await Promise.all(coreDocuments.map(async (item) => {
     const itemMetadata = (item.metadata as ReportMetadata | null) ?? {};
     return { type: item.type, title: item.title, markdown: normalizeDocumentMarkdown(item.contentMarkdown), competitors: item.type === "COMPETITOR_ANALYSIS" ? await reportCompetitors(itemMetadata) : [] };
@@ -69,8 +79,14 @@ export async function GET(request: Request, context: { params: Promise<{ documen
     competitors: competitors.map((competitor) => ({ companyName: competitor.companyName, officialWebsite: competitor.officialWebsite, positioning: competitor.positioning, competitiveAttributes: competitor.competitiveAttributes })),
     manifest,
   });
-  const args = { companyName: document.company.name, companyWebsite: document.company.websiteUrl, companyCategory: document.company.category, companyBrief: createCompanyBrief(document.company), title, documentType: reportType, markdown, updatedAt: document.updatedAt, sourceCount, modules: includeAllModules && modules.length > 1 ? modules : undefined, reportModel, manifest };
-  const body = format === "docx" ? await createBrandedDocx(args) : format === "pptx" ? await createExecutivePptx({ model: reportModel, manifest }) : format === "xlsx" ? await createBrandedXlsx(args) : format === "html" ? await createBrandedHtml(args) : await createBrandedPdf(args);
+  const args = { companyName: document.company.name, companyWebsite: document.company.websiteUrl, companyCategory: document.company.category, companyBrief: createCompanyBrief(document.company), title, documentType: canonicalReportType(reportType), markdown, updatedAt: document.updatedAt, sourceCount, modules: includeAllModules && modules.length > 1 ? modules : undefined, reportModel, manifest };
+  let body: Buffer;
+  try {
+    body = format === "docx" ? await createBrandedDocx(args) : format === "pptx" ? await createExecutivePptx({ model: reportModel, manifest }) : format === "xlsx" ? await createBrandedXlsx(args) : format === "html" ? await createBrandedHtml(args) : await createBrandedPdf(args);
+  } catch (error) {
+    console.error("Document export failed", { documentId, format, error });
+    return Response.json({ error: `The ${format.toUpperCase()} could not be prepared. Please retry or choose another available format.` }, { status: 500 });
+  }
   const extension = format;
   const contentType = format === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : format === "pptx" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : format === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : format === "html" ? "text/html; charset=utf-8" : "application/pdf";
   return new Response(new Uint8Array(body), { headers: { "Content-Type": contentType, "Content-Disposition": `${disposition}; filename="${safeFilename(`${document.company.name}-${document.title}`)}.${extension}"`, "Cache-Control": "private, no-store" } });

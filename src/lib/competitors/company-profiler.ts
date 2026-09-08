@@ -55,7 +55,6 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
           type: {
             in: [
               "COMPANY_INTELLIGENCE",
-              "PRODUCT_INFO",
               "AUDIENCE_ANALYSIS",
               "COMPETITOR_ANALYSIS",
               "MARKETING_STRATEGY",
@@ -82,7 +81,6 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
   const docMap = new Map(company.documents.map((d) => [d.type, d.contentMarkdown]));
   const uploadedSourceText = company.chatAttachments.map((source) => `# ${source.title}\n\n${source.content}`).join("\n\n").slice(0, 80_000);
   const companyIntel = `${docMap.get("COMPANY_INTELLIGENCE") || ""}\n\n${uploadedSourceText}`;
-  const productInfo = `${docMap.get("PRODUCT_INFO") || ""}\n\n${uploadedSourceText}`;
   const audienceDoc = `${docMap.get("AUDIENCE_ANALYSIS") || ""}\n\n${uploadedSourceText}`;
   const strategyDoc = `${docMap.get("MARKETING_STRATEGY") || ""}\n\n${uploadedSourceText}`;
 
@@ -164,7 +162,7 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
 
   // 3. Core Offer Stack & Products/Services
   const productSection =
-    extractSection(productInfo, ["Products", "Services", "Offerings", "Core Offer", "What We Offer", "Offer Stack"]) ||
+    extractSection(companyIntel, ["Products", "Services", "Offerings", "Core Offer", "What We Offer", "Offer Stack"]) ||
     extractSection(companyIntel, ["Offer", "Products and Services", "Capabilities"]);
   let coreOfferStack = extractBulletPoints(productSection, 6);
   if (coreOfferStack.length === 0) coreOfferStack = extractLabeledOfferStack(companyIntel).slice(0, 6);
@@ -280,7 +278,7 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
   // 7. Positioning & Differentiators
   const diffSection =
     extractSection(companyIntel, ["Differentiators", "Competitive Advantage", "Why Us", "Proof Ladder"]) ||
-    extractSection(productInfo, ["Differentiators", "Value Proposition"]);
+    extractSection(companyIntel, ["Differentiators", "Value Proposition"]);
   let differentiators = extractBulletPoints(diffSection, 5);
   if (differentiators.length === 0) {
     differentiators = [
@@ -298,7 +296,7 @@ export async function buildCompanyStrategicProfile(companyId: string): Promise<C
   // 8. Proof Points & Trust Signals
   const proofSection =
     extractSection(companyIntel, ["Proof Points", "Social Proof", "Case Studies", "Credentials", "Results"]) ||
-    extractSection(productInfo, ["Proof", "Metrics"]);
+    extractSection(companyIntel, ["Proof", "Metrics"]);
   let proofPoints = extractBulletPoints(proofSection, 4);
   if (proofPoints.length === 0) {
     proofPoints = [
