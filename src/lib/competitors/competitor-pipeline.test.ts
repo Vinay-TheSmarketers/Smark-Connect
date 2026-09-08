@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("../company-logo", () => ({ discoverCompanyLogo: async () => null }));
+vi.mock("../company-logo", () => ({ resolveCompanyLogo: async () => null }));
 
 import { analyzeCompetitorLandscape, rankLiveCompetitorCandidates } from "./analyzer";
 import { synthesizeSkillsAndFindings } from "./skills-synthesizer";

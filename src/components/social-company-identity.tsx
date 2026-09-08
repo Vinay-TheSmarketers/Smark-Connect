@@ -44,7 +44,7 @@ export function SocialCompanyIdentity({
     () => companySocialHandle(companyName, companyWebsite),
     [companyName, companyWebsite],
   );
-  const logoSrc = companyLogoSource(companyLogoUrl);
+  const logoSrc = companyLogoSource(companyLogoUrl) || (companyWebsite ? `/api/assets/logo?website=${encodeURIComponent(companyWebsite)}` : null);
   const initials = companyName.trim().slice(0, 2).toUpperCase() || "CO";
 
   return (

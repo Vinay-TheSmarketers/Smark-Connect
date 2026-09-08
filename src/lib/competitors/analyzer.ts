@@ -1,4 +1,4 @@
-import { discoverCompanyLogo } from "../company-logo";
+import { resolveCompanyLogo } from "../company-logo";
 import { completeWithFallback, getProvider } from "../llm";
 import { decryptSecret } from "../crypto";
 import { extractJson } from "../llm/shared";
@@ -521,10 +521,7 @@ Apply the "competitor-alternatives" skill to identify the 5-6 exact direct compe
 
           let logoUrl = "";
           if (officialUrl) {
-            const discovered = await discoverCompanyLogo(officialUrl).catch(() => null);
-            logoUrl =
-              discovered ||
-              `https://www.google.com/s2/favicons?domain=${encodeURIComponent(officialUrl.hostname)}&sz=128`;
+            logoUrl = await resolveCompanyLogo(officialUrl).catch(() => null) || "";
           }
 
           const name = c.name || (officialUrl ? officialUrl.hostname.replace(/^www\./, "").split(".")[0] : `Competitor ${idx + 1}`);
@@ -933,10 +930,7 @@ export async function analyzeCompetitorLandscape(
 
       let logoUrl = "";
       if (officialUrl) {
-        const discovered = await discoverCompanyLogo(officialUrl).catch(() => null);
-        logoUrl =
-          discovered ||
-          `https://www.google.com/s2/favicons?domain=${encodeURIComponent(officialUrl.hostname)}&sz=128`;
+        logoUrl = await resolveCompanyLogo(officialUrl).catch(() => null) || "";
       }
 
       const marketTier = tiers[idx] || "direct_challenger";

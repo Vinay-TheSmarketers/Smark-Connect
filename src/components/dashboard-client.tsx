@@ -208,6 +208,7 @@ function consolidateCompetitorFindings(items: Finding[]) {
 function OfficialCompetitorLogo({ item }: { item: Finding }) {
   const [useFallback, setUseFallback] = useState(false);
   const [useGoogle, setUseGoogle] = useState(false);
+  const [useDirectFallback, setUseDirectFallback] = useState(false);
   const name = item.companyName || item.title || "Competitor";
   const website = item.officialWebsite || item.sourceUrls?.[0];
   let domain = "";
@@ -221,7 +222,10 @@ function OfficialCompetitorLogo({ item }: { item: Finding }) {
   }
 
   if (domain && !useGoogle) {
-    return <span className="competitor-logo"><Image unoptimized src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`} alt={`${name} logo`} width={48} height={48} onError={() => setUseGoogle(true)} /></span>;
+    const src = useDirectFallback
+      ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`
+      : `/api/assets/logo?website=${encodeURIComponent(website || domain)}`;
+    return <span className="competitor-logo"><Image unoptimized src={src} alt={`${name} logo`} width={48} height={48} onError={() => useDirectFallback ? setUseGoogle(true) : setUseDirectFallback(true)} /></span>;
   }
 
   return <span className="competitor-logo"><span aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span></span>;

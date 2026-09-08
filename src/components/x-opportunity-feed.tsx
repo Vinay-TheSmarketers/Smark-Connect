@@ -585,7 +585,7 @@ export function XOpportunityFeed({
                         <XPreview
                           displayName={companyName}
                           handle={companySocialHandle(companyName, companyWebsite)}
-                          avatarUrl={companyLogoSource(companyLogoUrl) || undefined}
+                          avatarUrl={companyLogoSource(companyLogoUrl) || (companyWebsite ? `/api/assets/logo?website=${encodeURIComponent(companyWebsite)}` : undefined)}
                           content={postText}
                           format={opp.format}
                           threadTweets={threadList}

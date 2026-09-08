@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { decryptSecret } from "@/lib/crypto";
 import { completeWithFallback, getProvider } from "@/lib/llm";
 import { extractJson } from "@/lib/llm/shared";
-import { discoverCompanyLogo } from "@/lib/company-logo";
+import { resolveCompanyLogo } from "@/lib/company-logo";
 import { normalizeAcronyms, unwrapStructuredText } from "@/lib/text-format";
 import { documentMarkdown, DOCUMENT_OUTPUT_RULES } from "@/lib/documents/presentation";
 import { normalizeDocumentMarkdown } from "@/lib/documents/content";
@@ -356,8 +356,7 @@ async function enrichCompetitorAnalysis(analysis: SkillAnalysis, targetWebsite: 
     }
     let logoUrl = finding.logoUrl;
     if (!logoUrl && officialUrl) {
-      const discovered = await discoverCompanyLogo(officialUrl).catch(() => null);
-      logoUrl = discovered || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(officialUrl.hostname)}&sz=128`;
+      logoUrl = await resolveCompanyLogo(officialUrl).catch(() => null) || "";
     }
     const finalWebsite = officialUrl ? officialUrl.href : finding.officialWebsite;
     const finalUrls = officialUrl ? Array.from(new Set([officialUrl.href, ...finding.sourceUrls])).slice(0, 6) : finding.sourceUrls;

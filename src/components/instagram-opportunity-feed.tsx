@@ -580,7 +580,7 @@ export function InstagramOpportunityFeed({
                       <div className="ig-card__viewer ig-card__viewer--preview">
                         <InstagramPreview
                           username={companySocialHandle(companyName, companyWebsite)}
-                          profileImageUrl={companyLogoSource(companyLogoUrl) || undefined}
+                          profileImageUrl={companyLogoSource(companyLogoUrl) || (companyWebsite ? `/api/assets/logo?website=${encodeURIComponent(companyWebsite)}` : undefined)}
                           format={opp.recommendedFormat}
                           caption={captionText}
                           hashtags={opp.executionPackage.hashtags}

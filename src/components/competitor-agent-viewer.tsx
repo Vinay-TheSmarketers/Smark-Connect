@@ -246,7 +246,9 @@ Next Step: ${action.concreteNextStep}`;
             {competitors.map((comp) => {
               const isExpanded = expandedCompId === comp.id;
               const domain = comp.officialWebsite.replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
-              const logoSrc = comp.logoUrl || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+              const logoSrc = comp.logoUrl
+                ? `/api/assets/logo?url=${encodeURIComponent(comp.logoUrl)}`
+                : `/api/assets/logo?website=${encodeURIComponent(comp.officialWebsite)}`;
 
               return (
                 <div key={comp.id} className="flex flex-col p-3.5 hover:bg-slate-50/80 transition-colors">

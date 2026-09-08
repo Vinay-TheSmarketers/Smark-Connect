@@ -3,6 +3,30 @@ import { requireApiUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { runCompetitorIntelligencePipeline } from "@/lib/competitors/pipeline";
 import type { CompetitorIntelligencePayload } from "@/lib/competitors/types";
+import { resolveCompanyLogo } from "@/lib/company-logo";
+import type { Prisma } from "@prisma/client";
+
+async function repairCachedCompetitorLogos(output: Record<string, unknown>): Promise<{ output: Record<string, unknown>; changed: boolean }> {
+  if (!Array.isArray(output.competitors)) return { output, changed: false };
+  let changed = false;
+  const competitors = await Promise.all(output.competitors.map(async (item) => {
+    if (!item || typeof item !== "object") return item;
+    const competitor = item as Record<string, unknown>;
+    const existingLogo = typeof competitor.logoUrl === "string" ? competitor.logoUrl.trim() : "";
+    if (existingLogo) return competitor;
+    const website = typeof competitor.officialWebsite === "string" ? competitor.officialWebsite.trim() : "";
+    if (!website) return competitor;
+    try {
+      const logoUrl = await resolveCompanyLogo(new URL(/^https?:\/\//i.test(website) ? website : `https://${website}`));
+      if (!logoUrl) return competitor;
+      changed = true;
+      return { ...competitor, logoUrl };
+    } catch {
+      return competitor;
+    }
+  }));
+  return { output: { ...output, competitors }, changed };
+}
 
 export async function GET(request: Request) {
   const user = await requireApiUser();
@@ -63,8 +87,12 @@ export async function GET(request: Request) {
   });
 
   if (output && output.competitors && output.companyProfile && !hasInvalidCompetitors) {
+    const repaired = await repairCachedCompetitorLogos(output);
+    if (repaired.changed && latestRun) {
+      await db.agentRun.update({ where: { id: latestRun.id }, data: { output: repaired.output as unknown as Prisma.InputJsonValue } });
+    }
     return Response.json({
-      payload: output as unknown as CompetitorIntelligencePayload,
+      payload: repaired.output as unknown as CompetitorIntelligencePayload,
       runId: latestRun?.id ?? null,
       lastAnalyzedAt: latestRun?.completedAt ?? null,
     });

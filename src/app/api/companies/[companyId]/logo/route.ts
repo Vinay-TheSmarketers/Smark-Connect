@@ -1,5 +1,5 @@
 import { requireApiUser } from "@/lib/auth-helpers";
-import { discoverCompanyLogo, fetchCompanyLogoAsset } from "@/lib/company-logo";
+import { fetchCompanyLogoAsset, resolveCompanyLogo } from "@/lib/company-logo";
 import { db } from "@/lib/db";
 
 export async function GET(_request: Request, context: { params: Promise<{ companyId: string }> }) {
@@ -9,15 +9,12 @@ export async function GET(_request: Request, context: { params: Promise<{ compan
   const company = await db.company.findFirst({ where: { id: companyId, userId: user.id }, select: { id: true, websiteUrl: true, logoUrl: true } });
   if (!company) return new Response(null, { status: 404 });
 
-  let logoUrl = company.logoUrl;
-  if (!logoUrl) {
-    logoUrl = await discoverCompanyLogo(new URL(company.websiteUrl)).catch(() => null);
-    if (logoUrl) await db.company.update({ where: { id: company.id }, data: { logoUrl } });
-  }
+  const logoUrl = await resolveCompanyLogo(new URL(company.websiteUrl), company.logoUrl).catch(() => null);
   if (!logoUrl) return new Response(null, { status: 404, headers: { "Cache-Control": "private, max-age=300" } });
 
   const asset = await fetchCompanyLogoAsset(logoUrl).catch(() => null);
   if (!asset) return new Response(null, { status: 404, headers: { "Cache-Control": "private, max-age=300" } });
+  if (logoUrl !== company.logoUrl) await db.company.update({ where: { id: company.id }, data: { logoUrl } });
   return new Response(asset.body, {
     headers: {
       "Content-Type": asset.contentType,

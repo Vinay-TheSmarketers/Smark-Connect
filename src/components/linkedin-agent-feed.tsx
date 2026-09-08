@@ -216,7 +216,7 @@ export function LinkedInAgentFeed({
                   <LinkedInPreview
                     companyName={company.name}
                     companyHeadline={company.websiteUrl.replace(/^https?:\/\/(?:www\.)?/, "").replace(/\/$/, "")}
-                    avatarUrl={companyLogoSource(company.logoUrl) || undefined}
+                    avatarUrl={companyLogoSource(company.logoUrl) || (company.websiteUrl ? `/api/assets/logo?website=${encodeURIComponent(company.websiteUrl)}` : undefined)}
                     content={currentDraft}
                     likesCount={0}
                     commentsCount={0}
