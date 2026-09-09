@@ -8,7 +8,9 @@ import {
   ExternalLink,
   Info,
   Lock,
+  Mail,
   MessageCircleMore,
+  Phone,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -214,10 +216,22 @@ export function LiveConversationMining({
                   </div>
 
                   <div className="conversation-prospect__intent-row">
-                    <span className="intent-tag">{prospect.intentCategory}</span>
-                    {prospect.contact.confidence === "Verified" && (
-                      <span className="contact-tag verified">
-                        <ShieldCheck size={9} /> Verified Email
+                    <span className="intent-tag" title={`Intent: ${prospect.intentSignal || prospect.intent}`}>
+                      {prospect.intentSignal || prospect.intent}
+                    </span>
+                    {prospect.contact.linkedinVerified && (
+                      <span className="contact-tag verified" title="Verified LinkedIn Profile">
+                        <ShieldCheck size={9} /> LinkedIn Verified
+                      </span>
+                    )}
+                    {prospect.contact.phoneVerified && (
+                      <span className="contact-tag verified" title="Verified Direct Phone Number">
+                        <Phone size={8} /> Phone Verified
+                      </span>
+                    )}
+                    {prospect.contact.emailVerified && (
+                      <span className="contact-tag verified" title="Verified Direct Email">
+                        <Mail size={8} /> Email Verified
                       </span>
                     )}
                   </div>
@@ -284,8 +298,12 @@ export function LiveConversationMining({
                 <h4>Signals & Intent Trigger</h4>
                 <div className="signal-grid">
                   <div>
-                    <label>Intent Category</label>
-                    <span className="signal-value">{selectedProspect.intentCategory} ({selectedProspect.intent})</span>
+                    <label>Intent Signal</label>
+                    <span className="signal-value">{selectedProspect.intentSignal || selectedProspect.intent}</span>
+                  </div>
+                  <div>
+                    <label>Intent Classification</label>
+                    <span className="signal-value">{selectedProspect.intentCategory}</span>
                   </div>
                   <div>
                     <label>Observable Trigger</label>
@@ -343,26 +361,47 @@ export function LiveConversationMining({
 
               {/* Business Contact */}
               <div className="lead-modal__section">
-                <h4>Business Contact</h4>
+                <h4>Business Contact & Verification</h4>
                 <div className="contact-details-grid">
-                  {selectedProspect.contact.email && (
-                    <div className="contact-field">
-                      <label>Email ({selectedProspect.contact.confidence})</label>
-                      <code>{selectedProspect.contact.email}</code>
-                    </div>
-                  )}
-                  {selectedProspect.contact.linkedinUrl && (
-                    <div className="contact-field">
-                      <label>LinkedIn</label>
-                      <a href={selectedProspect.contact.linkedinUrl} target="_blank" rel="noreferrer" className="modal-link">
-                        View Profile <ExternalLink size={11} />
-                      </a>
-                    </div>
-                  )}
                   <div className="contact-field">
-                    <label>Public Source URL</label>
+                    <label>
+                      Phone Number {selectedProspect.contact.phoneVerified ? <span className="verified-badge-inline"><ShieldCheck size={9} /> Verified</span> : <span className="unlisted-badge-inline">Unlisted</span>}
+                    </label>
+                    {selectedProspect.contact.phone ? (
+                      <code>{selectedProspect.contact.phone}</code>
+                    ) : (
+                      <span className="unlisted-note">Unlisted in public discussion</span>
+                    )}
+                  </div>
+
+                  <div className="contact-field">
+                    <label>
+                      LinkedIn {selectedProspect.contact.linkedinVerified ? <span className="verified-badge-inline"><ShieldCheck size={9} /> Verified Profile</span> : <span className="unlisted-badge-inline">Unlisted</span>}
+                    </label>
+                    {selectedProspect.contact.linkedinUrl ? (
+                      <a href={selectedProspect.contact.linkedinUrl} target="_blank" rel="noreferrer" className="modal-link">
+                        {selectedProspect.contact.linkedinUrl} <ExternalLink size={11} />
+                      </a>
+                    ) : (
+                      <span className="unlisted-note">Unlisted in public discussion</span>
+                    )}
+                  </div>
+
+                  <div className="contact-field">
+                    <label>
+                      Email {selectedProspect.contact.emailVerified ? <span className="verified-badge-inline"><ShieldCheck size={9} /> Verified</span> : selectedProspect.contact.email ? <span className="probable-badge-inline">Discovered</span> : <span className="unlisted-badge-inline">Unlisted</span>}
+                    </label>
+                    {selectedProspect.contact.email ? (
+                      <code>{selectedProspect.contact.email}</code>
+                    ) : (
+                      <span className="unlisted-note">Unlisted in public discussion</span>
+                    )}
+                  </div>
+
+                  <div className="contact-field">
+                    <label>Public Source Discussion</label>
                     <a href={selectedProspect.sourceUrl} target="_blank" rel="noreferrer" className="modal-link">
-                      View Discussion <ExternalLink size={11} />
+                      View Source Post <ExternalLink size={11} />
                     </a>
                   </div>
                 </div>

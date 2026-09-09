@@ -83,8 +83,12 @@ export function inferPrioritySubreddits(memory: CompanyMemory, customSubreddits?
     ["r/humanresources", "r/recruiting", "r/jobs"].forEach((s) => matchedSubs.add(s));
   }
 
-  // Always include high-velocity general business & SaaS subreddits
-  ["r/SaaS", "r/startups", "r/entrepreneur", "r/smallbusiness"].forEach((s) => matchedSubs.add(s));
+  // Include high-velocity general business & SaaS subreddits if relevant to tech/software
+  const isSoftwareOrSaas = /\bsaas\b|software|platform|tech\b|cloud|api\b|app\b|developer|ai\b/i.test(textToScan);
+  if (isSoftwareOrSaas) {
+    ["r/SaaS", "r/startups"].forEach((s) => matchedSubs.add(s));
+  }
+  ["r/entrepreneur", "r/smallbusiness"].forEach((s) => matchedSubs.add(s));
 
   return Array.from(new Set([...userSubs, ...Array.from(matchedSubs)])).slice(0, 16);
 }

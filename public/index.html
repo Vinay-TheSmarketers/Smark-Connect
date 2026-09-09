@@ -13,7 +13,13 @@
     :root{--paper:#fffaf6;--white:#fff;--ink:#171318;--slate:#6f686d;--line:#eaded7;--purple:#7c2ed2;--purple-dark:#6020ad;--pink:#e74b83;--green:#1d9b69;--shadow:0 28px 80px rgba(119,76,96,.16)}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html{scroll-behavior:smooth}
-    body{color:var(--ink);background:var(--paper);font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+    body{color:var(--ink);background:var(--paper);font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;overflow-y:hidden;animation:page-unlock 1ms steps(1,end) 3.37s forwards}
+    .app-preloader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;color:#f7f7f8;background:#050506;isolation:isolate;animation:preloader-dismiss 420ms cubic-bezier(.4,0,.2,1) 2.95s forwards}.app-preloader__message{position:relative;z-index:1;display:grid;justify-items:center;gap:12px;text-align:center}.app-preloader__wordmark{margin:0;font-size:clamp(24px,1.8vw,34px);font-weight:500;line-height:1;letter-spacing:-.055em;color:#a6a6af;animation:wordmark-arrive 560ms cubic-bezier(.16,1,.3,1) 80ms both}.app-preloader__wordmark strong{color:#f7f7f9;font-weight:650}.app-preloader__impact-line{margin:0;color:#8f8f98;font-size:clamp(11px,.82vw,13px);font-weight:500;line-height:1.45;letter-spacing:.015em;animation:impact-line-arrive 520ms cubic-bezier(.16,1,.3,1) 250ms both}.app-preloader__perimeter{position:absolute;inset:clamp(12px,1.45vw,28px);width:calc(100% - (2 * clamp(12px,1.45vw,28px)));height:calc(100% - (2 * clamp(12px,1.45vw,28px)));overflow:visible}.app-preloader__track,.app-preloader__trail-outer,.app-preloader__trail-inner,.app-preloader__tracer{fill:none;rx:clamp(10px,1vw,16px);stroke-linecap:round;stroke-linejoin:round}.app-preloader__track{stroke:#28282d;stroke-width:1.5}.app-preloader__trail-outer,.app-preloader__trail-inner,.app-preloader__tracer{stroke-dashoffset:58;animation:perimeter-lap 2.55s cubic-bezier(.65,0,.35,1) 180ms 1 forwards}.app-preloader__trail-outer{stroke:#cfd0d8;stroke-width:4.6;opacity:.16;filter:blur(3px)}.app-preloader__trail-inner{stroke:#ededf0;stroke-width:2.8;opacity:.34;filter:blur(.8px)}.app-preloader__tracer{stroke:#fff;stroke-width:1.6;filter:drop-shadow(0 0 5px rgba(255,255,255,.42))}
+    @keyframes perimeter-lap{from{stroke-dashoffset:58}to{stroke-dashoffset:-42}}
+    @keyframes wordmark-arrive{from{opacity:0;transform:translateY(5px);filter:blur(4px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+    @keyframes impact-line-arrive{from{opacity:0;transform:translateY(4px);filter:blur(3px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+    @keyframes preloader-dismiss{0%{opacity:1;visibility:visible}99%{opacity:0;visibility:visible}100%{opacity:0;visibility:hidden;pointer-events:none}}
+    @keyframes page-unlock{from{overflow-y:hidden}to{overflow-y:auto}}
     a{color:inherit;text-decoration:none}button{font:inherit}
     .header{width:min(1180px,calc(100% - 40px));height:76px;margin:auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;position:relative;z-index:10}
     .logo{display:inline-flex;width:max-content;align-items:center;gap:10px;font-size:17px;font-weight:750;letter-spacing:-.035em}.mark{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:conic-gradient(#537cff,#32bd79,#efc642,#ee6a42,#e8447a,#8b2ce0,#537cff);box-shadow:0 6px 18px rgba(124,46,210,.2)}.mark::after{content:"";width:11px;height:11px;border-radius:50%;background:#fff}
@@ -40,10 +46,22 @@
     @media(max-width:650px){.system-grid,.module-grid,.persona-grid{grid-template-columns:1fr}.runtime{width:calc(100% - 28px);padding:52px 22px;border-radius:24px}.runtime-steps{grid-template-columns:1fr 1fr}.runtime-step{min-height:145px}.technical-copy{font-size:13px}}
     @media(max-width:980px){.nav{display:none}.header{grid-template-columns:1fr auto}.hero{padding-top:55px;grid-template-columns:1fr;gap:62px}.stage{max-width:850px;transform:none}.value-grid{grid-template-columns:1fr}.workflow,.outputs{padding:64px 48px;gap:54px}.showcase{grid-template-columns:1fr 1fr}.panel.center-panel{transform:none}.showcase .panel:last-child{grid-column:1/-1}.faq{gap:55px}}
     @media(max-width:650px){.header,.hero,.proof,.section,.workflow,.outputs,.final,.footer{width:calc(100% - 28px)}.header{height:66px}.login{display:none}.hero{min-height:auto;padding:48px 0 70px}.hero h1{font-size:clamp(44px,14vw,62px)}.lead{font-size:15px}.hero-actions .pill{width:100%}.watch{margin:auto}.reassure{display:grid}.stage{padding:7px;border-radius:17px}.windowbar{height:34px}.live{display:none}.signal{right:7px;bottom:-42px}.proof{margin-top:34px;padding:34px 0;align-items:flex-start;flex-direction:column}.proof div{justify-content:flex-start}.section{padding:90px 0}.section-title{font-size:39px}.value-grid{margin-top:40px}.value{min-height:295px}.workflow,.outputs{padding:52px 22px;grid-template-columns:1fr;border-radius:24px}.showcase{grid-template-columns:1fr}.showcase .panel:last-child{grid-column:auto}.outputs{gap:42px}.stack{min-height:350px}.file{width:calc(100% - 8px)}.faq{grid-template-columns:1fr;gap:42px}.final{min-height:560px;border-radius:25px}.footer{padding:40px 0;grid-template-columns:1fr auto;gap:16px}.footer p{grid-column:1/-1;grid-row:2}}
-    @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}body{animation-delay:101ms}.app-preloader{animation-delay:100ms;animation-duration:1ms}.app-preloader__wordmark,.app-preloader__impact-line{animation:none}.app-preloader__trail-outer,.app-preloader__trail-inner,.app-preloader__tracer{animation-delay:0ms;animation-duration:1ms}}
   </style>
 </head>
 <body>
+  <div class="app-preloader" role="status" aria-label="Loading Smark Connect">
+    <div class="app-preloader__message">
+      <p class="app-preloader__wordmark"><span>Your</span> <strong>AI CMO</strong></p>
+      <p class="app-preloader__impact-line">Make your next move the one that matters.</p>
+    </div>
+    <svg class="app-preloader__perimeter" aria-hidden="true">
+      <rect class="app-preloader__track" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" pathLength="100"></rect>
+      <rect class="app-preloader__trail-outer" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" pathLength="100" stroke-dasharray="6.8 93.2"></rect>
+      <rect class="app-preloader__trail-inner" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" pathLength="100" stroke-dasharray="4.2 95.8"></rect>
+      <rect class="app-preloader__tracer" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" pathLength="100" stroke-dasharray="1.4 98.6"></rect>
+    </svg>
+  </div>
   <header class="header">
     <a class="logo" href="#top" aria-label="Smark Connect home"><span class="mark"></span><span>Smark Connect</span></a>
     <nav class="nav" aria-label="Primary"><a href="#how">How it works</a><a href="#capabilities">Capabilities</a><a href="#why">Why Smark</a></nav>

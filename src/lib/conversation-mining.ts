@@ -2,7 +2,13 @@ export type LeadContactInfo = {
   email?: string;
   phone?: string;
   linkedinUrl?: string;
-  confidence: "Verified" | "Probable" | "Public Profile";
+  confidence: "Verified" | "Probable" | "Unlisted";
+  phoneVerified: boolean;
+  linkedinVerified: boolean;
+  emailVerified: boolean;
+  phoneStatus: "Verified" | "Unlisted in public discussion";
+  linkedinStatus: "Verified Profile" | "Unlisted";
+  emailStatus: "Verified" | "Discovered" | "Unlisted";
 };
 
 export type LeadScoreBreakdown = {
@@ -23,6 +29,7 @@ export type ConversationProspect = {
   community: string;
   title: string;
   intent: string;
+  intentSignal: string;
   intentCategory: "Explicit Intent" | "Behavioral Intent" | "Strategic Intent" | "Pain Expression";
   sourceUrl: string;
   score: number;
@@ -81,18 +88,60 @@ function isPublicUrl(value: string): boolean {
   }
 }
 
-function classifyIntentCategory(intentCode: string): "Explicit Intent" | "Behavioral Intent" | "Strategic Intent" | "Pain Expression" {
-  if (intentCode === "BUYING_INTENT" || intentCode === "RECOMMENDATION_REQUEST" || intentCode === "SOLUTION_SEARCH") return "Explicit Intent";
-  if (intentCode === "COMPETITOR_DISSATISFACTION" || intentCode === "PAIN_POINT") return "Pain Expression";
-  if (intentCode === "COMPARISON") return "Behavioral Intent";
-  return "Strategic Intent";
+export function deriveProperIntentSignal(
+  rawIntent: string,
+  title = "",
+  snippet = ""
+): { intentSignal: string; intentCategory: "Explicit Intent" | "Behavioral Intent" | "Strategic Intent" | "Pain Expression" } {
+  const combined = `${title} ${snippet}`.toLowerCase();
+  const code = (rawIntent || "").toUpperCase().replace(/\s+/g, "_");
+
+  if (/recommend|suggestion|looking for (?:a|an|the )?best|looking for (?:a|an|new)?\s*(?:tool|platform|software|solution|system)|what tool|alternatives? to|any tool/i.test(combined)) {
+    return { intentSignal: "Vendor Recommendation Request", intentCategory: "Explicit Intent" };
+  }
+  if (/switching from|hate|cancel(?:led|ing)?|expensive|pricing hike|dissatisfied|unreliable|poor support|leaving|broken/i.test(combined)) {
+    return { intentSignal: "Competitor Dissatisfaction & Migration", intentCategory: "Pain Expression" };
+  }
+  if (/budget|procure|rfp|evaluating|demo|trial|buying|pricing|sign up|implement(?:ing)?/i.test(combined)) {
+    return { intentSignal: "High Buying Intent & Tool Implementation", intentCategory: "Explicit Intent" };
+  }
+  if (/\bvs\b|versus|compare|comparing|difference between|evaluation/i.test(combined)) {
+    return { intentSignal: "Vendor Evaluation & Feature Comparison", intentCategory: "Behavioral Intent" };
+  }
+  if (/struggling with|bottleneck|manual work|wasting time|headache|frustrat/i.test(combined)) {
+    return { intentSignal: "Severe Operational Pain Point", intentCategory: "Pain Expression" };
+  }
+  if (/hiring|expansion|scaling|series [a-d]|funding/i.test(combined)) {
+    return { intentSignal: "Scaling Trigger & Team Expansion", intentCategory: "Strategic Intent" };
+  }
+
+  if (code.includes("RECOMMEND")) {
+    return { intentSignal: "Vendor Recommendation Request", intentCategory: "Explicit Intent" };
+  }
+  if (code.includes("COMPETITOR") || code.includes("DISSATISFACTION")) {
+    return { intentSignal: "Competitor Dissatisfaction & Migration", intentCategory: "Pain Expression" };
+  }
+  if (code.includes("BUYING") || code.includes("PURCHASE")) {
+    return { intentSignal: "High Buying Intent & Tool Implementation", intentCategory: "Explicit Intent" };
+  }
+  if (code.includes("PAIN")) {
+    return { intentSignal: "Severe Operational Pain Point", intentCategory: "Pain Expression" };
+  }
+  if (code.includes("COMPARISON") || code.includes("COMPARE")) {
+    return { intentSignal: "Vendor Evaluation & Feature Comparison", intentCategory: "Behavioral Intent" };
+  }
+  if (code.includes("SOLUTION")) {
+    return { intentSignal: "Active Solution & Workflow Search", intentCategory: "Explicit Intent" };
+  }
+
+  return { intentSignal: "In-Market Commercial Signal", intentCategory: "Strategic Intent" };
 }
 
 function generateWhyTargetRationale(
   author: string,
   matchedIcp: string,
   matchedProblem: string,
-  intentLabel: string,
+  intentSignal: string,
   companyName?: string,
   platform?: "Reddit" | "X" | "LinkedIn" | "Web"
 ): string {
@@ -100,15 +149,12 @@ function generateWhyTargetRationale(
   const entity = companyName ? `${companyName} (${prefix})` : prefix;
   const problemStr = matchedProblem ? `experiencing ${matchedProblem.toLowerCase()}` : "seeking a proven solution";
   const icpStr = matchedIcp || "ICP target decision maker";
-  return `Targeting ${entity} [${icpStr}] because they displayed active ${intentLabel.toLowerCase()} on ${platform || "public channels"} by ${problemStr}. This creates a high-conviction timing window for direct solution outreach.`;
+  return `Targeting ${entity} [${icpStr}] because they displayed active ${intentSignal.toLowerCase()} on ${platform || "public channels"} by ${problemStr}. This creates a high-conviction timing window for direct solution outreach.`;
 }
 
-function generateObservableTrigger(intentCode: string, matchedProblem?: string): string {
+function generateObservableTrigger(intentSignal: string, matchedProblem?: string): string {
   if (matchedProblem) return `Active discussion regarding ${matchedProblem.toLowerCase()}`;
-  if (intentCode === "RECOMMENDATION_REQUEST") return "Public request for vendor recommendations";
-  if (intentCode === "BUYING_INTENT") return "Explicit procurement & tool implementation search";
-  if (intentCode === "COMPETITOR_DISSATISFACTION") return "Public frustration with legacy vendor stack";
-  return "Hiring / scaling operations signal detected";
+  return `Public buyer trigger: ${intentSignal}`;
 }
 
 function generateOutreachAngle(
@@ -129,23 +175,139 @@ function generateOutreachAngle(
   return `"Hi ${cleanName}, noticed your discussion around ${prob}. We solved this exact challenge using ${prod} with zero workflow disruption—worth a 2-minute look?"`;
 }
 
-function inferContactDetails(
-  author: string,
-  sourceUrl: string,
-  platform?: "Reddit" | "X" | "LinkedIn" | "Web"
-): LeadContactInfo {
-  const cleanAuthor = author.replace(/^(?:u\/|@)/, "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const domain = cleanAuthor.includes("tech") || cleanAuthor.includes("agency") ? `${cleanAuthor}.com` : "company.com";
-  
-  let linkedinUrl = `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(cleanAuthor)}`;
-  if (platform === "LinkedIn" && isPublicUrl(sourceUrl)) {
-    linkedinUrl = sourceUrl;
+const PHONE_PATTERN = /(?:\+?(\d{1,3}))?[-.\s]?(?:\((\d{2,4})\)|\d{2,4})[-.\s]?(\d{3,4})[-.\s]?(\d{3,9})\b/;
+
+export function extractVerifiedPhoneNumber(raw: unknown): { phone?: string; verified: boolean } {
+  if (typeof raw !== "string" && typeof raw !== "number") return { verified: false };
+  const str = String(raw).trim();
+  if (!str) return { verified: false };
+
+  const digitsOnly = str.replace(/\D/g, "");
+  // Phone numbers standard globally have 10-15 digits
+  if (digitsOnly.length < 10 || digitsOnly.length > 15) {
+    return { verified: false };
   }
 
+  // Reject sequences like 1990-2026 (years) or repeated digits
+  if (/^(?:19|20)\d{2}$/.test(digitsOnly) || /^(\d)\1+$/.test(digitsOnly)) {
+    return { verified: false };
+  }
+
+  const match = str.match(PHONE_PATTERN);
+  if (!match) return { verified: false };
+
+  let formatted = str;
+  if (digitsOnly.length === 10) {
+    formatted = `+1 (${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3, 6)}-${digitsOnly.slice(6)}`;
+  } else if (digitsOnly.length > 10 && !str.startsWith("+")) {
+    formatted = `+${digitsOnly.slice(0, digitsOnly.length - 10)} ${digitsOnly.slice(-10, -7)} ${digitsOnly.slice(-7, -4)} ${digitsOnly.slice(-4)}`;
+  }
+
+  return { phone: formatted, verified: true };
+}
+
+const LINKEDIN_PROFILE_REGEX = /^https?:\/\/(?:[a-z]{2,3}\.)?linkedin\.com\/(?:in|company|school)\/([a-zA-Z0-9_-]{3,100})\/?(?:\?.*)?$/i;
+
+export function extractVerifiedLinkedinUrl(raw: unknown): { linkedinUrl?: string; verified: boolean } {
+  if (typeof raw !== "string") return { verified: false };
+  const trimmed = raw.trim();
+  if (!trimmed) return { verified: false };
+
+  // Reject search result URLs, generic feeds, or non-profile endpoints
+  if (/linkedin\.com\/(?:search|feed|pulse|learning|jobs|checkpoint|login)/i.test(trimmed)) {
+    return { verified: false };
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+  } catch {
+    return { verified: false };
+  }
+
+  const match = parsedUrl.href.match(LINKEDIN_PROFILE_REGEX);
+  if (match && match[1]) {
+    const handle = match[1];
+    if (/^(?:user|search|results|profile|view|null|undefined)$/i.test(handle)) {
+      return { verified: false };
+    }
+    const isCompany = parsedUrl.pathname.includes("/company/");
+    const isSchool = parsedUrl.pathname.includes("/school/");
+    const segment = isCompany ? "company" : isSchool ? "school" : "in";
+    return {
+      linkedinUrl: `https://www.linkedin.com/${segment}/${handle}`,
+      verified: true,
+    };
+  }
+
+  return { verified: false };
+}
+
+const EMAIL_REGEX = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/;
+
+export function extractVerifiedEmail(raw: unknown): { email?: string; verified: boolean } {
+  if (typeof raw !== "string") return { verified: false };
+  const trimmed = raw.trim();
+  const match = trimmed.match(EMAIL_REGEX);
+  if (!match) return { verified: false };
+
+  const email = match[0].toLowerCase();
+  // Filter out dummy/example emails and synthetic templates
+  if (
+    email.endsWith("@company.com") ||
+    email.endsWith("@example.com") ||
+    email.endsWith("@test.com") ||
+    email.endsWith("@domain.com") ||
+    email.startsWith("support@") ||
+    email.startsWith("noreply@") ||
+    email.startsWith("no-reply@")
+  ) {
+    return { verified: false };
+  }
+
+  return { email, verified: true };
+}
+
+export function extractContactInfo(
+  candidate: Record<string, unknown>,
+  sourceUrl: string,
+  platform: string
+): LeadContactInfo {
+  // Check candidate object fields for email
+  const rawEmail = text(candidate.email) || text(candidate.contactEmail) || text(candidate.authorEmail);
+  const verifiedEmail = extractVerifiedEmail(rawEmail);
+
+  // Check candidate object fields for phone
+  const rawPhone = candidate.phone || candidate.phoneNumber || candidate.contactPhone;
+  const verifiedPhone = extractVerifiedPhoneNumber(rawPhone);
+
+  // Check candidate object fields for linkedin
+  const rawLinkedin = text(candidate.linkedinUrl) || text(candidate.linkedin) || text(candidate.profileUrl);
+  let verifiedLinkedin = extractVerifiedLinkedinUrl(rawLinkedin);
+
+  // If candidate was found on LinkedIn and sourceUrl is a valid profile URL
+  if (!verifiedLinkedin.verified && platform === "LinkedIn" && isPublicUrl(sourceUrl)) {
+    verifiedLinkedin = extractVerifiedLinkedinUrl(sourceUrl);
+  }
+
+  const confidence: "Verified" | "Probable" | "Unlisted" =
+    (verifiedPhone.verified && verifiedLinkedin.verified) || (verifiedEmail.verified && verifiedLinkedin.verified)
+      ? "Verified"
+      : verifiedLinkedin.verified || verifiedPhone.verified || verifiedEmail.verified
+      ? "Probable"
+      : "Unlisted";
+
   return {
-    email: `${cleanAuthor}@${domain}`,
-    linkedinUrl,
-    confidence: isPublicUrl(sourceUrl) ? "Verified" : "Probable",
+    email: verifiedEmail.email,
+    phone: verifiedPhone.phone,
+    linkedinUrl: verifiedLinkedin.linkedinUrl,
+    confidence,
+    phoneVerified: verifiedPhone.verified,
+    linkedinVerified: verifiedLinkedin.verified,
+    emailVerified: verifiedEmail.verified,
+    phoneStatus: verifiedPhone.verified ? "Verified" : "Unlisted in public discussion",
+    linkedinStatus: verifiedLinkedin.verified ? "Verified Profile" : "Unlisted",
+    emailStatus: verifiedEmail.verified ? "Verified" : verifiedEmail.email ? "Discovered" : "Unlisted",
   };
 }
 
@@ -159,232 +321,6 @@ function extractCleanCompanyName(candidate: Record<string, unknown>): string {
     return title.split(/[-–—:|]/)[0].trim();
   }
   return "";
-}
-
-function generateFallbackActiveLeads(
-  companyContext?: { name?: string; industry?: string; offering?: string },
-  seenSet: Set<string> = new Set()
-): ConversationProspect[] {
-  const comp = companyContext?.name || "Your Company";
-  const ind = companyContext?.industry || "B2B SaaS / Growth";
-  const dateStr = new Date().toISOString();
-
-  const pool: Omit<ConversationProspect, "id">[] = [
-    {
-      platform: "LinkedIn",
-      identity: "Vikram Mehta",
-      personRole: "VP of Revenue Operations",
-      companyName: "NexusFlow Labs",
-      community: "LinkedIn B2B Ops Network",
-      title: "Replacing our disjointed reporting tools before Q4 expansion",
-      intent: "RECOMMENDATION_REQUEST",
-      intentCategory: "Explicit Intent",
-      sourceUrl: "https://www.linkedin.com/posts/vikrammehta-nexusflow-reporting-stack",
-      score: 95,
-      confidence: 92,
-      matchedIcp: "Mid-market VP RevOps (50-250 employees)",
-      matchedProblem: "Inconsistent cross-channel pipeline reporting",
-      matchedProduct: `${comp} Unified Analytics`,
-      discoveredAt: dateStr,
-      whyTarget: `Targeting NexusFlow Labs (Vikram Mehta) [Mid-market VP RevOps] because they displayed active recommendation request on LinkedIn by experiencing inconsistent cross-channel pipeline reporting. This creates a high-conviction timing window for direct solution outreach.`,
-      observableTrigger: "Hiring 4 Sales Managers & searching for reporting automation",
-      verbatimQuote: "We're burning 15 hours a week assembling manual performance decks across Reddit, LinkedIn, and CRM. Any clean unified tools?",
-      outreachAngle: "Hi Vikram, congrats on the Series A! Saw your post regarding manual deck building—we automate cross-channel revenue reporting for 50+ growth teams.",
-      contact: {
-        email: "v.mehta@nexusflowlabs.io",
-        linkedinUrl: "https://www.linkedin.com/in/vikram-mehta-nexusflow",
-        confidence: "Verified",
-      },
-      scoreBreakdown: { total: 95, icpFit: 25, intent: 25, timing: 15, evidenceStrength: 10, contactQuality: 5 },
-      priorityTier: "🔥 Priority",
-    },
-    {
-      platform: "Reddit",
-      identity: "b2b_growth_lead",
-      personRole: "Head of Demand Generation",
-      companyName: "ScaleUp Commerce",
-      community: "r/b2bmarketing",
-      title: "Frustrated with current attribution platform pricing & lack of live conversation tracking",
-      intent: "COMPETITOR_DISSATISFACTION",
-      intentCategory: "Pain Expression",
-      sourceUrl: "https://www.reddit.com/r/b2bmarketing/comments/scaleup_attribution_switch",
-      score: 91,
-      confidence: 88,
-      matchedIcp: "B2B SaaS Growth Lead in target geography",
-      matchedProblem: "High attribution vendor costs & dark social blindness",
-      matchedProduct: `${comp} Live Miner & Attribution Engine`,
-      discoveredAt: dateStr,
-      whyTarget: `Targeting ScaleUp Commerce (u/b2b_growth_lead) [B2B SaaS Growth Lead] because they displayed active competitor dissatisfaction on Reddit by experiencing high attribution vendor costs & dark social blindness. This creates a high-conviction timing window for direct solution outreach.`,
-      observableTrigger: "Active vendor dissatisfaction & contract renewal in 30 days",
-      verbatimQuote: "Our legacy platform doubled renewal rates while ignoring Reddit & social communities. Looking for modern alternative before end of month.",
-      outreachAngle: "Saw your note on r/b2bmarketing about legacy price hikes—we provide live community mining and full pipeline attribution at a fraction of the cost.",
-      contact: {
-        email: "demandgen@scaleupcommerce.com",
-        linkedinUrl: "https://www.linkedin.com/company/scaleup-commerce",
-        confidence: "Verified",
-      },
-      scoreBreakdown: { total: 91, icpFit: 24, intent: 24, timing: 14, evidenceStrength: 9, contactQuality: 5 },
-      priorityTier: "🔥 Priority",
-    },
-    {
-      platform: "X",
-      identity: "sarah_growth_hacks",
-      personRole: "Founder & CEO",
-      companyName: "Aetheria AI",
-      community: "X #B2BSaaS",
-      title: "Looking for an automated outbound intelligence stack that monitors buying signals",
-      intent: "BUYING_INTENT",
-      intentCategory: "Explicit Intent",
-      sourceUrl: "https://x.com/sarah_growth_hacks/status/189283746192",
-      score: 88,
-      confidence: 86,
-      matchedIcp: "Early-stage AI SaaS Founder",
-      matchedProblem: "Manual lead prospect discovery & weak outreach angles",
-      matchedProduct: `${comp} Prospect Intelligence Skill`,
-      discoveredAt: dateStr,
-      whyTarget: `Targeting Aetheria AI (@sarah_growth_hacks) [Early-stage AI SaaS Founder] because they displayed active buying intent on X by experiencing manual lead prospect discovery & weak outreach angles. This creates a high-conviction timing window for direct solution outreach.`,
-      observableTrigger: "Enterprise launch announcement & active SDR recruitment",
-      verbatimQuote: "Need a tool that doesn't just list emails, but actually gives us observable buyer intent signals and personalized why-target reasons.",
-      outreachAngle: "Hey Sarah, caught your tweet about Aetheria's enterprise launch. Built our prospect intelligence engine specifically to extract observable buyer intent and 100-pt lead scoring.",
-      contact: {
-        email: "sarah@aetheria.ai",
-        linkedinUrl: "https://www.linkedin.com/in/sarah-aetheria",
-        confidence: "Verified",
-      },
-      scoreBreakdown: { total: 88, icpFit: 23, intent: 24, timing: 13, evidenceStrength: 9, contactQuality: 5 },
-      priorityTier: "🔥 Priority",
-    },
-    {
-      platform: "LinkedIn",
-      identity: "Ananya Sharma",
-      personRole: "Chief Marketing Officer",
-      companyName: "HyperEdge Dynamics",
-      community: "LinkedIn CMO Circle",
-      title: "Scaling our B2B account-based marketing program in APAC & Europe",
-      intent: "SOLUTION_SEARCH",
-      intentCategory: "Strategic Intent",
-      sourceUrl: "https://www.linkedin.com/posts/ananyasharma-hyperedge-abm-expansion",
-      score: 86,
-      confidence: 87,
-      matchedIcp: "Enterprise CMO ($20M+ ARR)",
-      matchedProblem: "Lack of localized buyer intent signals in new geographies",
-      matchedProduct: `${comp} Universal Lead Intelligence`,
-      discoveredAt: dateStr,
-      whyTarget: `Targeting HyperEdge Dynamics (Ananya Sharma) [Enterprise CMO] because they displayed active solution search on LinkedIn by experiencing lack of localized buyer intent signals in new geographies. This creates a high-conviction timing window for direct solution outreach.`,
-      observableTrigger: "Geographic expansion announcement & new regional office setup",
-      verbatimQuote: "As we expand into EMEA, our biggest bottleneck is identifying localized buyer signals before our competitors do.",
-      outreachAngle: "Hello Ananya, congratulations on HyperEdge's EMEA launch! We help enterprise ABM teams mine localized buyer signals and observable events automatically.",
-      contact: {
-        email: "a.sharma@hyperedgedynamics.com",
-        linkedinUrl: "https://www.linkedin.com/in/ananya-sharma-hyperedge",
-        confidence: "Verified",
-      },
-      scoreBreakdown: { total: 86, icpFit: 23, intent: 22, timing: 14, evidenceStrength: 9, contactQuality: 5 },
-      priorityTier: "🔥 Priority",
-    },
-    {
-      platform: "Reddit",
-      identity: "martech_architect",
-      personRole: "Director of Marketing Technology",
-      companyName: "OmniStrategy Global",
-      community: "r/martech",
-      title: "Evaluating live customer signal tools vs standard database enrichment",
-      intent: "COMPARISON",
-      intentCategory: "Behavioral Intent",
-      sourceUrl: "https://www.reddit.com/r/martech/comments/omnistrategy_eval",
-      score: 84,
-      confidence: 85,
-      matchedIcp: "Enterprise MarTech Director",
-      matchedProblem: "Stale contact databases without real-time intent triggers",
-      matchedProduct: `${comp} Live Conversation Miner`,
-      discoveredAt: dateStr,
-      whyTarget: `Targeting OmniStrategy Global (u/martech_architect) [Enterprise MarTech Director] because they displayed active comparison on Reddit by experiencing stale contact databases without real-time intent triggers. This creates a high-conviction timing window for direct solution outreach.`,
-      observableTrigger: "Digital transformation initiative & technology stack overhaul",
-      verbatimQuote: "Static contact lists are yielding <1% reply rates. We need observable event triggers and public conversation evidence.",
-      outreachAngle: "Hi, saw your r/martech comparison thread. Static databases miss timing—our live miner extracts verified active leads directly from public intent signals.",
-      contact: {
-        email: "martech@omnistrategyglobal.com",
-        linkedinUrl: "https://www.linkedin.com/company/omnistrategy-global",
-        confidence: "Probable",
-      },
-      scoreBreakdown: { total: 84, icpFit: 22, intent: 22, timing: 13, evidenceStrength: 8, contactQuality: 4 },
-      priorityTier: "Strong Lead",
-    },
-    {
-      platform: "X",
-      identity: "alex_scaleup",
-      personRole: "VP Product Marketing",
-      companyName: "CloudMetrics Inc",
-      community: "X #MarTech",
-      title: "Seeking modern multi-channel signal miner for sales intelligence team",
-      intent: "RECOMMENDATION_REQUEST",
-      intentCategory: "Explicit Intent",
-      sourceUrl: "https://x.com/alex_scaleup/status/1982736152",
-      score: 81,
-      confidence: 83,
-      matchedIcp: "VP Product Marketing ($10M+ ARR)",
-      matchedProblem: "Limited visibility into dark social buyer intent",
-      matchedProduct: `${comp} Multi-Channel Miner`,
-      discoveredAt: dateStr,
-      whyTarget: `Targeting CloudMetrics Inc (@alex_scaleup) [VP Product Marketing] because they displayed active recommendation request on X by experiencing limited visibility into dark social buyer intent. This creates a high-conviction timing window for direct solution outreach.`,
-      observableTrigger: "New product tier release & team expansion",
-      verbatimQuote: "Our outbound SDRs need real-time signal alerts when prospects discuss alternatives on LinkedIn, X, and Reddit.",
-      outreachAngle: "Hey @alex_scaleup, saw your tweet on dark social signals. We built a unified miner that streams active leads across X, LinkedIn, and Reddit into one queue.",
-      contact: {
-        email: "alex@cloudmetrics.io",
-        linkedinUrl: "https://www.linkedin.com/in/alex-scaleup-cloudmetrics",
-        confidence: "Verified",
-      },
-      scoreBreakdown: { total: 81, icpFit: 21, intent: 21, timing: 13, evidenceStrength: 8, contactQuality: 4 },
-      priorityTier: "Strong Lead",
-    },
-    {
-      platform: "Web",
-      identity: "Rohan Kapoor",
-      personRole: "Head of Sales Operations",
-      companyName: "Starlight Digital",
-      community: "Google Business & Tech Directory",
-      title: "Hiring 5 Senior Enterprise Account Executives following Series B funding",
-      intent: "BUYING_INTENT",
-      intentCategory: "Behavioral Intent",
-      sourceUrl: "https://starlightdigital.com/careers/sales-ops",
-      score: 77,
-      confidence: 80,
-      matchedIcp: "Mid-market Head of Sales Ops",
-      matchedProblem: "Ramping new AEs with qualified account intelligence",
-      matchedProduct: `${comp} Prospect Prioritization Queue`,
-      discoveredAt: dateStr,
-      whyTarget: `Targeting Starlight Digital (Rohan Kapoor) [Mid-market Head of Sales Ops] because they displayed active buying intent on Web Directory by experiencing ramping new AEs with qualified account intelligence. This creates a high-conviction timing window for direct solution outreach.`,
-      observableTrigger: "Series B Funding & Rapid Sales Hiring",
-      verbatimQuote: "Ramping 5 new AEs this month. Key priority is giving them evidence-backed accounts with 1-sentence outreach rationale.",
-      outreachAngle: "Hi Rohan, congrats on the Series B! As you ramp your 5 new AEs, our system provides pre-scored account queues complete with 1-sentence why-target reasons.",
-      contact: {
-        email: "rohan.k@starlightdigital.com",
-        linkedinUrl: "https://www.linkedin.com/in/rohan-kapoor-salesops",
-        confidence: "Verified",
-      },
-      scoreBreakdown: { total: 77, icpFit: 20, intent: 20, timing: 13, evidenceStrength: 7, contactQuality: 4 },
-      priorityTier: "Strong Lead",
-    },
-  ];
-
-  const results: ConversationProspect[] = [];
-  let index = 1;
-
-  for (const item of pool) {
-    const id = `prospect-${item.identity.toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
-    const identityKey = item.identity.toLowerCase();
-    if (seenSet.has(id) || seenSet.has(identityKey) || seenSet.has(item.sourceUrl)) {
-      continue;
-    }
-    results.push({
-      ...item,
-      id: `${id}-${index}`,
-    });
-    index++;
-  }
-
-  return results;
 }
 
 export function extractConversationProspects(
@@ -450,8 +386,11 @@ export function extractConversationProspects(
       const matchedIcp = text(item.matchedIcp) || text(item.targetAudience) || (Array.isArray(item.tags) && item.tags[0] ? text(item.tags[0]) : "ICP Target Decision Maker");
       const matchedProblem = text(item.matchedProblem) || text(item.evidence) || text(item.impact) || "Operational bottleneck";
       const matchedProduct = text(item.matchedProduct) || companyContext?.offering || "our solution";
-      const intentCode = text(item.intent) || text(item.kind) || "BUYING_INTENT";
-      const intentLabel = text(item.intentLabel) || intentCode.replaceAll("_", " ").toLowerCase();
+      const title = text(item.title) || text(item.action) || "Relevant buyer conversation";
+      const snippet = text(item.verbatimQuote) || text(item.recommendedResponse) || text(item.evidence) || text(item.impact) || "";
+      const rawIntent = text(item.intent) || text(item.kind) || "BUYING_INTENT";
+      const { intentSignal, intentCategory } = deriveProperIntentSignal(rawIntent, title, snippet);
+
       const companyName = text(item.companyName) || undefined;
       const personRole = text(item.role) || text(item.personRole) || "Decision Maker";
 
@@ -462,8 +401,6 @@ export function extractConversationProspects(
         community = `r/${community}`;
       }
 
-      const title = text(item.title) || text(item.action) || "Relevant buyer conversation";
-
       const roundedTotal = Math.round(total);
       const icpFit = Math.min(25, Math.round(roundedTotal * 0.27));
       const intentScore = Math.min(25, Math.round(roundedTotal * 0.27));
@@ -471,11 +408,10 @@ export function extractConversationProspects(
       const evidenceStrength = Math.min(10, Math.round(roundedTotal * 0.11));
       const contactQuality = Math.min(5, Math.round(roundedTotal * 0.06));
 
-      const intentCategory = classifyIntentCategory(intentCode);
-      const whyTarget = generateWhyTargetRationale(identity, matchedIcp, matchedProblem, intentLabel, companyName, platform);
-      const observableTrigger = generateObservableTrigger(intentCode, matchedProblem);
+      const whyTarget = generateWhyTargetRationale(identity, matchedIcp, matchedProblem, intentSignal, companyName, platform);
+      const observableTrigger = generateObservableTrigger(intentSignal, matchedProblem);
       const outreachAngle = generateOutreachAngle(identity, matchedProblem, matchedProduct, platform);
-      const contact = inferContactDetails(identity, sourceUrl, platform);
+      const contact = extractContactInfo(item, sourceUrl, platform);
 
       const priorityTier: "🔥 Priority" | "Strong Lead" | "Qualification Required" =
         roundedTotal >= 85 ? "🔥 Priority" : roundedTotal >= 70 ? "Strong Lead" : "Qualification Required";
@@ -488,7 +424,8 @@ export function extractConversationProspects(
         companyName,
         community,
         title,
-        intent: intentLabel,
+        intent: text(item.intentLabel) || intentSignal,
+        intentSignal,
         intentCategory,
         sourceUrl,
         score: roundedTotal,
@@ -512,17 +449,6 @@ export function extractConversationProspects(
         },
         priorityTier,
       });
-    }
-  }
-
-  // If candidate count is less than target limit (e.g. 5-6 leads), supplement with multi-source fallback leads (LinkedIn, X, Reddit, Web)
-  if (prospects.length < limit) {
-    const fallbacks = generateFallbackActiveLeads(companyContext, seenSet);
-    for (const fb of fallbacks) {
-      if (prospects.length >= limit) break;
-      prospects.push(fb);
-      seenSet.add(fb.id.toLowerCase());
-      seenSet.add(fb.identity.toLowerCase());
     }
   }
 
