@@ -2372,10 +2372,6 @@
 
         <section class="hero">
             <div class="hero-glow"></div>
-            <div class="sonar-radar-pill" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 18px; border-radius: 999px; background: rgba(139, 44, 224, 0.18); border: 1px solid rgba(192, 132, 252, 0.45); margin-bottom: 14px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; color: #f3e8ff; backdrop-filter: blur(12px); box-shadow: 0 0 24px rgba(139, 44, 224, 0.35);">
-                <span style="width: 8px; height: 8px; border-radius: 50%; background: #c084fc; box-shadow: 0 0 10px #c084fc; animation: pulseFast 1.5s infinite;"></span>
-                <span>SONAR GRID RADAR ACTIVE &bull; CLICK ANYWHERE TO PING</span>
-            </div>
             <span class="kicker">AI-POWERED MARKETING INTELLIGENCE</span>
             <div class="hero-spacer" style="height: 28px;" aria-hidden="true"></div>
             <h1 data-parallax="0.3">Your marketing has a new<br><em>command center.</em></h1>
@@ -3468,7 +3464,7 @@
                     return { x: r.x, y: r.y, radius, reach: radius + ringWidth, fade: Math.max(0, 1 - age / lifetime) };
                 });
 
-                const spacing = 22;
+                const spacing = 26;
                 const TAU = Math.PI * 2;
 
                 for (let x = 0; x < w; x += spacing) {
@@ -3489,16 +3485,16 @@
                             if (k > waveEnergy) waveEnergy = k;
                         }
 
-                        let radius = 1.1 * (1 + amplitude * waveEnergy);
-                        let alpha = 0.15 + (0.75 * waveEnergy);
+                        let radius = 1.6 * (1 + amplitude * waveEnergy);
+                        let alpha = 0.35 + (0.65 * waveEnergy);
                         let color = waveEnergy > 0.05 
                             ? `rgba(192, 132, 252, ${alpha})`
-                            : 'rgba(255, 255, 255, 0.14)';
+                            : 'rgba(255, 255, 255, 0.32)';
 
                         if (dist < 180) {
                             const factor = 1 - (dist / 180);
-                            radius = Math.max(radius, 1.1 + (2.2 * factor));
-                            color = `rgba(192, 132, 252, ${Math.max(alpha, 0.25 + 0.65 * factor)})`;
+                            radius = Math.max(radius, 1.6 + (2.2 * factor));
+                            color = `rgba(192, 132, 252, ${Math.max(alpha, 0.4 + 0.6 * factor)})`;
                         }
 
                         dCtx.beginPath();

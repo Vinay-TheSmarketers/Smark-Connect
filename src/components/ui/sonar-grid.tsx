@@ -102,7 +102,7 @@ export function SonarGrid({
     let nextPing = performance.now() + opts.current.pingEvery * 1000
 
     const readColor = () => {
-      stroke = getComputedStyle(canvas).color
+      stroke = opts.current.color || getComputedStyle(canvas).color || "#c084fc"
     }
 
     const addRing = (x: number, y: number, born: number) => {
@@ -281,8 +281,8 @@ export function SonarGrid({
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className="text-primary pointer-events-none absolute inset-0 -z-10 size-full"
-        style={color ? { color } : undefined}
+        className="pointer-events-none absolute inset-0 z-0 size-full"
+        style={color ? { color } : { color: "#c084fc" }}
       />
       {children}
     </div>

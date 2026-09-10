@@ -59,14 +59,14 @@ export function SmarkHeroSection({
   return (
     <SonarGrid
       id="smark-hero-sonar"
-      ringWidth={95}
-      speed={250}
-      amplitude={2.3}
-      pingEvery={2.8}
+      ringWidth={100}
+      speed={260}
+      amplitude={2.5}
+      pingEvery={2.4}
       interactive={true}
-      spacing={26}
-      dotRadius={1.3}
-      baseOpacity={0.2}
+      spacing={28}
+      dotRadius={1.75}
+      baseOpacity={0.4}
       color="#c084fc"
       pingArea={[0.2, 0.15, 0.8, 0.7]}
       className={`relative flex min-h-[88vh] w-full flex-col items-center justify-center overflow-hidden bg-[#0a0a0f] text-slate-100 ${className}`}
@@ -74,21 +74,10 @@ export function SmarkHeroSection({
       {/* Radial soft background wash */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_50%_at_50%_45%,rgba(139,44,224,0.14)_0%,transparent_100%)]"
+        className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_45%,rgba(139,44,224,0.12)_0%,transparent_100%)]"
       />
 
       <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-6 py-20 text-center">
-        {/* Sonar Radar Live Pill */}
-        <motion.div
-          {...enter(0)}
-          className="mb-4 inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/15 px-4 py-1.5 text-[11px] font-semibold tracking-wider text-purple-200 backdrop-blur-md shadow-[0_0_20px_rgba(139,44,224,0.25)]"
-        >
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
-          </span>
-          <span>SONAR RADAR ACTIVE &bull; CLICK ANYWHERE TO PING</span>
-        </motion.div>
 
         {/* Eyebrow Kicker */}
         <motion.div
