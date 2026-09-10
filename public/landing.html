@@ -38,17 +38,6 @@
         }
 
         /* Canvases & Neon Motion Layering */
-        #dot-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            pointer-events: none;
-            z-index: 0;
-            opacity: 0.85;
-        }
-
         #wave-canvas {
             position: fixed;
             top: 0;
@@ -56,11 +45,22 @@
             width: 100vw;
             height: 100vh;
             pointer-events: none;
-            z-index: 1;
+            z-index: 0;
             filter: blur(34px);
             mix-blend-mode: screen;
             opacity: 0.92;
             transition: transform 0.1s ease-out;
+        }
+
+        #dot-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 2;
+            opacity: 1;
         }
 
         /* Ambient Motion & Ultra-Visible Particles */
@@ -71,7 +71,7 @@
             width: 100vw;
             height: 100vh;
             pointer-events: none;
-            z-index: 2;
+            z-index: 3;
             transition: transform 0.15s ease-out;
         }
 
@@ -576,8 +576,7 @@
         }
 
         .card:hover {
-            border-color: rgba(255, 255, 255, 0.15);
-            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.18);
         }
 
         .card.featured {
@@ -746,10 +745,9 @@
         }
 
         .insight-card:hover {
-            transform: translateY(-5px);
             border-color: rgba(139, 44, 224, 0.35);
             background: rgba(18, 19, 32, 0.85);
-            box-shadow: 0 24px 50px rgba(0, 0, 0, 0.5), 0 0 35px rgba(139, 44, 224, 0.12);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 44, 224, 0.08);
         }
 
         .insight-card:hover::before {
@@ -1179,7 +1177,6 @@
 
         .paradigm-card:hover {
             border-color: rgba(139, 44, 224, 0.4);
-            transform: translateY(-4px);
             background: rgba(255, 255, 255, 0.05);
         }
 
@@ -1480,17 +1477,7 @@
         }
 
         .bp-stage-1.active .tool-window {
-            animation: jitterFloat 6s ease-in-out infinite alternate;
-        }
-
-        .tool-window:nth-child(2) { animation-delay: 0.4s; }
-        .tool-window:nth-child(3) { animation-delay: 0.8s; }
-        .tool-window:nth-child(4) { animation-delay: 1.2s; }
-
-        @keyframes jitterFloat {
-            0% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-3px) rotate(0.8deg); }
-            100% { transform: translateY(2px) rotate(-0.5deg); }
+            /* Kept stationary for clean, calm interface */
         }
 
         .tool-win-header {
@@ -1593,12 +1580,6 @@
             padding: 1px 5px;
             border-radius: 999px;
             box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
-            animation: bounceSoft 1s infinite alternate;
-        }
-
-        @keyframes bounceSoft {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-3px); }
         }
 
         .confused-marketer-card p {
@@ -2380,14 +2361,21 @@
                 </div>
                 <a href="#insights" class="nav-link">Insights</a>
                 <a href="#comparison" class="nav-link">Compare</a>
-                <a href="pricing.html" class="nav-link">Pricing</a>
-                <a href="docs.html" class="nav-link">Docs</a>
+                <a href="/pricing" class="nav-link">Pricing</a>
+                <a href="/docs" class="nav-link">Docs</a>
             </nav>
-            <a href="onboarding.html" class="btn btn-secondary" style="height: 40px; padding: 0 20px; font-size: 14px;">Sign In</a>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <a href="/login" class="btn btn-secondary" style="height: 38px; padding: 0 18px; font-size: 13px; border-radius: 12px;">Sign In</a>
+                <a href="/onboarding" class="btn btn-primary" style="height: 38px; padding: 0 18px; font-size: 13px; border-radius: 12px; background: #9333ea; color: white; border: 1px solid #a855f7;">Get Started</a>
+            </div>
         </header>
 
         <section class="hero">
             <div class="hero-glow"></div>
+            <div class="sonar-radar-pill" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 18px; border-radius: 999px; background: rgba(139, 44, 224, 0.18); border: 1px solid rgba(192, 132, 252, 0.45); margin-bottom: 14px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; color: #f3e8ff; backdrop-filter: blur(12px); box-shadow: 0 0 24px rgba(139, 44, 224, 0.35);">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: #c084fc; box-shadow: 0 0 10px #c084fc; animation: pulseFast 1.5s infinite;"></span>
+                <span>SONAR GRID RADAR ACTIVE &bull; CLICK ANYWHERE TO PING</span>
+            </div>
             <span class="kicker">AI-POWERED MARKETING INTELLIGENCE</span>
             <div class="hero-spacer" style="height: 28px;" aria-hidden="true"></div>
             <h1 data-parallax="0.3">Your marketing has a new<br><em>command center.</em></h1>
@@ -2396,7 +2384,7 @@
             <div class="search-bar" data-parallax="0.1">
                 <form class="search-bar-inner" id="hero-search-form" autocomplete="off">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    <input type="url" id="hero-url-input" placeholder="Enter your website URL" required />
+                    <input type="text" id="hero-url-input" placeholder="Enter your company website (e.g. stripe.com)" required />
                     <button type="submit">Start analysis &rarr;</button>
                 </form>
                 <p class="search-bar-hint">Paste your company URL and we'll build your marketing intelligence</p>
@@ -3421,6 +3409,27 @@
                 mouseY = e.clientY;
             });
 
+            // Sonar Grid Rings & Ambient Wavefronts
+            const sonarRings = [];
+            const ringSpeed = 240; // px/sec
+            const ringWidth = 85;  // px
+            const amplitude = 2.4;
+            const pingEvery = 2.8; // seconds
+            let nextPingTime = performance.now() + 1000;
+
+            function addSonarRing(x, y, born) {
+                sonarRings.push({ x, y, born });
+                while (sonarRings.length > 7) sonarRings.shift();
+            }
+
+            // Seed initial ping in hero area
+            addSonarRing(window.innerWidth * 0.5, window.innerHeight * 0.42, performance.now() - 400);
+
+            // Emit ring on click/pointerdown anywhere on screen
+            window.addEventListener('pointerdown', (e) => {
+                addSonarRing(e.clientX, e.clientY, performance.now());
+            });
+
             function resizeDotCanvas() {
                 dotCanvas.width = window.innerWidth;
                 dotCanvas.height = window.innerHeight;
@@ -3433,36 +3442,75 @@
 
             function drawDots() {
                 dCtx.clearRect(0, 0, dotCanvas.width, dotCanvas.height);
-                
-                const spacing = 18; // Dense high-resolution dot matrix field
-                
-                for (let x = 0; x < dotCanvas.width; x += spacing) {
-                    for (let y = 0; y < dotCanvas.height; y += spacing) {
+                const now = performance.now();
+                const w = dotCanvas.width;
+                const h = dotCanvas.height;
+
+                // Ambient periodic ping spawn in hero zone
+                if (now >= nextPingTime) {
+                    const px = w * (0.2 + Math.random() * 0.6);
+                    const py = h * (0.15 + Math.random() * 0.5);
+                    addSonarRing(px, py, now);
+                    nextPingTime = now + (pingEvery * 1000);
+                }
+
+                // Filter alive rings
+                const lifetime = (Math.hypot(w, h) + ringWidth) / ringSpeed;
+                for (let i = sonarRings.length - 1; i >= 0; i--) {
+                    if ((now - sonarRings[i].born) / 1000 >= lifetime) {
+                        sonarRings.splice(i, 1);
+                    }
+                }
+
+                const liveRings = sonarRings.map(r => {
+                    const age = (now - r.born) / 1000;
+                    const radius = age * ringSpeed;
+                    return { x: r.x, y: r.y, radius, reach: radius + ringWidth, fade: Math.max(0, 1 - age / lifetime) };
+                });
+
+                const spacing = 22;
+                const TAU = Math.PI * 2;
+
+                for (let x = 0; x < w; x += spacing) {
+                    for (let y = 0; y < h; y += spacing) {
                         const dx = x - mouseX;
                         const dy = y - mouseY;
                         const dist = Math.sqrt(dx * dx + dy * dy);
-                        
-                        let radius = 1.0;
-                        let color = 'rgba(255, 255, 255, 0.13)';
-                        
-                        if (dist < 180) {
-                            // Responsive luminous purple glow on hover
-                            const factor = 1 - (dist / 180);
-                            radius = 1.0 + (2.2 * factor); // up to 3.2px
-                            color = `rgba(192, 132, 252, ${0.25 + (0.65 * factor)})`;
+
+                        // Calculate sonar wavefront energy
+                        let waveEnergy = 0;
+                        for (let r = 0; r < liveRings.length; r++) {
+                            const ring = liveRings[r];
+                            if (Math.abs(x - ring.x) > ring.reach || Math.abs(y - ring.y) > ring.reach) continue;
+                            const dRing = Math.abs(Math.hypot(x - ring.x, y - ring.y) - ring.radius);
+                            if (dRing >= ringWidth) continue;
+                            const t = 1 - dRing / ringWidth;
+                            const k = t * t * (3 - 2 * t) * ring.fade;
+                            if (k > waveEnergy) waveEnergy = k;
                         }
-                        
+
+                        let radius = 1.1 * (1 + amplitude * waveEnergy);
+                        let alpha = 0.15 + (0.75 * waveEnergy);
+                        let color = waveEnergy > 0.05 
+                            ? `rgba(192, 132, 252, ${alpha})`
+                            : 'rgba(255, 255, 255, 0.14)';
+
+                        if (dist < 180) {
+                            const factor = 1 - (dist / 180);
+                            radius = Math.max(radius, 1.1 + (2.2 * factor));
+                            color = `rgba(192, 132, 252, ${Math.max(alpha, 0.25 + 0.65 * factor)})`;
+                        }
+
                         dCtx.beginPath();
-                        dCtx.arc(x, y, radius, 0, Math.PI * 2);
+                        dCtx.arc(x, y, radius, 0, TAU);
                         dCtx.fillStyle = color;
                         dCtx.fill();
 
-                        if (dist < 100) {
-                            // Secondary outer aura for active proximity dots
-                            const auraFactor = 1 - (dist / 100);
+                        if (waveEnergy > 0.35 || dist < 90) {
+                            const aura = Math.max(waveEnergy, 1 - dist / 90);
                             dCtx.beginPath();
-                            dCtx.arc(x, y, radius + 2.0, 0, Math.PI * 2);
-                            dCtx.fillStyle = `rgba(168, 85, 247, ${0.18 * auraFactor})`;
+                            dCtx.arc(x, y, radius + 2.2, 0, TAU);
+                            dCtx.fillStyle = `rgba(168, 85, 247, ${0.2 * aura})`;
                             dCtx.fill();
                         }
                     }
@@ -3628,21 +3676,7 @@
                 header.classList.remove('scrolled');
             }
 
-            if (!prefersReducedMotion) {
-                parallaxElements.forEach(el => {
-                    const speed = parseFloat(el.getAttribute('data-parallax'));
-                    
-                    // Only apply parallax if element is in or near viewport
-                    const rect = el.getBoundingClientRect();
-                    const elCenter = rect.top + rect.height / 2;
-                    const viewCenter = window.innerHeight / 2;
-                    
-                    if (rect.top < window.innerHeight + 200 && rect.bottom > -200) {
-                        const offset = (elCenter - viewCenter) * speed;
-                        el.style.transform = `translateY(${offset}px)`;
-                    }
-                });
-            }
+            // Content kept stationary and calm for clean reading experience
         });
 
         // Insights Filter & Modal Reader Logic
@@ -3820,11 +3854,14 @@
         // Search bar form submission
         document.getElementById('hero-search-form').addEventListener('submit', function(e) {
             e.preventDefault();
-            const url = document.getElementById('hero-url-input').value.trim();
+            let url = document.getElementById('hero-url-input').value.trim();
             if (url) {
+                if (!/^https?:\/\//i.test(url)) {
+                    url = 'https://' + url;
+                }
                 // Clear any existing onboarding state and pass URL
                 localStorage.removeItem('smark-onboarding');
-                window.location.href = 'onboarding.html?url=' + encodeURIComponent(url);
+                window.location.href = '/onboarding?url=' + encodeURIComponent(url);
             }
         });
 
