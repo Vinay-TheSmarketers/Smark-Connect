@@ -6,7 +6,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["lighthouse", "chrome-launcher", "puppeteer-core"],
   async rewrites() {
     return [
-      { source: "/onboarding", destination: "/onboarding.html" },
       { source: "/landing", destination: "/landing.html" },
     ];
   },

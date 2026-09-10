@@ -35,25 +35,26 @@
 
     /* Canvases */
     canvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      pointer-events: none;
+      display: none !important;
     }
 
-    #dot-canvas {
-      z-index: 0;
+    .provider-logo-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      flex-shrink: 0;
     }
 
-    #wave-canvas {
-      z-index: 1;
-      filter: blur(50px);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      canvas { display: none; }
+    .provider-svg {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
 
     /* Layout */
@@ -621,28 +622,36 @@
         
         <div class="grid-cards" id="provider-selection">
           <div class="card selected" onclick="selectCard(this, 'provider')">
-            <div class="provider-dot dot-openai"></div>
+            <div class="provider-logo-wrap">
+              <img src="/provider-logos/openai.svg" alt="OpenAI" class="provider-svg">
+            </div>
             <div class="card-content">
               <h3>OpenAI</h3>
               <p>GPT-4o, o1, and more</p>
             </div>
           </div>
           <div class="card" onclick="selectCard(this, 'provider')">
-            <div class="provider-dot dot-anthropic"></div>
+            <div class="provider-logo-wrap">
+              <img src="/provider-logos/anthropic.svg" alt="Anthropic" class="provider-svg">
+            </div>
             <div class="card-content">
               <h3>Anthropic</h3>
               <p>Claude Sonnet, Opus, Haiku</p>
             </div>
           </div>
           <div class="card" onclick="selectCard(this, 'provider')">
-            <div class="provider-dot dot-gemini"></div>
+            <div class="provider-logo-wrap">
+              <img src="/provider-logos/google-gemini.svg" alt="Google Gemini" class="provider-svg">
+            </div>
             <div class="card-content">
               <h3>Google Gemini</h3>
               <p>Gemini Pro and Ultra</p>
             </div>
           </div>
           <div class="card" onclick="selectCard(this, 'provider')">
-            <div class="provider-dot dot-openrouter"></div>
+            <div class="provider-logo-wrap">
+              <img src="/provider-logos/openrouter.svg" alt="OpenRouter" class="provider-svg">
+            </div>
             <div class="card-content">
               <h3>OpenRouter</h3>
               <p>Access 100+ models</p>
