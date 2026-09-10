@@ -3407,10 +3407,10 @@
 
             // Sonar Grid Rings & Ambient Wavefronts
             const sonarRings = [];
-            const ringSpeed = 240; // px/sec
-            const ringWidth = 85;  // px
-            const amplitude = 2.4;
-            const pingEvery = 2.8; // seconds
+            const ringSpeed = 135; // px/sec - slower, gentle ambient glide
+            const ringWidth = 115;  // px - softer transition
+            const amplitude = 1.5;
+            const pingEvery = 4.2; // seconds - relaxed cadence
             let nextPingTime = performance.now() + 1000;
 
             function addSonarRing(x, y, born) {
@@ -3485,16 +3485,16 @@
                             if (k > waveEnergy) waveEnergy = k;
                         }
 
-                        let radius = 1.6 * (1 + amplitude * waveEnergy);
-                        let alpha = 0.35 + (0.65 * waveEnergy);
+                        let radius = 1.35 * (1 + amplitude * waveEnergy);
+                        let alpha = 0.20 + (0.45 * waveEnergy);
                         let color = waveEnergy > 0.05 
-                            ? `rgba(192, 132, 252, ${alpha})`
-                            : 'rgba(255, 255, 255, 0.32)';
+                            ? `rgba(168, 130, 246, ${alpha})`
+                            : 'rgba(255, 255, 255, 0.18)';
 
                         if (dist < 180) {
                             const factor = 1 - (dist / 180);
-                            radius = Math.max(radius, 1.6 + (2.2 * factor));
-                            color = `rgba(192, 132, 252, ${Math.max(alpha, 0.4 + 0.6 * factor)})`;
+                            radius = Math.max(radius, 1.35 + (1.6 * factor));
+                            color = `rgba(168, 130, 246, ${Math.max(alpha, 0.25 + 0.35 * factor)})`;
                         }
 
                         dCtx.beginPath();

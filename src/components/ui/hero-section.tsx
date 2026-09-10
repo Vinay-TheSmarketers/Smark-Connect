@@ -31,9 +31,9 @@ export function SmarkHeroSection({
     reduce
       ? {}
       : {
-          initial: { opacity: 0, y: 10 },
+          initial: { opacity: 0, y: 12 },
           animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.4, delay: delay * 0.4, ease: [0.22, 1, 0.36, 1] as const },
+          transition: { duration: 0.55, delay: delay * 0.45, ease: [0.22, 1, 0.36, 1] as const },
         };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -59,22 +59,22 @@ export function SmarkHeroSection({
   return (
     <SonarGrid
       id="smark-hero-sonar"
-      ringWidth={100}
-      speed={260}
-      amplitude={2.5}
-      pingEvery={2.4}
+      ringWidth={125}
+      speed={135}
+      amplitude={1.6}
+      pingEvery={4.2}
       interactive={true}
       spacing={28}
-      dotRadius={1.75}
-      baseOpacity={0.4}
-      color="#c084fc"
+      dotRadius={1.35}
+      baseOpacity={0.22}
+      color="rgba(168, 130, 246, 0.65)"
       pingArea={[0.2, 0.15, 0.8, 0.7]}
       className={`relative flex min-h-[88vh] w-full flex-col items-center justify-center overflow-hidden bg-[#0a0a0f] text-slate-100 ${className}`}
     >
       {/* Radial soft background wash */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_45%,rgba(139,44,224,0.12)_0%,transparent_100%)]"
+        className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_45%,rgba(139,44,224,0.06)_0%,transparent_100%)]"
       />
 
       <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-6 py-20 text-center">
