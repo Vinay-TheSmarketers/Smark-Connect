@@ -2,6 +2,8 @@ import { currentUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { SmarkHeroSection } from "@/components/ui/hero-section";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import Link from "next/link";
 import {
   Sparkles,
@@ -48,51 +50,7 @@ export default async function Home() {
   return (
     <div className="relative min-h-screen w-full bg-[#0a0a0f] font-sans text-slate-100 selection:bg-purple-500 selection:text-white">
       {/* Sticky Main Menu Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-between border-b border-white/10 bg-[#0a0a0f]/85 px-6 backdrop-blur-xl md:px-12">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="flex size-7 items-center justify-center rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 shadow-md shadow-purple-500/30 transition-transform group-hover:scale-105">
-              <span className="size-2 rounded-full bg-white" />
-            </div>
-            <span className="text-base font-bold tracking-tight text-white">Smark Connect</span>
-          </Link>
-        </div>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden items-center gap-8 text-sm font-medium text-slate-300 md:flex">
-          <a href="#features" className="transition-colors hover:text-white">
-            Features
-          </a>
-          <a href="#insights" className="transition-colors hover:text-white">
-            Insights
-          </a>
-          <a href="#comparison" className="transition-colors hover:text-white">
-            Compare
-          </a>
-          <Link href="/pricing" className="transition-colors hover:text-white">
-            Pricing
-          </Link>
-          <Link href="/docs" className="transition-colors hover:text-white">
-            Docs
-          </Link>
-        </nav>
-
-        {/* Header Action Buttons */}
-        <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/10 active:scale-95"
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/onboarding"
-            className="hidden rounded-xl bg-purple-600 px-4.5 py-2 text-xs font-semibold text-white shadow-md shadow-purple-600/30 transition-all hover:bg-purple-500 active:scale-95 sm:inline-flex"
-          >
-            Get Started
-          </Link>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* Hero Section */}
       <div className="pt-16">
@@ -487,24 +445,7 @@ export default async function Home() {
       </section>
 
       {/* Standard Footer */}
-      <footer className="border-t border-white/10 bg-[#050508] py-12 px-6">
-        <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-slate-500">
-          <div className="flex items-center gap-3">
-            <div className="flex size-6 items-center justify-center rounded-full bg-purple-600">
-              <span className="size-1.5 rounded-full bg-white" />
-            </div>
-            <span className="font-bold text-slate-300">Smark Connect</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <a href="#features" className="hover:text-slate-300">Features</a>
-            <a href="#insights" className="hover:text-slate-300">Insights</a>
-            <Link href="/pricing" className="hover:text-slate-300">Pricing</Link>
-            <Link href="/docs" className="hover:text-slate-300">Docs</Link>
-            <Link href="/login" className="hover:text-slate-300">Sign In</Link>
-          </div>
-          <p>&copy; 2026 Smark Connect. AI-Powered Marketing Intelligence.</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

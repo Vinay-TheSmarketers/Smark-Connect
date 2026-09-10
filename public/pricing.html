@@ -35,34 +35,8 @@
         }
 
         /* Canvases */
-        #dot-canvas, #wave-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            pointer-events: none;
-        }
-
-        #dot-canvas {
-            z-index: 0;
-        }
-
-        #wave-canvas {
-            z-index: 1;
-            filter: blur(50px);
-            transition: transform 0.1s ease-out;
-        }
-
-        /* Ambient Motion */
-        .ambient-particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            pointer-events: none;
-            z-index: 0;
+        #dot-canvas, #wave-canvas, .ambient-particles {
+            display: none !important;
         }
 
         .particle {
