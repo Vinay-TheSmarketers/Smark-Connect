@@ -85,6 +85,7 @@ body {
   font-family: var(--font-sans);
   letter-spacing: 0.015em;
   font-weight: 400;
+  overflow-x: hidden;
 }
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
@@ -140,6 +141,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 .font-medium {
   font-weight: 460 !important;
+}
+
+@keyframes app-shell-unlock {
+  from { overflow-y: hidden; }
+  to { overflow-y: auto; }
 }
 
 .onboarding-shell { min-height: 100vh; position: relative; overflow: hidden; background: var(--cream); }
@@ -236,6 +242,7 @@ form input:focus { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(139,4
 }
 
 @media (prefers-reduced-motion: reduce) {
+  body { animation-delay: 101ms; }
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
 
@@ -13585,6 +13592,53 @@ html[data-theme="dark"] .finding-decision-list > div {
   background: #eaf6f0;
   padding: 2px 6px;
   border-radius: 4px;
+}
+
+.verified-badge-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 7.5px;
+  font-weight: 600;
+  color: #136949;
+  background: #eaf6f0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.probable-badge-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 7.5px;
+  font-weight: 600;
+  color: #8c6d1f;
+  background: #fdf6e7;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.unlisted-badge-inline {
+  display: inline-flex;
+  align-items: center;
+  font-size: 7.5px;
+  font-weight: 500;
+  color: #8a827d;
+  background: #f2efec;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.unlisted-note {
+  font-size: 8.5px;
+  color: #8e8884;
+  font-style: italic;
 }
 
 .modal-link {

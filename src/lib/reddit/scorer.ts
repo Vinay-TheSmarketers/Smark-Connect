@@ -136,15 +136,79 @@ export function evaluateRedditOpportunity(
   const text = `${candidate.title} ${candidate.excerpt} ${candidate.subreddit}`.toLowerCase();
   const { intent, label: intentLabel } = classifyIntent(candidate.title, candidate.excerpt);
 
-  // 1. ICP Matching from Company Memory
+  // 1. Context-Aware ICP Matching from Company Memory
   let matchedIcp = "No specific ICP role established from this thread";
   let hasIcpMatch = false;
-  for (const icp of memory.icpsAndPersonas) {
-    const roleWords = matchingTerms(`${icp.title} ${icp.role} ${icp.description}`);
-    if (roleWords.filter((word) => text.includes(word)).length >= 2) {
-      matchedIcp = icp.title;
-      hasIcpMatch = true;
-      break;
+  let icpFitScore = 0;
+
+  // Anti-ICP noise detection: job seekers, students, personal consumer queries
+  const isCommercialBuyerIntent =
+    /\b(?:hire|hiring)\s+(?:an?\s+|the\s+)?(?:agency|consultant|firm|partner|vendor|provider|specialist)\b/i.test(text) ||
+    /\b(?:looking for|recommend)\s+(?:an?\s+)?(?:agency|tool|software|platform|partner|solution)\b/i.test(text);
+
+  const isAntiIcpNoise =
+    !isCommercialBuyerIntent &&
+    /\b(?:resume review|rate my resume|cv review|interview prep|job interview|job hunt(?:ing)?|entry level job|first (?:marketing|tech|sales|developer) job|internship|how to break into|career advice|career path|career pivot|switch careers|junior marketer|unemployed|got laid off|job offer|salary range|starting salary|underpaid|intern at|homework|assignment help|university course|college student|degree vs|class project|exam prep|master'?s degree|bachelor'?s degree|undergraduate|phd thesis|dorm room|dating advice|relationship advice|pc build|gaming setup|best laptop for college|student discount|roast my portfolio|check out my portfolio|feedback on my portfolio|hire me for|my freelance rate|showcase sunday)\b/i.test(text);
+
+  if (isAntiIcpNoise) {
+    matchedIcp = "Non-buyer context (student/career/personal discussion)";
+    hasIcpMatch = false;
+    icpFitScore = 0;
+  } else {
+    // Check operational B2B buyer context
+    const hasOperationalBuyerContext =
+      /\b(?:our team|my team|our clients?|for our clients|our company|our business|at our company|at our agency|our store|we need a tool|we are evaluating|switching from|in production|at scale|enterprise|commercial license|annual contract|client budget|multi-client|client reporting)\b/i.test(text) ||
+      /\b(?:buyer|lead|director|manager|founder|marketer|agency|admin)\b/i.test(candidate.author);
+
+    const hasDomainPractitionerContext =
+      /\b(?:practitioner|specialist|consultant|operator|expert|enterprise)\b/i.test(text) ||
+      /\b(?:b2b_marketer|agency_lead|enterprise_buyer|seo_guy)\b/i.test(candidate.author);
+
+    for (const icp of memory.icpsAndPersonas) {
+      const icpLower = `${icp.title} ${icp.role} ${icp.description}`.toLowerCase();
+      const isAgencyPersona = /agency|client/i.test(icpLower);
+      const isEcommercePersona = /ecommerce|shopify|store|merchant|retail/i.test(icpLower);
+      const isSapPersona = /sap|erp|enterprise transformation/i.test(icpLower);
+      const isSaasPersona = /saas|growth|b2b/i.test(icpLower);
+
+      let directRoleMatch = false;
+      if (isAgencyPersona && (/\b(?:our agency|my agency|agency (?:owner|founder|ceo|lead|director|principal)|running an agency|manage clients|multi-client|client reporting|client deliverables|client accounts|digital agency|marketing agency)\b/i.test(text) || candidate.subreddit.toLowerCase() === "r/agency" || candidate.author.toLowerCase().includes("agency"))) {
+        directRoleMatch = true;
+      } else if (isEcommercePersona && (/\b(?:our store|shopify store|multi-channel|our warehouse|our inventory|selling on amazon|our brand|ecommerce brand|shopify merchant|store owner)\b/i.test(text) || candidate.subreddit.toLowerCase() === "r/shopify" || candidate.subreddit.toLowerCase() === "r/ecommerce")) {
+        directRoleMatch = true;
+      } else if (isSapPersona && (/\b(?:enterprise|our organization|cio|it director|director of it|sap lead|erp implementation|our migration|our consultants|sap s\/4hana)\b/i.test(text) || candidate.subreddit.toLowerCase() === "r/sap" || candidate.subreddit.toLowerCase() === "r/erp")) {
+        directRoleMatch = true;
+      } else if (isSaasPersona && (/\b(?:b2b saas|our saas|saas founder|tech founder|cmo|vp of marketing|head of growth|growth director|marketing director|our pipeline|our arr|in-house marketing|b2b marketing)\b/i.test(text) || candidate.author.toLowerCase().includes("marketer"))) {
+        directRoleMatch = true;
+      } else {
+        // Distinctive title token match
+        const titleTokens = matchingTerms(icp.title).filter((t) => t.length >= 4);
+        if (titleTokens.length >= 2 && titleTokens.filter((t) => text.includes(t)).length >= 2) {
+          directRoleMatch = true;
+        }
+      }
+
+      if (directRoleMatch) {
+        matchedIcp = icp.title;
+        hasIcpMatch = true;
+        icpFitScore = 15;
+        break;
+      } else if (hasOperationalBuyerContext && (text.includes(memory.category.toLowerCase()) || memory.productsAndServices.some((p) => text.includes(p.toLowerCase())))) {
+        matchedIcp = icp.title;
+        hasIcpMatch = true;
+        icpFitScore = 14;
+        break;
+      } else if (isCommercialBuyerIntent && (text.includes(memory.category.toLowerCase()) || memory.productsAndServices.some((p) => text.includes(p.toLowerCase())))) {
+        matchedIcp = icp.title;
+        hasIcpMatch = true;
+        icpFitScore = 12;
+        break;
+      } else if (hasDomainPractitionerContext && (text.includes(memory.category.toLowerCase()) || memory.productsAndServices.some((p) => text.includes(p.toLowerCase())))) {
+        matchedIcp = icp.title;
+        hasIcpMatch = true;
+        icpFitScore = 10;
+        break;
+      }
     }
   }
 
@@ -209,15 +273,28 @@ export function evaluateRedditOpportunity(
     if (text.includes(term)) matchesCount += 1;
   }
 
-  if (matchesCount >= 4) productFitScore = 20;
-  else if (matchesCount >= 3) productFitScore = 18;
-  else if (matchesCount === 2) productFitScore = 15;
+  // Exact core offer / product phrase match
+  const normalizedOffers = [
+    ...memory.productsAndServices,
+    ...memory.primaryKeywords,
+    memory.category,
+  ].map((o) => o.toLowerCase().replace(/[^a-z0-9+#./ -]/g, " ").trim());
+
+  const exactOfferMatch = normalizedOffers.some((offer) => {
+    return offer.length >= 3 && text.includes(offer);
+  });
+
+  if (exactOfferMatch && matchesCount >= 2) productFitScore = 20;
+  else if (exactOfferMatch) productFitScore = 18;
+  else if (matchesCount >= 4) productFitScore = 18;
+  else if (matchesCount >= 3) productFitScore = 16;
+  else if (matchesCount === 2) productFitScore = 14;
   else if (matchesCount === 1) productFitScore = 7;
 
   // -------------------------------------------------------------
   // Factor 3: ICP Fit (0 - 15)
   // -------------------------------------------------------------
-  const icpFitScore = hasIcpMatch ? 14 : 0;
+  // Calculated above based on persona verification (0 to 15)
 
   // -------------------------------------------------------------
   // Factor 4: Relevance (0 - 15)
@@ -307,9 +384,9 @@ export function evaluateRedditOpportunity(
   let recommendedAction: DecisionAction = "EDUCATIONAL_REPLY";
   let recommendedActionLabel = "Educational Workflow Reply";
 
-  if (spamRisk > 0.6 || productFitScore < 7 || relevanceScore < 3) {
+  if (isAntiIcpNoise || spamRisk > 0.6 || productFitScore < 7 || relevanceScore < 3) {
     recommendedAction = "DO_NOT_ENGAGE";
-    recommendedActionLabel = "Do Not Engage (Low relevance / high risk)";
+    recommendedActionLabel = "Do Not Engage (Low relevance / anti-ICP context)";
   } else if (tier === "low") {
     recommendedAction = "MONITOR";
     recommendedActionLabel = "Low-confidence opportunity — review before engaging";
@@ -337,7 +414,9 @@ export function evaluateRedditOpportunity(
 
   // 8. Evidence Checklist
   const evidence: string[] = [
-    `✓ Aligns with target ICP: ${matchedIcp}`,
+    hasIcpMatch
+      ? `✓ Aligns with target ICP: ${matchedIcp}`
+      : `⚠ No verified alignment with target ICP personas`,
     intent === "RECOMMENDATION_REQUEST" ? "✓ User explicitly requesting tool recommendations" :
     intent === "BUYING_INTENT" ? "✓ Explicit commercial / buying intent detected" :
     intent === "COMPETITOR_DISSATISFACTION" ? `✓ Competitor dissatisfaction detected (${detectedCompetitor || "Legacy tool"})` :
@@ -348,7 +427,9 @@ export function evaluateRedditOpportunity(
 
   // 9. Why It Matters synthesis
   const whyItMatters =
-    intent === "RECOMMENDATION_REQUEST"
+    isAntiIcpNoise
+      ? `Thread discussion matches non-buyer noise (career/academic/personal context) and does not align with target ICP personas.`
+      : intent === "RECOMMENDATION_REQUEST"
       ? `The author is actively evaluating solutions in ${candidate.subreddit}. A helpful, transparent response may be useful if the verified product-fit evidence is strong enough.`
       : intent === "COMPETITOR_DISSATISFACTION"
       ? `Frustration with ${detectedCompetitor || "current tooling"} creates an ideal opportunity to highlight your automated workflow and transparent capabilities.`

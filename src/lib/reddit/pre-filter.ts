@@ -19,6 +19,13 @@ const REMOVED_PATTERNS = [
   /post has been removed/i,
 ];
 
+const ANTI_ICP_PATTERNS = [
+  /\b(?:resume review|rate my resume|cv review|interview prep|job interview|job hunt(?:ing)?|entry level job|first (?:marketing|tech|sales|developer) job|internship|how to break into|career advice|career path|career pivot|switch careers|junior marketer|unemployed|got laid off|job offer|salary range|starting salary|underpaid|intern at)\b/i,
+  /\b(?:homework|assignment help|university course|college student|degree vs|class project|exam prep|master'?s degree|bachelor'?s degree|undergraduate|phd thesis|dorm room)\b/i,
+  /\b(?:dating advice|relationship advice|pc build|gaming setup|best laptop for college|student discount)\b/i,
+  /\b(?:roast my portfolio|check out my portfolio|feedback on my portfolio|hire me for|my freelance rate|showcase sunday)\b/i,
+];
+
 const RELEVANCE_STOPWORDS = new Set([
   "about", "agency", "and", "are", "best", "business", "client", "company", "consulting", "for", "from", "help", "how", "into", "looking",
   "management", "modern", "platform", "provider", "service", "services", "software", "solution", "solutions",
@@ -27,6 +34,36 @@ const RELEVANCE_STOPWORDS = new Set([
 
 function normalizedPhrase(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9+#./ -]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function extractRelevantPhrases(evidenceValues: string[]): string[] {
+  const phrases = new Set<string>();
+  for (const val of evidenceValues) {
+    const norm = normalizedPhrase(val);
+    if (norm.length >= 3 && !RELEVANCE_STOPWORDS.has(norm)) {
+      phrases.add(norm);
+    }
+    const parenMatch = val.match(/\(([^)]+)\)/);
+    if (parenMatch) {
+      const parenNorm = normalizedPhrase(parenMatch[1]);
+      if (parenNorm.length >= 2 && !RELEVANCE_STOPWORDS.has(parenNorm)) {
+        phrases.add(parenNorm);
+      }
+      const beforeParen = normalizedPhrase(val.replace(/\([^)]+\)/, ""));
+      if (beforeParen.length >= 3 && !RELEVANCE_STOPWORDS.has(beforeParen)) {
+        phrases.add(beforeParen);
+      }
+    }
+    if (val.includes("/")) {
+      val.split("/").forEach((part) => {
+        const pNorm = normalizedPhrase(part);
+        if (pNorm.length >= 2 && !RELEVANCE_STOPWORDS.has(pNorm)) {
+          phrases.add(pNorm);
+        }
+      });
+    }
+  }
+  return Array.from(phrases);
 }
 
 function distinctiveTerms(values: string[]): string[] {
@@ -57,9 +94,9 @@ export function runDeterministicPreFilter(
     ...memory.secondaryKeywords,
     ...memory.competitors.map((competitor) => competitor.name),
   ];
-  const relevantPhrases = Array.from(new Set(evidenceValues.map(normalizedPhrase)))
-    .filter((phrase) => phrase.length >= 5 && phrase.split(" ").length >= 2 && !RELEVANCE_STOPWORDS.has(phrase));
+  const relevantPhrases = extractRelevantPhrases(evidenceValues);
   const relevantTerms = distinctiveTerms(evidenceValues);
+  const competitorNames = memory.competitors.map((c) => c.name.toLowerCase()).filter(Boolean);
 
   const filtered: FilteredCandidate[] = [];
 
@@ -92,7 +129,17 @@ export function runDeterministicPreFilter(
       continue;
     }
 
-    // 5. Recency / Staleness filter
+    // 5. Anti-ICP noise filter: Drop career seekers, student homework, and casual consumer rants
+    const contentText = `${candidate.title} ${candidate.excerpt}`.toLowerCase();
+    const isCommercialBuyerIntent =
+      /\b(?:hire|hiring)\s+(?:an?\s+|the\s+)?(?:agency|consultant|firm|partner|vendor|provider|specialist)\b/i.test(contentText) ||
+      /\b(?:looking for|recommend)\s+(?:an?\s+)?(?:agency|tool|software|platform|partner|solution)\b/i.test(contentText);
+
+    if (!isCommercialBuyerIntent && ANTI_ICP_PATTERNS.some((pat) => pat.test(contentText))) {
+      continue;
+    }
+
+    // 6. Recency / Staleness filter
     if (candidate.publishedAt) {
       const pubTime = new Date(candidate.publishedAt).getTime();
       const ageMs = now - pubTime;
@@ -104,11 +151,30 @@ export function runDeterministicPreFilter(
       }
     }
 
-    // 6. Evidence relevance: require a specific offer phrase or at least two distinctive domain terms.
-    const combinedText = `${candidate.title} ${candidate.excerpt} ${candidate.subreddit}`.toLowerCase();
-    const exactPhraseMatch = relevantPhrases.some((phrase) => combinedText.includes(phrase));
-    const matchedTerms = relevantTerms.filter((term) => combinedText.includes(term));
-    const hasRelevance = exactPhraseMatch || matchedTerms.length >= 1;
+    // 7. Evidence relevance: Require actual post content to match specific offerings, competitors, or distinctive terms
+    const exactPhraseMatch = relevantPhrases.some((phrase) => {
+      if (phrase.length <= 4) {
+        return new RegExp(`\\b${phrase}\\b`, "i").test(contentText);
+      }
+      return contentText.includes(phrase);
+    });
+    const competitorMatch = competitorNames.some((comp) => new RegExp(`\\b${comp}\\b`, "i").test(contentText));
+    const matchedTerms = relevantTerms.filter((term) => {
+      if (term.length <= 4) {
+        return new RegExp(`\\b${term}\\b`, "i").test(contentText);
+      }
+      return contentText.includes(term);
+    });
+
+    // Must match exact phrase/competitor, or at least 2 distinctive domain terms in content,
+    // or 1 distinctive domain term if in a designated community context
+    const hasRelevance =
+      exactPhraseMatch ||
+      competitorMatch ||
+      matchedTerms.length >= 2 ||
+      (matchedTerms.length >= 1 && (candidate.queryFamily !== "broader_icp" || exactPhraseMatch)) ||
+      (matchedTerms.length >= 1 && (candidate.subreddit.toLowerCase().includes(matchedTerms[0]) || matchedTerms[0].length >= 5));
+
     if (!hasRelevance) {
       continue;
     }

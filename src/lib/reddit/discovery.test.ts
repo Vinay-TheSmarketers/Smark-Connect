@@ -483,4 +483,143 @@ describe("Reddit Continuous Opportunity Discovery System", () => {
     expect(allQueryTexts).not.toContain("seo audit");
     expect(allQueryTexts).not.toContain("screaming frog");
   });
+
+  it("strictly rejects anti-ICP noise threads (career seekers, students, consumer laptops) in pre-filter", () => {
+    const candidates = [
+      {
+        id: "job-seeker-1",
+        url: "https://www.reddit.com/r/marketing/comments/job1/first_marketing_job/",
+        subreddit: "r/marketing",
+        title: "How do I get my first marketing job? Resume review appreciated",
+        excerpt: "Graduating soon, looking for entry level job in B2B demand generation.",
+        author: "college_student",
+        publishedAt: new Date().toISOString(),
+        score: 10,
+        numComments: 8,
+        query: "B2B marketing",
+        queryFamily: "broader_icp",
+        discoverySource: "Reddit RSS",
+        verified: true,
+      },
+      {
+        id: "student-homework-1",
+        url: "https://www.reddit.com/r/marketing/comments/stud1/college_course_help/",
+        subreddit: "r/marketing",
+        title: "College student asking about marketing degree vs certifications",
+        excerpt: "Need assignment help and university course advice on digital marketing.",
+        author: "undergrad",
+        publishedAt: new Date().toISOString(),
+        score: 5,
+        numComments: 3,
+        query: "digital marketing",
+        queryFamily: "broader_icp",
+        discoverySource: "Reddit RSS",
+        verified: true,
+      },
+      {
+        id: "consumer-laptop-1",
+        url: "https://www.reddit.com/r/marketing/comments/laptop1/best_laptop_for_marketing/",
+        subreddit: "r/marketing",
+        title: "What is the best laptop for college studying marketing?",
+        excerpt: "Looking for recommendations on a MacBook or ThinkPad for my marketing classes.",
+        author: "student_buyer",
+        publishedAt: new Date().toISOString(),
+        score: 15,
+        numComments: 12,
+        query: "best marketing tool",
+        queryFamily: "direct_product",
+        discoverySource: "Reddit RSS",
+        verified: true,
+      },
+      {
+        id: "portfolio-promo-1",
+        url: "https://www.reddit.com/r/marketing/comments/port1/feedback_on_portfolio/",
+        subreddit: "r/marketing",
+        title: "Feedback on my portfolio / roast my website - freelance marketer",
+        excerpt: "Check out my portfolio and tell me if my freelance rate is too high.",
+        author: "freelancer",
+        publishedAt: new Date().toISOString(),
+        score: 8,
+        numComments: 6,
+        query: "marketing agency",
+        queryFamily: "direct_product",
+        discoverySource: "Reddit RSS",
+        verified: true,
+      },
+      {
+        id: "buyer123",
+        url: "https://www.reddit.com/r/marketing/comments/buyer123/hire_abm_agency/",
+        subreddit: "r/marketing",
+        title: "We are looking to hire an agency for full-funnel demand generation and ABM",
+        excerpt: "Our B2B SaaS pipeline needs a dedicated partner to scale enterprise accounts.",
+        author: "saas_cmo",
+        publishedAt: new Date().toISOString(),
+        score: 30,
+        numComments: 15,
+        query: "hire an agency for full-funnel demand generation",
+        queryFamily: "recommendation_buying",
+        discoverySource: "Reddit RSS",
+        verified: true,
+      },
+    ];
+
+    const filtered = runDeterministicPreFilter(candidates, mockMemory, new Set());
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].id).toBe("buyer123");
+  });
+
+  it("disqualifies threads without verified ICP fit from qualifying for the action feed", () => {
+    const genericDiscussion = {
+      id: "gen12345",
+      url: "https://www.reddit.com/r/marketing/comments/gen12345/future_of_marketing/",
+      subreddit: "r/marketing",
+      title: "What is everyone's thoughts on the future of marketing workflows?",
+      excerpt: "Just curious how people feel about industry trends in general without any specific tooling.",
+      author: "casual_poster",
+      publishedAt: new Date().toISOString(),
+      score: 10,
+      numComments: 5,
+      query: "marketing workflow",
+      queryFamily: "broader_icp",
+      discoverySource: "Reddit JSON",
+      verified: true,
+      passedPreFilter: true as const,
+    };
+
+    const evaluated = evaluateRedditOpportunity(genericDiscussion, mockMemory);
+    expect(evaluated.score.icpFit).toBeLessThan(7);
+    expect(evaluated.evidence).toContain("⚠ No verified alignment with target ICP personas");
+
+    const qualified = qualifyRedditOpportunities([evaluated]);
+    expect(qualified).toHaveLength(0);
+  });
+
+  it("qualifies authentic buyer ICP opportunities with high ICP fit scores and verified evidence", () => {
+    const agencyBuyer = {
+      id: "agency123",
+      url: "https://www.reddit.com/r/agency/comments/agency123/client_reporting_tool/",
+      subreddit: "r/agency",
+      title: "Our digital agency is looking for an automated SEO client reporting tool",
+      excerpt: "We manage 25 clients and spending 5+ hours per client on manual SEO audits is killing us. Need white-label alternatives.",
+      author: "agency_owner_mike",
+      publishedAt: new Date().toISOString(),
+      score: 45,
+      numComments: 22,
+      query: "client reporting tool for agency",
+      queryFamily: "recommendation_buying",
+      discoverySource: "Reddit JSON",
+      verified: true,
+      passedPreFilter: true as const,
+    };
+
+    const evaluated = evaluateRedditOpportunity(agencyBuyer, mockMemory);
+    expect(evaluated.score.icpFit).toBeGreaterThanOrEqual(14);
+    expect(evaluated.matchedIcp).toBe("B2B Marketing Agency Owner");
+    expect(evaluated.evidence[0]).toBe("✓ Aligns with target ICP: B2B Marketing Agency Owner");
+    expect(evaluated.recommendedAction).toBe("DIRECT_RECOMMENDATION");
+
+    const qualified = qualifyRedditOpportunities([evaluated]);
+    expect(qualified).toHaveLength(1);
+    expect(qualified[0].score.total).toBeGreaterThanOrEqual(80);
+  });
 });

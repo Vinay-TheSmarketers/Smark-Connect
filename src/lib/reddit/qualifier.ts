@@ -18,10 +18,14 @@ export function qualifyRedditOpportunities(opportunities: EvaluatedRedditOpportu
   return opportunities
     .filter((opportunity) =>
       isVerifiedRedditOpportunityIdentity(opportunity) &&
-      opportunity.score.total >= 30 &&
+      opportunity.score.total >= 50 &&
       opportunity.score.productFit >= 7 &&
+      opportunity.score.icpFit >= 7 &&
       opportunity.score.relevance >= 3 &&
-      opportunity.recommendedAction !== "DO_NOT_ENGAGE"
+      opportunity.recommendedAction !== "DO_NOT_ENGAGE" &&
+      opportunity.intent !== "IRRELEVANT" &&
+      opportunity.matchedIcp !== "No specific ICP role established from this thread" &&
+      !opportunity.matchedIcp.startsWith("Non-buyer")
     )
     .sort((left, right) => right.score.total - left.score.total)
     .slice(0, 20);

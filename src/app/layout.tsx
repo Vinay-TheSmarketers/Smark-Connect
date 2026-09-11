@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { AppPreloader } from "@/components/app-preloader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,7 +28,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body>{children}<Script id="smark-theme" strategy="beforeInteractive">{`(function(){try{var t=localStorage.getItem('smark-theme');var v=t==='dark'?'dark':'light';document.documentElement.dataset.theme=v;document.documentElement.style.colorScheme=v}catch(e){document.documentElement.dataset.theme='light'}})();`}</Script></body>
+      <body>
+        <AppPreloader />
+        {children}
+        <Script id="smark-theme" strategy="beforeInteractive">{`(function(){try{var t=localStorage.getItem('smark-theme');var v=t==='dark'?'dark':'light';document.documentElement.dataset.theme=v;document.documentElement.style.colorScheme=v}catch(e){document.documentElement.dataset.theme='light'}})();`}</Script>
+      </body>
     </html>
   );
 }
