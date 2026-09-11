@@ -24,12 +24,12 @@ export function SiteHeader({ activeNav }: { activeNav?: string }) {
           <div className="flex size-7 items-center justify-center rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 shadow-md shadow-purple-500/30 transition-transform group-hover:scale-105">
             <span className="size-2 rounded-full bg-white" />
           </div>
-          <span className="text-base font-bold tracking-tight text-white">Smark Connect</span>
+          <span className="text-base font-semibold tracking-wide text-white">Smark Connect</span>
         </Link>
       </div>
 
       {/* Desktop Navigation */}
-      <nav className="hidden items-center gap-8 text-sm font-medium md:flex">
+      <nav className="hidden items-center gap-8 text-sm font-normal tracking-wide md:flex">
         <Link
           href="/#features"
           className={`transition-colors hover:text-white ${
@@ -73,6 +73,16 @@ export function SiteHeader({ activeNav }: { activeNav?: string }) {
           }`}
         >
           Docs
+        </Link>
+        <Link
+          href="/blog"
+          className={`relative transition-colors hover:text-white ${
+            isActive("/blog", "blog")
+              ? "text-white font-semibold after:absolute after:-bottom-1.5 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:bg-purple-500"
+              : "text-slate-300"
+          }`}
+        >
+          Blog
         </Link>
       </nav>
 
@@ -139,6 +149,13 @@ export function SiteHeader({ activeNav }: { activeNav?: string }) {
               className={isActive("/docs", "docs") ? "font-semibold text-purple-400" : "text-slate-300 hover:text-white"}
             >
               Docs
+            </Link>
+            <Link
+              href="/blog"
+              onClick={() => setMobileMenuOpen(false)}
+              className={isActive("/blog", "blog") ? "font-semibold text-purple-400" : "text-slate-300 hover:text-white"}
+            >
+              Blog
             </Link>
             <div className="pt-4 border-t border-white/10 flex flex-col gap-2">
               <Link

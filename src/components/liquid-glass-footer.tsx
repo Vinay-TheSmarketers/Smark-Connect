@@ -2,42 +2,6 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
-import { Music2 } from "lucide-react";
-
-function Facebook({ size = 16, className = "" }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-    </svg>
-  );
-}
-
-function Twitter({ size = 16, className = "" }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" />
-    </svg>
-  );
-}
-
-function Youtube({ size = 16, className = "" }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17" />
-      <path d="m10 15 5-3-5-3z" />
-    </svg>
-  );
-}
-
-function Instagram({ size = 16, className = "" }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-    </svg>
-  );
-}
 
 export function LiquidGlassFooter() {
   return (
@@ -165,50 +129,74 @@ export function LiquidGlassFooter() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-4">
-        <p className="text-[10px] uppercase tracking-widest opacity-50">
-          Curated by @GotInGeorgiG
+      <div className="pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-4 text-xs text-slate-400">
+        <p className="text-[11px] uppercase tracking-wider opacity-70">
+          &copy; {new Date().getFullYear()} Smark Connect Inc. All rights reserved.
         </p>
 
-        <div className="flex items-center gap-4">
-          <span className="text-[10px] uppercase tracking-widest opacity-50">
-            Join the Journey:
+        <div className="flex items-center gap-3 sm:gap-4">
+          <span className="text-[10px] uppercase tracking-widest opacity-60">
+            CONNECT:
           </span>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <a
-              href="#music"
-              className="opacity-70 hover:opacity-100 transition-colors hover:text-white"
-              aria-label="Music"
+              href="https://x.com"
+              target="_blank"
+              rel="noreferrer"
+              className="group relative flex size-6 items-center justify-center rounded-full overflow-hidden border border-white/20 bg-black/50 transition-all hover:scale-115 hover:border-white/60 hover:shadow-md hover:shadow-white/10"
+              aria-label="X (Twitter)"
             >
-              <Music2 size={16} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/agent-logos/x.svg"
+                alt="X (Twitter)"
+                className="size-full object-cover transition-transform group-hover:scale-110"
+              />
             </a>
+
             <a
-              href="#facebook"
-              className="opacity-70 hover:opacity-100 transition-colors hover:text-white"
-              aria-label="Facebook"
+              href="https://linkedin.com"
+              target="_blank"
+              rel="noreferrer"
+              className="group relative flex size-6 items-center justify-center rounded-full overflow-hidden border border-sky-500/30 bg-black/50 transition-all hover:scale-115 hover:border-sky-400 hover:shadow-md hover:shadow-sky-500/20"
+              aria-label="LinkedIn"
             >
-              <Facebook size={16} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/agent-logos/linkedin.svg"
+                alt="LinkedIn"
+                className="size-full object-cover transition-transform group-hover:scale-110"
+              />
             </a>
+
             <a
-              href="#twitter"
-              className="opacity-70 hover:opacity-100 transition-colors hover:text-white"
-              aria-label="Twitter"
+              href="https://reddit.com"
+              target="_blank"
+              rel="noreferrer"
+              className="group relative flex size-6 items-center justify-center rounded-full overflow-hidden border border-orange-500/30 bg-black/50 transition-all hover:scale-115 hover:border-orange-400 hover:shadow-md hover:shadow-orange-500/20"
+              aria-label="Reddit"
             >
-              <Twitter size={16} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/agent-logos/reddit.svg"
+                alt="Reddit"
+                className="size-full object-cover transition-transform group-hover:scale-110"
+              />
             </a>
+
             <a
-              href="#youtube"
-              className="opacity-70 hover:opacity-100 transition-colors hover:text-white"
-              aria-label="Youtube"
-            >
-              <Youtube size={16} />
-            </a>
-            <a
-              href="#instagram"
-              className="opacity-70 hover:opacity-100 transition-colors hover:text-white"
+              href="https://instagram.com"
+              target="_blank"
+              rel="noreferrer"
+              className="group relative flex size-6 items-center justify-center rounded-full overflow-hidden border border-pink-500/30 bg-black/50 transition-all hover:scale-115 hover:border-pink-400 hover:shadow-md hover:shadow-pink-500/20"
               aria-label="Instagram"
             >
-              <Instagram size={16} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/agent-logos/instagram.svg"
+                alt="Instagram"
+                className="size-full object-cover transition-transform group-hover:scale-110"
+              />
             </a>
           </div>
         </div>

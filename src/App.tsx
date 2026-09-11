@@ -5,15 +5,11 @@ import { LiquidGlassFooter } from "./components/liquid-glass-footer";
 
 export default function App() {
   return (
-    <main className="relative w-full min-h-[115vh] overflow-x-hidden flex flex-col items-center font-sans selection:bg-white/20 selection:text-white">
-      {/* Fixed Background Video */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="fixed inset-0 w-full h-full object-cover z-[0]"
-        src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260429_114316_1c7889ad-2885-410e-b493-98119fee0ddb.mp4"
+    <main className="relative w-full min-h-[115vh] overflow-x-hidden flex flex-col items-center bg-[#07070c] font-sans selection:bg-white/20 selection:text-white">
+      {/* Ambient background glow */}
+      <div 
+        aria-hidden="true" 
+        className="pointer-events-none fixed inset-0 z-[0] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/15 via-[#07070c] to-[#050508]" 
       />
 
       {/* Content Wrapper */}
