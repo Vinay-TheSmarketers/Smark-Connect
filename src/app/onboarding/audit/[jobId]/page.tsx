@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { AuditProgress } from "@/components/audit-progress";
-import { OnboardingLayout } from "@/components/onboarding-layout";
+import { MinimalCompanyLoading } from "@/components/minimal-company-loading";
 import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 
@@ -26,23 +25,22 @@ export default async function AuditPage({ params }: PageProps<"/onboarding/audit
   const modelFailure = /model|not found|does not exist|invalid model|unsupported|supports long structured/i.test(job.error ?? "");
   const requiresModelChange = modelFailure && !providerWasReconnected;
   return (
-    <OnboardingLayout activeStep={2}>
-      <AuditProgress
-        jobId={job.id}
-        initial={{
-          status: job.status,
-          progress: job.progress,
-          step: job.step,
-          error: job.error,
-          requiresProvider,
-          requiresModelChange,
-          companyId: job.companyId,
-          companyName: job.company.name,
-          pagesRead: job.company._count.crawlPages,
-          agentsReady: job.company._count.agentRuns,
-          documents: job.company.documents,
-        }}
-      />
-    </OnboardingLayout>
+    <MinimalCompanyLoading
+      jobId={job.id}
+      initial={{
+        status: job.status,
+        progress: job.progress,
+        step: job.step,
+        error: job.error,
+        requiresProvider,
+        requiresModelChange,
+        companyId: job.companyId,
+        companyName: job.company.name,
+        websiteUrl: job.company.websiteUrl,
+        pagesRead: job.company._count.crawlPages,
+        agentsReady: job.company._count.agentRuns,
+        documents: job.company.documents,
+      }}
+    />
   );
 }

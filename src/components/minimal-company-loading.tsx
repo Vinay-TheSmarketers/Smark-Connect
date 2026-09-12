@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Pause,
   Play,
@@ -16,11 +17,30 @@ import {
   Shield,
   Layers,
   Terminal,
-  RefreshCw,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { LogoutButton } from "./logout-button";
+
+export type AuditJobState = {
+  status: string;
+  progress: number;
+  step: string;
+  error?: string | null;
+  requiresProvider: boolean;
+  requiresModelChange: boolean;
+  companyId: string;
+  companyName: string;
+  websiteUrl?: string;
+  pagesRead: number;
+  agentsReady: number;
+  documents: Array<{ type: string; title: string }>;
+};
 
 interface MinimalCompanyLoadingProps {
+  jobId?: string;
+  initial?: AuditJobState;
   initialCompany?: string;
   initialUrl?: string;
   onComplete?: () => void;
@@ -28,7 +48,7 @@ interface MinimalCompanyLoadingProps {
 
 const crawlSteps = [
   { progress: 8, label: "Verifying website endpoint & robots.txt directives", icon: Globe },
-  { progress: 20, label: "Crawling 20 public pages, headers & DOM hierarchy", icon: Search },
+  { progress: 20, label: "Crawling public pages, headers & DOM hierarchy", icon: Search },
   { progress: 38, label: "Extracting offer stack, brand tone & proof ladder", icon: Shield },
   { progress: 54, label: "Checking AI answer engine visibility (ChatGPT, Perplexity)", icon: Sparkles },
   { progress: 72, label: "Mapping competitive whitespace & positioning gaps", icon: Layers },
@@ -38,16 +58,26 @@ const crawlSteps = [
 ];
 
 export function MinimalCompanyLoading({
+  jobId,
+  initial,
   initialCompany = "Stripe",
   initialUrl = "https://stripe.com",
   onComplete,
 }: MinimalCompanyLoadingProps) {
-  const [company, setCompany] = useState(initialCompany);
-  const [url, setUrl] = useState(initialUrl);
-  const [progress, setProgress] = useState(14);
-  const [isPaused, setIsPaused] = useState(false);
+  const router = useRouter();
+
+  // State
+  const [job, setJob] = useState<AuditJobState | null>(initial || null);
+  const [company, setCompany] = useState(initial?.companyName || initialCompany);
+  const [url, setUrl] = useState(initial?.websiteUrl || initialUrl);
+  const [progress, setProgress] = useState(initial?.progress ?? 8);
+  const [stepText, setStepText] = useState(initial?.step || "Initializing research crawler...");
+  const [isPaused, setIsPaused] = useState(
+    initial?.status === "STOPPED" || initial?.step === "Audit stopped by user"
+  );
+  const [stopping, setStopping] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
-  const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showModelModal, setShowModelModal] = useState(false);
   const [selectedModel, setSelectedModel] = useState("Claude 3.7 Sonnet (Fast)");
@@ -57,11 +87,56 @@ export function MinimalCompanyLoading({
   // Live crawl event ticker
   const [liveLogs, setLiveLogs] = useState<string[]>([
     "GET / - 200 OK (214ms)",
-    "Parsed 142 DOM nodes, schema.org/Organization identified",
+    "Parsed DOM nodes, schema.org/Organization identified",
   ]);
 
-  // Realistic progress simulation
+  // REAL LIVE AUDIT POLLING (when jobId is present)
   useEffect(() => {
+    if (!jobId) return;
+    if (isPaused) return;
+    if (job?.status && ["DONE", "PARTIAL"].includes(job.status)) return;
+
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch(`/api/audits/${jobId}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const next = (await response.json()) as AuditJobState;
+        setJob(next);
+        setProgress(next.progress);
+        if (next.companyName) setCompany(next.companyName);
+        if (next.step) setStepText(next.step);
+
+        // Update live logs from real crawl events
+        if (next.pagesRead > 0) {
+          setLiveLogs((prev) => [
+            `Indexed ${next.pagesRead} pages & parsed link topology`,
+            ...prev.slice(0, 2),
+          ]);
+        }
+        if (next.documents.length > 0) {
+          const latestDoc = next.documents[next.documents.length - 1];
+          setLiveLogs((prev) => [
+            `Ready: ${latestDoc.title}`,
+            ...prev.slice(0, 2),
+          ]);
+        }
+
+        const firstReportReady = next.documents.length >= 1;
+        if (["DONE", "PARTIAL"].includes(next.status) || firstReportReady) {
+          window.clearInterval(timer);
+          window.setTimeout(() => router.push(`/dashboard/${next.companyId}`), 700);
+        }
+      } catch {
+        // network retry
+      }
+    }, 1800);
+
+    return () => window.clearInterval(timer);
+  }, [jobId, isPaused, job?.status, router]);
+
+  // SIMULATED PROGRESS (only when standalone without real jobId)
+  useEffect(() => {
+    if (jobId) return; // real audit uses live polling above
     if (isPaused || progress >= 100) return;
 
     const interval = setInterval(() => {
@@ -73,24 +148,26 @@ export function MinimalCompanyLoading({
           return 100;
         }
 
-        // Update step index
+        // Update step label in demo mode
         const stepIdx = crawlSteps.findIndex((s, idx) => {
           const nextStep = crawlSteps[idx + 1];
           return next <= (nextStep ? nextStep.progress : 100);
         });
-        if (stepIdx !== -1) setActiveStepIndex(stepIdx);
+        if (stepIdx !== -1) {
+          setStepText(crawlSteps[stepIdx].label);
+        }
 
         // Add periodic terminal logs
         if (next % 12 === 0) {
           const logMessages = [
-            `Scraped /pricing - Extracted 3 product tiers`,
+            `Scraped /pricing - Extracted product tiers`,
             `Analyzed internal link topology (${Math.floor(next * 1.8)} edges mapped)`,
-            `Vector similarity check passed on OpenAI text-embedding-3`,
+            `Vector similarity check passed on AI answer engines`,
             `Lighthouse performance baseline: 94/100 recorded`,
             `Isolated 4 competitor whitespace opportunities`,
           ];
           const newLog = logMessages[(next / 12) % logMessages.length];
-          setLiveLogs((curr) => [newLog, ...curr.slice(0, 3)]);
+          setLiveLogs((curr) => [newLog, ...curr.slice(0, 2)]);
         }
 
         return next;
@@ -98,28 +175,123 @@ export function MinimalCompanyLoading({
     }, 180 / speedMultiplier);
 
     return () => clearInterval(interval);
-  }, [isPaused, speedMultiplier, progress, onComplete]);
+  }, [jobId, isPaused, speedMultiplier, progress, onComplete]);
 
-  const currentStep = crawlSteps[activeStepIndex] || crawlSteps[0];
-  const StepIcon = currentStep.icon;
+  // Actions
+  async function handleStopOrPause() {
+    if (jobId) {
+      if (isPaused || isError) {
+        // Resume audit
+        setRetrying(true);
+        try {
+          const response = await fetch(`/api/audits/${jobId}`, { method: "POST" });
+          const data = (await response.json()) as {
+            jobId?: string;
+            error?: string;
+            requiresProvider?: boolean;
+            requiresModelChange?: boolean;
+          };
+          if (response.ok && data.jobId && data.jobId !== jobId) {
+            router.replace(`/onboarding/audit/${data.jobId}`);
+            return;
+          }
+          setJob((current) =>
+            current
+              ? {
+                  ...current,
+                  status: "RUNNING",
+                  error: data.error ?? null,
+                  requiresProvider: Boolean(data.requiresProvider) || current.requiresProvider,
+                  requiresModelChange: Boolean(data.requiresModelChange) || current.requiresModelChange,
+                }
+              : null
+          );
+          setIsPaused(false);
+        } catch {
+          setIsPaused(false);
+        } finally {
+          setRetrying(false);
+        }
+      } else {
+        // Stop audit
+        setStopping(true);
+        try {
+          const response = await fetch(`/api/audits/${jobId}`, { method: "DELETE" });
+          const data = (await response.json()) as { status?: string; step?: string };
+          setJob((current) =>
+            current
+              ? {
+                  ...current,
+                  status: data.status ?? "STOPPED",
+                  step: data.step ?? "Audit stopped by user",
+                }
+              : null
+          );
+          setIsPaused(true);
+        } catch {
+          setIsPaused(true);
+        } finally {
+          setStopping(false);
+        }
+      }
+    } else {
+      setIsPaused((prev) => !prev);
+    }
+  }
 
   const handleAddCompanySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCompanyInput.trim()) return;
-    setCompany(newCompanyInput.trim());
-    setUrl(newUrlInput.trim() || `https://${newCompanyInput.toLowerCase().replace(/\s+/g, "")}.com`);
-    setProgress(0);
-    setActiveStepIndex(0);
-    setIsPaused(false);
-    setShowAddModal(false);
-    setNewCompanyInput("");
-    setNewUrlInput("");
+    if (jobId) {
+      // In real onboarding, navigate to add company page
+      router.push(`/onboarding/company?mode=add`);
+    } else {
+      setCompany(newCompanyInput.trim());
+      setUrl(newUrlInput.trim() || `https://${newCompanyInput.toLowerCase().replace(/\s+/g, "")}.com`);
+      setProgress(0);
+      setIsPaused(false);
+      setShowAddModal(false);
+      setNewCompanyInput("");
+      setNewUrlInput("");
+    }
   };
+
+  const isStopped = isPaused || job?.status === "STOPPED" || job?.step === "Audit stopped by user" || job?.error === "Audit was stopped by user.";
+  const providerError = Boolean(job?.requiresProvider);
+  const modelError = Boolean(job?.requiresModelChange);
+  const isError = job?.status === "ERROR" || providerError || modelError;
+
+  const displayHeadline = modelError
+    ? "Change AI Model"
+    : providerError
+    ? "Connect AI Provider"
+    : isError
+    ? "Scan Interrupted"
+    : isStopped
+    ? "Scan Paused"
+    : (
+      <>
+        Searching{" "}
+        <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-white to-purple-200">
+          {company}
+        </span>
+      </>
+    );
+
+  const displaySubtitle = isStopped
+    ? "Audit was paused. You can resume processing, switch AI models, or add another company workspace."
+    : modelError
+    ? "The selected AI model returned an error. Choose another model in settings to resume."
+    : providerError
+    ? "Connect and verify your AI provider key to run deep intelligence analyses."
+    : isError
+    ? (job?.error || "We encountered an issue during crawl. Click Retry to continue.")
+    : stepText;
 
   return (
     <div className="relative min-h-screen w-full bg-[#05030a] text-slate-100 flex flex-col justify-between overflow-hidden font-sans select-none">
       {/* Pitch Dark Purple Radial Glows */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(112,26,189,0.14)_0%,rgba(43,10,75,0.08)_40%,transparent_75%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(112,26,189,0.15)_0%,rgba(43,10,75,0.08)_40%,transparent_75%)]" />
       <div className="pointer-events-none absolute -top-40 -left-40 size-96 rounded-full bg-purple-950/30 blur-[120px]" />
       <div className="pointer-events-none absolute -bottom-40 -right-40 size-96 rounded-full bg-indigo-950/25 blur-[120px]" />
 
@@ -150,22 +322,42 @@ export function MinimalCompanyLoading({
           <span className="relative flex size-2">
             <span
               className={`absolute inline-flex size-full rounded-full ${
-                isPaused ? "bg-amber-400" : "bg-emerald-400 animate-ping opacity-75"
+                isError
+                  ? "bg-rose-400"
+                  : isStopped
+                  ? "bg-amber-400"
+                  : "bg-emerald-400 animate-ping opacity-75"
               }`}
             />
             <span
               className={`relative inline-flex size-2 rounded-full ${
-                isPaused ? "bg-amber-400" : "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                isError
+                  ? "bg-rose-400 shadow-[0_0_8px_#f87171]"
+                  : isStopped
+                  ? "bg-amber-400"
+                  : "bg-emerald-400 shadow-[0_0_8px_#34d399]"
               }`}
             />
           </span>
           <span className="text-[11px] font-medium text-slate-300">
-            {isPaused ? "Paused" : "Live Deep Scan"}
+            {isError ? "Notice" : isStopped ? "Audit Paused" : "Live Deep Scan"}
           </span>
           <span className="text-slate-600">&bull;</span>
           <span className="text-[11px] font-mono text-purple-300 max-w-[140px] truncate">
-            {url.replace(/^https?:\/\//, "")}
+            {company}
           </span>
+        </div>
+
+        {/* Top Right: Security badge + Sign Out */}
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
+            <Shield className="size-3.5 text-purple-400" />
+            <span className="text-[11px]">BYOK &bull; AES-256</span>
+          </div>
+          <LogoutButton
+            className="rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 py-1 text-xs font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+            label="Sign out"
+          />
         </div>
       </header>
 
@@ -178,8 +370,8 @@ export function MinimalCompanyLoading({
           {/* Animated concentric pulse rings */}
           <motion.div
             animate={{
-              scale: isPaused ? 1 : [1, 1.45, 1.8],
-              opacity: isPaused ? 0.2 : [0.6, 0.25, 0],
+              scale: isStopped || isError ? 1 : [1, 1.45, 1.8],
+              opacity: isStopped || isError ? 0.2 : [0.6, 0.25, 0],
             }}
             transition={{
               duration: 2.4,
@@ -190,8 +382,8 @@ export function MinimalCompanyLoading({
           />
           <motion.div
             animate={{
-              scale: isPaused ? 1 : [1, 1.25, 1.5],
-              opacity: isPaused ? 0.3 : [0.5, 0.2, 0],
+              scale: isStopped || isError ? 1 : [1, 1.25, 1.5],
+              opacity: isStopped || isError ? 0.3 : [0.5, 0.2, 0],
             }}
             transition={{
               duration: 2.4,
@@ -217,27 +409,28 @@ export function MinimalCompanyLoading({
 
         {/* Main Searching Headline */}
         <h1 className="mt-3 text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white">
-          Searching{" "}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-white to-purple-200">
-            {company}
-          </span>
+          {displayHeadline}
         </h1>
 
         {/* Dynamic Context Subtitle */}
-        <p className="mt-2.5 max-w-md text-xs sm:text-sm text-slate-300/90 leading-relaxed">
-          {currentStep.label}
+        <p
+          className={`mt-2.5 max-w-md text-xs sm:text-sm leading-relaxed ${
+            isError ? "text-rose-300 font-medium" : "text-slate-300/90"
+          }`}
+        >
+          {displaySubtitle}
         </p>
 
         {/* Live Crawl Event Stream (Minimal Ticker) */}
         <div className="mt-5 w-full max-w-sm rounded-xl border border-white/[0.06] bg-white/[0.015] p-3 text-left backdrop-blur-md">
           <div className="flex items-center justify-between text-[10px] text-slate-500 uppercase tracking-wider mb-1.5 pb-1 border-b border-white/[0.04]">
-            <span>Live Stream</span>
+            <span>Live Telemetry</span>
             <span className="font-mono text-purple-400">{progress}% complete</span>
           </div>
           <div className="space-y-1 font-mono text-[11px] text-slate-400 min-h-[44px]">
             <div className="text-purple-300 flex items-center gap-1.5 truncate">
               <span className="size-1 rounded-full bg-purple-400 animate-ping" />
-              <span className="truncate">{liveLogs[0] || "Awaiting socket frame..."}</span>
+              <span className="truncate">{liveLogs[0] || "Awaiting crawler socket..."}</span>
             </div>
             {liveLogs[1] && (
               <div className="text-slate-500 truncate text-[10px] pl-2.5">
@@ -251,14 +444,20 @@ export function MinimalCompanyLoading({
         {/* 3. FOUR SMALL MINIMAL BUTTONS */}
         {/* ========================================================= */}
         <div className="mt-7 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-          {/* Button 1: Pause / Resume */}
+          {/* Button 1: Pause / Resume / Retry */}
           <button
             type="button"
-            onClick={() => setIsPaused((prev) => !prev)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 text-xs font-medium text-slate-300 transition-all hover:border-purple-500/40 hover:bg-purple-500/10 hover:text-white cursor-pointer active:scale-95 backdrop-blur-md"
-            title={isPaused ? "Resume search" : "Pause search"}
+            disabled={stopping || retrying}
+            onClick={handleStopOrPause}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 text-xs font-medium text-slate-300 transition-all hover:border-purple-500/40 hover:bg-purple-500/10 hover:text-white cursor-pointer active:scale-95 backdrop-blur-md disabled:opacity-50"
+            title={isStopped || isError ? "Resume search" : "Pause search"}
           >
-            {isPaused ? (
+            {isError ? (
+              <>
+                <RotateCcw className={`size-3 text-purple-400 ${retrying ? "animate-spin" : ""}`} />
+                <span>{retrying ? "Restarting..." : "Retry"}</span>
+              </>
+            ) : isStopped ? (
               <>
                 <Play className="size-3 text-emerald-400 fill-emerald-400" />
                 <span>Resume</span>
@@ -266,38 +465,58 @@ export function MinimalCompanyLoading({
             ) : (
               <>
                 <Pause className="size-3 text-slate-400" />
-                <span>Pause</span>
+                <span>{stopping ? "Stopping..." : "Pause"}</span>
               </>
             )}
           </button>
 
-          {/* Button 2: Speed / Model Toggle */}
-          <button
-            type="button"
-            onClick={() => setShowModelModal(true)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 text-xs font-medium text-slate-300 transition-all hover:border-purple-500/40 hover:bg-purple-500/10 hover:text-white cursor-pointer active:scale-95 backdrop-blur-md"
-            title="Switch AI model or speed"
-          >
-            <Zap className="size-3 text-purple-400" />
-            <span>AI Model</span>
-          </button>
+          {/* Button 2: AI Model / Connect Provider */}
+          {jobId ? (
+            <Link
+              href={
+                providerError
+                  ? "/settings/credits"
+                  : `/settings/credits?reason=model&returnTo=${encodeURIComponent(
+                      `/onboarding/audit/${jobId}`
+                    )}`
+              }
+              className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition-all backdrop-blur-md cursor-pointer active:scale-95 ${
+                providerError || modelError
+                  ? "border-purple-500/80 bg-purple-600/25 text-white shadow-[0_0_12px_rgba(168,85,247,0.3)] animate-pulse"
+                  : "border-white/[0.08] bg-white/[0.02] text-slate-300 hover:border-purple-500/40 hover:bg-purple-500/10 hover:text-white"
+              }`}
+              title={providerError ? "Connect AI provider" : "Switch AI model in-between"}
+            >
+              <Zap className="size-3 text-purple-400" />
+              <span>{providerError ? "Connect AI" : "AI Model"}</span>
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowModelModal(true)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 text-xs font-medium text-slate-300 transition-all hover:border-purple-500/40 hover:bg-purple-500/10 hover:text-white cursor-pointer active:scale-95 backdrop-blur-md"
+              title="Switch AI model or speed"
+            >
+              <Zap className="size-3 text-purple-400" />
+              <span>AI Model</span>
+            </button>
+          )}
 
           {/* Button 3: Add Company */}
-          <button
-            type="button"
-            onClick={() => setShowAddModal(true)}
+          <Link
+            href="/onboarding/company?mode=add"
             className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 text-xs font-medium text-slate-300 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300 cursor-pointer active:scale-95 backdrop-blur-md"
-            title="Change company or add another"
+            title="Add another company workspace"
           >
             <Plus className="size-3 text-emerald-400" />
             <span>Add Company</span>
-          </button>
+          </Link>
 
           {/* Button 4: Preview Workspace */}
           <Link
-            href="/onboarding"
+            href={job?.companyId ? `/dashboard/${job.companyId}` : "/onboarding"}
             className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 text-xs font-medium text-slate-300 transition-all hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-300 cursor-pointer active:scale-95 backdrop-blur-md"
-            title="Preview instant dashboard"
+            title="Open workspace dashboard"
           >
             <span>Preview</span>
             <ArrowUpRight className="size-3 text-cyan-400" />
@@ -312,9 +531,9 @@ export function MinimalCompanyLoading({
         <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
           {/* Current Micro Status */}
           <div className="flex items-center gap-2 min-w-0">
-            <StepIcon className="size-3.5 text-purple-400 shrink-0" />
+            <span className="size-1.5 rounded-full bg-purple-400 animate-pulse shrink-0" />
             <span className="truncate text-slate-300 font-medium">
-              {currentStep.label}
+              {stepText}
             </span>
           </div>
 
@@ -323,7 +542,7 @@ export function MinimalCompanyLoading({
             <div className="relative h-1.5 w-full sm:w-56 md:w-64 rounded-full bg-white/[0.08] overflow-hidden">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-purple-600 via-indigo-500 to-emerald-400 transition-all duration-300 shadow-[0_0_10px_rgba(168,85,247,0.6)]"
-                style={{ width: `${progress}%` }}
+                style={{ width: `${Math.min(100, Math.max(3, progress))}%` }}
               />
             </div>
 
@@ -336,7 +555,7 @@ export function MinimalCompanyLoading({
       </footer>
 
       {/* ========================================================= */}
-      {/* MODAL: ADD COMPANY QUICK INPUT */}
+      {/* MODAL: ADD COMPANY QUICK INPUT (Demo Mode) */}
       {/* ========================================================= */}
       <AnimatePresence>
         {showAddModal && (
@@ -402,7 +621,7 @@ export function MinimalCompanyLoading({
       </AnimatePresence>
 
       {/* ========================================================= */}
-      {/* MODAL: AI MODEL & SPEED CHANGER */}
+      {/* MODAL: AI MODEL & SPEED CHANGER (Demo Mode) */}
       {/* ========================================================= */}
       <AnimatePresence>
         {showModelModal && (
