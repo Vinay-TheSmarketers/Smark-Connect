@@ -36,7 +36,7 @@ export function CompanyForm({ additional = false }: { additional?: boolean }) {
       <h2 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
         {additional ? "Add another company" : "Where should we start?"}
       </h2>
-      <p className="mt-3 text-xs leading-relaxed text-slate-400">
+      <p className="mt-3 text-sm leading-relaxed text-slate-300">
         Add the company website. Smark Connect will crawl its public pages and run six evidence-led marketing analyses in parallel.
       </p>
 
@@ -52,7 +52,7 @@ export function CompanyForm({ additional = false }: { additional?: boolean }) {
             autoComplete="organization"
             required
             minLength={2}
-            className="mt-2 h-12 w-full rounded-xl border border-white/15 bg-white/[0.05] px-4 text-xs text-white placeholder-slate-500 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+            className="mt-2 h-12 w-full rounded-xl border border-white/15 bg-white/[0.05] px-4 text-sm text-white placeholder-slate-400 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
           />
         </div>
 
@@ -61,7 +61,7 @@ export function CompanyForm({ additional = false }: { additional?: boolean }) {
             Company website
           </label>
           <div className="relative mt-2">
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-purple-400" aria-hidden="true">
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-purple-400 font-bold" aria-hidden="true">
               &nearr;
             </span>
             <input
@@ -72,26 +72,26 @@ export function CompanyForm({ additional = false }: { additional?: boolean }) {
               placeholder="https://yourcompany.com"
               autoComplete="url"
               required
-              className="h-12 w-full rounded-xl border border-white/15 bg-white/[0.05] pl-10 pr-4 text-xs text-white placeholder-slate-500 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+              className="h-12 w-full rounded-xl border border-white/15 bg-white/[0.05] pl-10 pr-4 text-sm text-white placeholder-slate-400 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs">
           <div className="rounded-lg bg-white/5 p-2.5">
-            <span className="text-purple-400 font-bold text-[10px]">01</span>
-            <strong className="block text-[11px] text-white mt-1">Crawl</strong>
-            <small className="block text-[10px] text-slate-400">Pages & copy</small>
+            <span className="text-purple-400 font-bold text-xs">01</span>
+            <strong className="block text-xs font-semibold text-white mt-1">Crawl</strong>
+            <small className="block text-xs text-slate-300">Pages & copy</small>
           </div>
           <div className="rounded-lg bg-white/5 p-2.5">
-            <span className="text-purple-400 font-bold text-[10px]">02</span>
-            <strong className="block text-[11px] text-white mt-1">Understand</strong>
-            <small className="block text-[10px] text-slate-400">Offer & ICPs</small>
+            <span className="text-purple-400 font-bold text-xs">02</span>
+            <strong className="block text-xs font-semibold text-white mt-1">Understand</strong>
+            <small className="block text-xs text-slate-300">Offer & ICPs</small>
           </div>
           <div className="rounded-lg bg-white/5 p-2.5">
-            <span className="text-purple-400 font-bold text-[10px]">03</span>
-            <strong className="block text-[11px] text-white mt-1">Audit</strong>
-            <small className="block text-[10px] text-slate-400">SEO & GEO</small>
+            <span className="text-purple-400 font-bold text-xs">03</span>
+            <strong className="block text-xs font-semibold text-white mt-1">Audit</strong>
+            <small className="block text-xs text-slate-300">SEO & GEO</small>
           </div>
         </div>
 
@@ -115,11 +115,14 @@ export function CompanyForm({ additional = false }: { additional?: boolean }) {
           type="submit"
           disabled={pending}
         >
+          {pending && (
+            <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          )}
           <span>{pending ? "Starting secure audit…" : additional ? "Add and analyze company" : "Analyze my company"}</span>
           <span>&rarr;</span>
         </button>
 
-        <p className="text-center text-[11px] text-slate-500">
+        <p className="text-center text-xs text-slate-400">
           Usually takes 1–3 minutes. Progress is saved if you leave this page.
         </p>
       </form>
