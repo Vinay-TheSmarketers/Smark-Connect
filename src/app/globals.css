@@ -94,6 +94,17 @@ h1, h2, h3, h4, h5, h6 {
 button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 
+/* Prevent browsers from applying solid white background to inputs via autofill */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0px 1000px #0e0d16 inset !important;
+  box-shadow: 0 0 0px 1000px #0e0d16 inset !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
 /* Micro-typography: positive letter spacing for text under 14px to prevent characters from bleeding */
 .text-xs,
 .text-sm,

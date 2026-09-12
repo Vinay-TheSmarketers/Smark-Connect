@@ -4,6 +4,7 @@ import * as React from "react";
 import { ArrowRight, Sparkles, Shield, Cpu, Lock, Search } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { SonarGrid } from "@/components/ui/sonar-grid";
+import { BorderBeam } from "@/components/ui/border-beam";
 
 export interface SmarkHeroProps {
   eyebrow?: string;
@@ -108,71 +109,57 @@ export function SmarkHeroSection({
           {subline}
         </motion.p>
 
-        {/* Interactive URL Search Form */}
+        {/* Interactive URL Search Form with BorderBeam */}
         <motion.form
           {...enter(0.26)}
           onSubmit={handleSubmit}
-          className="mt-10 flex w-full max-w-xl flex-col gap-3 sm:flex-row sm:items-center"
+          className="mt-10 w-full max-w-2xl px-2"
         >
-          {/* Glass Translucent Input Container with Corner Lighting */}
-          <div className="group/field relative flex-1">
-            {/* Top-Left Corner Light Bracket & Glow */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -top-0.5 -left-0.5 z-20 h-3.5 w-3.5 rounded-tl-xl border-t-2 border-l-2 border-purple-400 shadow-[0_0_10px_rgba(192,132,252,0.9),0_0_2px_#fff] transition-all duration-300 group-hover/field:shadow-[0_0_14px_rgba(192,132,252,1)] group-focus-within/field:border-purple-300 group-focus-within/field:shadow-[0_0_18px_rgba(192,132,252,1)]"
-            />
-            {/* Top-Right Corner Light Bracket & Glow */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -top-0.5 -right-0.5 z-20 h-3.5 w-3.5 rounded-tr-xl border-t-2 border-r-2 border-purple-400/80 shadow-[0_0_10px_rgba(192,132,252,0.8),0_0_2px_#fff] transition-all duration-300 group-hover/field:shadow-[0_0_14px_rgba(192,132,252,1)] group-focus-within/field:border-purple-300 group-focus-within/field:shadow-[0_0_18px_rgba(192,132,252,1)]"
-            />
-            {/* Bottom-Left Corner Light Bracket & Glow */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-0.5 -left-0.5 z-20 h-3.5 w-3.5 rounded-bl-xl border-b-2 border-l-2 border-purple-400/80 shadow-[0_0_10px_rgba(192,132,252,0.8),0_0_2px_#fff] transition-all duration-300 group-hover/field:shadow-[0_0_14px_rgba(192,132,252,1)] group-focus-within/field:border-purple-300 group-focus-within/field:shadow-[0_0_18px_rgba(192,132,252,1)]"
-            />
-            {/* Bottom-Right Corner Light Bracket & Glow */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-0.5 -right-0.5 z-20 h-3.5 w-3.5 rounded-br-xl border-b-2 border-r-2 border-cyan-400 shadow-[0_0_10px_rgba(56,189,248,0.9),0_0_2px_#fff] transition-all duration-300 group-hover/field:shadow-[0_0_14px_rgba(56,189,248,1)] group-focus-within/field:border-cyan-300 group-focus-within/field:shadow-[0_0_18px_rgba(56,189,248,1)]"
-            />
-
-            {/* Corner Lighting - Soft Internal Ambient Glow Pools */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-2xl"
-            >
-              <div className="absolute -top-3 -left-3 size-14 rounded-full bg-purple-500/25 blur-md transition-all duration-300 group-hover/field:bg-purple-500/40 group-focus-within/field:bg-purple-500/50" />
-              <div className="absolute -top-3 -right-3 size-14 rounded-full bg-indigo-500/20 blur-md transition-all duration-300 group-hover/field:bg-indigo-500/35 group-focus-within/field:bg-indigo-500/45" />
-              <div className="absolute -bottom-3 -left-3 size-14 rounded-full bg-purple-600/20 blur-md transition-all duration-300 group-hover/field:bg-purple-600/35 group-focus-within/field:bg-purple-600/45" />
-              <div className="absolute -bottom-3 -right-3 size-14 rounded-full bg-cyan-400/25 blur-md transition-all duration-300 group-hover/field:bg-cyan-400/40 group-focus-within/field:bg-cyan-400/50" />
-            </div>
-
-            {/* Search Icon */}
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-20 flex items-center pl-4 text-slate-400 transition-colors duration-200 group-focus-within/field:text-purple-300">
-              <Search className="size-4.5" />
-            </div>
-
-            {/* Translucent Glass Input */}
-            <input
-              type="text"
-              autoComplete="url"
-              spellCheck={false}
-              required
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="Enter your website URL (e.g. stripe.com)"
-              className="relative z-10 h-13 w-full rounded-2xl border border-white/15 bg-white/[0.04] pl-11 pr-5 text-sm font-normal text-white placeholder-slate-400 backdrop-blur-2xl outline-none shadow-[inset_0_1px_1px_rgba(255,255,255,0.22),0_10px_35px_-5px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-white/25 hover:bg-white/[0.06] focus:border-purple-400/50 focus:bg-white/[0.08] focus:shadow-[inset_0_1px_1px_rgba(255,255,255,0.35),0_0_25px_rgba(168,85,247,0.25)] tracking-[0.012em]"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="group inline-flex h-13 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 bg-[length:200%_auto] px-7 text-sm font-medium tracking-wide text-white shadow-lg shadow-purple-600/30 transition-all duration-300 hover:bg-right active:scale-[0.98]"
+          <BorderBeam
+            size="md"
+            colorVariant="colorful"
+            borderRadius={22}
+            className="w-full"
           >
-            <span>Start analysis</span>
-            <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
-          </button>
+            <div className="group/field relative flex w-full flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-[22px] border border-white/10 bg-[#0d0d16]/30 p-2 backdrop-blur-2xl transition-all hover:bg-[#0d0d16]/40 focus-within:border-purple-400/40 focus-within:bg-[#0d0d16]/50 shadow-[0_12px_45px_-10px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.08)]">
+              {/* Corner Lighting - Soft Internal Ambient Glow Pools */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[22px]"
+              >
+                <div className="absolute -top-3 -left-3 size-14 rounded-full bg-purple-500/20 blur-md transition-all duration-300 group-hover/field:bg-purple-500/35 group-focus-within/field:bg-purple-500/45" />
+                <div className="absolute -top-3 -right-3 size-14 rounded-full bg-indigo-500/15 blur-md transition-all duration-300 group-hover/field:bg-indigo-500/30 group-focus-within/field:bg-indigo-500/40" />
+                <div className="absolute -bottom-3 -left-3 size-14 rounded-full bg-purple-600/15 blur-md transition-all duration-300 group-hover/field:bg-purple-600/30 group-focus-within/field:bg-purple-600/40" />
+                <div className="absolute -bottom-3 -right-3 size-14 rounded-full bg-cyan-400/20 blur-md transition-all duration-300 group-hover/field:bg-cyan-400/35 group-focus-within/field:bg-cyan-400/45" />
+              </div>
+
+              {/* Search Icon */}
+              <div className="pointer-events-none pl-3 text-slate-400 transition-colors duration-200 group-focus-within/field:text-purple-300 hidden sm:flex items-center">
+                <Search className="size-4.5" />
+              </div>
+
+              {/* Fully Translucent Input (NO WHITE BAR) */}
+              <input
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                required
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="Enter your website URL (e.g. stripe.com)"
+                className="relative z-10 h-12 w-full flex-1 border-0 bg-transparent px-3 text-sm sm:text-base font-normal text-white placeholder-slate-400 outline-none transition-all tracking-[0.012em]"
+              />
+
+              {/* Submit CTA Button inside the translucent capsule */}
+              <button
+                type="submit"
+                className="relative z-10 group inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 bg-[length:200%_auto] px-6 text-sm font-semibold tracking-wide text-white shadow-lg shadow-purple-600/30 transition-all duration-300 hover:bg-right active:scale-[0.98] shrink-0"
+              >
+                <span>Start analysis</span>
+                <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </button>
+            </div>
+          </BorderBeam>
         </motion.form>
 
         {/* Quick Fill Suggestions */}
