@@ -60,6 +60,22 @@ export function cleanRawJsonArtifacts(text: string): string {
   return cleaned.trim();
 }
 
+function getUnescapedPipeIndices(str: string): number[] {
+  const indices: number[] = [];
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === "|") {
+      let backslashes = 0;
+      for (let j = i - 1; j >= 0 && str[j] === "\\"; j--) {
+        backslashes++;
+      }
+      if (backslashes % 2 === 0) {
+        indices.push(i);
+      }
+    }
+  }
+  return indices;
+}
+
 export function fixMarkdownTables(raw: string): string {
   if (!raw || typeof raw !== "string" || !raw.includes("|")) return raw;
 
@@ -72,16 +88,11 @@ export function fixMarkdownTables(raw: string): string {
     const separatorStr = match[0].trim();
     const separatorIndex = match.index;
 
-    const numPipes = (separatorStr.match(/\|/g) || []).length;
+    const numPipes = getUnescapedPipeIndices(separatorStr).length;
     if (numPipes < 2) continue;
 
     const beforeSeparator = result.slice(0, separatorIndex);
-    const pipeIndicesBefore: number[] = [];
-    for (let i = 0; i < beforeSeparator.length; i++) {
-      if (beforeSeparator[i] === "|") {
-        pipeIndicesBefore.push(i);
-      }
-    }
+    const pipeIndicesBefore = getUnescapedPipeIndices(beforeSeparator);
 
     if (pipeIndicesBefore.length < numPipes) {
       continue;
@@ -91,6 +102,15 @@ export function fixMarkdownTables(raw: string): string {
     const lastHeaderPipeIndex = pipeIndicesBefore[pipeIndicesBefore.length - 1];
 
     const headerRowStr = beforeSeparator.slice(headerStartPipeIndex, lastHeaderPipeIndex + 1).trim();
+    if (headerRowStr.includes("\n")) {
+      continue;
+    }
+
+    const textBetweenHeaderAndSep = beforeSeparator.slice(lastHeaderPipeIndex + 1);
+    if (textBetweenHeaderAndSep.trim() !== "" || /\n\s*\r?\n/.test(textBetweenHeaderAndSep)) {
+      continue;
+    }
+
     const preTableText = beforeSeparator.slice(0, headerStartPipeIndex).trimEnd();
 
     const afterSeparatorIndex = separatorIndex + match[0].length;
@@ -101,24 +121,24 @@ export function fixMarkdownTables(raw: string): string {
 
     while (currentOffset < restOfText.length) {
       const sub = restOfText.slice(currentOffset);
-      const pipeIndicesInSub: number[] = [];
-      for (let i = 0; i < sub.length; i++) {
-        if (sub[i] === "|") pipeIndicesInSub.push(i);
-      }
+      const pipeIndicesInSub = getUnescapedPipeIndices(sub);
 
       if (pipeIndicesInSub.length < numPipes) {
         break;
       }
 
       const textBeforeFirstPipe = sub.slice(0, pipeIndicesInSub[0]);
-      if (textBeforeFirstPipe.trim() !== "") {
+      if (textBeforeFirstPipe.trim() !== "" || /\n\s*\r?\n/.test(textBeforeFirstPipe)) {
         break;
       }
 
       const endPipeIndex = pipeIndicesInSub[numPipes - 1];
       const rowStr = sub.slice(pipeIndicesInSub[0], endPipeIndex + 1).trim();
-      dataRows.push(rowStr);
+      if (rowStr.includes("\n")) {
+        break;
+      }
 
+      dataRows.push(rowStr);
       currentOffset += endPipeIndex + 1;
     }
 

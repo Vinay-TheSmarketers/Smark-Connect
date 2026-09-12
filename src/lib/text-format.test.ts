@@ -43,4 +43,52 @@ describe("structured agent text", () => {
     expect(unwrapped).toBe("High-yield extraction equipment buyers in Africa.");
     expect(unwrapped).not.toContain("companyName");
   });
+
+  it("preserves markdown tables with escaped pipes in cells", () => {
+    const markdown = [
+      "### Complete page inventory",
+      "",
+      "| # | Page | HTTP | Words | Title | Description |",
+      "|---|---|---|---|---|---|",
+      "| 1 | [Reliance, Inc](https://www.reliance.com) | 200 | 1200 | Present | Present |",
+      "| 6 | [California Supply Chains Act \\| Reliance, Inc](https://www.reliance.com/california-supply-chains-act) | 200 | 517 | Present | Present |",
+      "| 7 | [Contact Us \\| Reliance, Inc](https://www.reliance.com/contact) | 200 | 486 | Present | Present |",
+      "",
+      "### Evidence boundaries",
+      "",
+      "- Website observations do not establish rankings.",
+    ].join("\n");
+
+    const result = fixMarkdownTables(markdown);
+    expect(result).toContain("| 6 | [California Supply Chains Act \\| Reliance, Inc](https://www.reliance.com/california-supply-chains-act) | 200 | 517 | Present | Present |");
+    expect(result).toContain("| 7 | [Contact Us \\| Reliance, Inc](https://www.reliance.com/contact) | 200 | 486 | Present | Present |");
+    expect(result).toContain("### Evidence boundaries");
+  });
+
+  it("repairs collapsed single-line tables with escaped pipes", () => {
+    const collapsed = "Prefix | Item | Detail | |---|---| | Alpha \\| Beta | First | | Gamma | Second | Postfix notes";
+    const result = fixMarkdownTables(collapsed);
+    expect(result).toContain("| Alpha \\| Beta | First |");
+    expect(result).toContain("| Gamma | Second |");
+    expect(result).toContain("Prefix");
+    expect(result).toContain("Postfix notes");
+  });
+
+  it("correctly handles consecutive tables separated by blank lines without merging them", () => {
+    const text = [
+      "| Col 1 | Col 2 |",
+      "|---|---|",
+      "| A | B |",
+      "",
+      "Some intervening commentary",
+      "",
+      "| Col X | Col Y |",
+      "|---|---|",
+      "| 1 | 2 |",
+    ].join("\n");
+    const result = fixMarkdownTables(text);
+    expect(result).toContain("| A | B |");
+    expect(result).toContain("Some intervening commentary");
+    expect(result).toContain("| 1 | 2 |");
+  });
 });

@@ -46,6 +46,7 @@ export function cleanInlineMarkdown(value: string): string {
     .replace(/[\u201c\u201d]/g, '"')
     .replace(/[\u2013\u2014]/g, "-")
     .replace(/\u2026/g, "...")
+    .replace(/&#124;|&vert;/gi, "|")
     .trim();
 }
 

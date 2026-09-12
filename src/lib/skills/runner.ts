@@ -536,7 +536,7 @@ export function deriveResearchTopics(pages: EvidencePage[], companyName: string)
 }
 
 function safeCell(value: string): string {
-  return value.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+  return value.replace(/\|/g, "&#124;").replace(/\s+/g, " ").trim();
 }
 
 export function appendCompleteResearchAppendix(markdown: string, args: { companyName: string; websiteUrl: string; pages: EvidencePage[]; pageSpeed: SpeedEvidence[] }): string {

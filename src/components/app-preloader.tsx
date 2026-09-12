@@ -52,27 +52,27 @@ export function AppPreloader() {
       {/* Interactive 3D Particle Wave Canvas */}
       <ParticleWave />
 
-      {/* Subtle Pitch Dark Purple Ambient Vignette */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(112,26,189,0.18)_0%,rgba(5,3,10,0.65)_85%)]" />
+      {/* Subtle Pitch Dark Purple Ambient Vignette Centered */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(112,26,189,0.22)_0%,rgba(5,3,10,0.65)_85%)]" />
 
-      {/* On the Top: Smark Connect Written in Bold */}
-      <header className="relative z-20 flex w-full flex-col items-center justify-center pt-8 sm:pt-14 px-6 text-center">
-        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white font-sans drop-shadow-[0_4px_30px_rgba(168,85,247,0.55)]">
-          Smark Connect
-        </h1>
-        <p className="mt-2.5 text-xs sm:text-sm font-semibold tracking-[0.25em] uppercase text-purple-300/90">
-          Your AI CMO
-        </p>
-      </header>
-
-      {/* Top Left Floating Indicator matching DemoOne */}
+      {/* Top Left Floating Indicator */}
       <div className="absolute top-5 left-5 z-20 hidden sm:block text-slate-400 text-xs font-mono pointer-events-none">
-        <p className="font-bold text-white tracking-wide">Smark Connect</p>
+        <p className="font-semibold text-white/80 tracking-wide">Interactive Canvas</p>
         <p className="text-[11px] opacity-60 mt-0.5">Move your mouse to interact</p>
       </div>
 
+      {/* Center of the Screen: Smark Connect & Brand Tagline */}
+      <main className="absolute inset-0 z-20 flex flex-col items-center justify-center px-6 text-center pointer-events-none">
+        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white font-sans drop-shadow-[0_4px_35px_rgba(168,85,247,0.65)]">
+          Smark Connect
+        </h1>
+        <p className="mt-3 text-xs sm:text-sm font-semibold tracking-[0.28em] uppercase text-purple-300/90 drop-shadow-[0_2px_12px_rgba(168,85,247,0.35)]">
+          Your AI CMO
+        </p>
+      </main>
+
       {/* Bottom Status Indicator */}
-      <footer className="relative z-20 flex flex-col items-center justify-center pb-8 sm:pb-12 px-6 text-center pointer-events-none">
+      <footer className="absolute bottom-8 sm:bottom-12 inset-x-0 z-20 flex flex-col items-center justify-center px-6 text-center pointer-events-none">
         <div className="flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.03] px-4 py-1.5 backdrop-blur-md shadow-lg shadow-purple-950/30">
           <span className="relative flex size-2">
             <span className="absolute inline-flex size-full rounded-full bg-purple-400 animate-ping opacity-75" />
