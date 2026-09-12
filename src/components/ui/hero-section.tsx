@@ -147,7 +147,8 @@ export function SmarkHeroSection({
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="Enter your website URL (e.g. stripe.com)"
-                className="relative z-10 h-12 w-full flex-1 border-0 bg-transparent px-3 text-sm sm:text-base font-normal text-white placeholder-slate-400 outline-none transition-all tracking-[0.012em]"
+                className="relative z-10 h-12 w-full flex-1 border-0 !bg-transparent px-3 text-sm sm:text-base font-normal text-white placeholder-slate-400 outline-none transition-all tracking-[0.012em]"
+                style={{ backgroundColor: "transparent" }}
               />
 
               {/* Submit CTA Button inside the translucent capsule */}

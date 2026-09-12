@@ -210,12 +210,32 @@ input:-webkit-autofill:active {
 .form-card h2 { margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.05; letter-spacing: -.05em; }
 .form-intro { margin: 18px 0 32px; color: var(--slate); font-size: 15px; line-height: 1.65; max-width: 490px; }
 form label { display: block; margin: 18px 0 8px; font-size: 12px; font-weight: 700; }
-form input { width: 100%; height: 52px; padding: 0 16px; color: var(--ink); background: #fffdfa; border: 1px solid var(--line); border-radius: 13px; outline: none; transition: border-color .2s, box-shadow .2s; }
-form input::placeholder { color: #aaa4a5; }
-form input:focus { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(139,44,224,.09); }
+.form-card form input { width: 100%; height: 52px; padding: 0 16px; color: #f8fafc; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 13px; outline: none; transition: border-color .2s, box-shadow .2s; }
+form input::placeholder { color: #94a3b8; }
+form input:focus { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(139,44,224,.15); }
 .url-field { position: relative; }
 .url-field > span { position: absolute; top: 50%; left: 16px; transform: translateY(-50%); color: var(--purple); font-weight: 800; z-index: 1; }
-.url-field input { padding-left: 42px; }
+.url-field input { padding-left: 42px; background: transparent !important; }
+
+/* Translucent inputs across entire application - NO WHITE BARS */
+input[type="text"],
+input[type="search"],
+input[type="url"],
+input[type="email"],
+input[type="password"] {
+  color: #ffffff;
+  background-color: transparent !important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0a0714 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
 .audit-preview { margin: 28px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .audit-preview > div { min-width: 0; padding: 14px; border-radius: 14px; background: #fcf5fa; display: flex; gap: 9px; align-items: flex-start; }
 .audit-preview span { color: var(--purple); font-size: 10px; font-weight: 800; }
@@ -13089,14 +13109,14 @@ html[data-theme="dark"] .finding-decision-list > div {
   width: 100%;
   height: 32px;
   padding: 0 8px;
-  border: 1px solid #dfdad6;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
   outline: 0;
-  color: #2d2927;
-  background: #fff;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
   font: 500 10px/1.2 var(--font-sans);
 }
-.competitor-quick-add input:focus { border-color: #928a84; box-shadow: 0 0 0 2px rgba(81, 73, 68, .08); }
+.competitor-quick-add input:focus { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(139, 44, 224, .2); }
 .competitor-quick-add > p { margin: 7px 0 0; color: #a33a45; font-size: 8px; line-height: 1.4; }
 .competitor-quick-add footer { margin-top: 10px; justify-content: flex-end; }
 .competitor-quick-add footer button {

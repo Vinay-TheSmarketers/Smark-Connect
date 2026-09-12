@@ -3,6 +3,8 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { Globe } from "lucide-react";
 
 export function CompanyForm({ additional = false }: { additional?: boolean }) {
   const router = useRouter();
@@ -52,28 +54,51 @@ export function CompanyForm({ additional = false }: { additional?: boolean }) {
             autoComplete="organization"
             required
             minLength={2}
-            className="mt-2 h-12 w-full rounded-xl border border-white/15 bg-white/[0.05] px-4 text-sm text-white placeholder-slate-400 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+            className="mt-2 h-12 w-full rounded-xl border border-white/15 !bg-transparent px-4 text-sm text-white placeholder-slate-400 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
 
         <div>
           <label htmlFor="website-url" className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-            Company website
+            Company website URL
           </label>
           <div className="relative mt-2">
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-purple-400 font-bold" aria-hidden="true">
-              &nearr;
-            </span>
-            <input
-              id="website-url"
-              name="websiteUrl"
-              type="text"
-              inputMode="url"
-              placeholder="https://yourcompany.com"
-              autoComplete="url"
-              required
-              className="h-12 w-full rounded-xl border border-white/15 bg-white/[0.05] pl-10 pr-4 text-sm text-white placeholder-slate-400 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-            />
+            <BorderBeam
+              size="md"
+              colorVariant="colorful"
+              borderRadius={16}
+              className="w-full"
+            >
+              <div className="group/field relative flex w-full items-center rounded-2xl border border-white/15 bg-[#0d0d16]/40 p-1 backdrop-blur-2xl transition-all hover:bg-[#0d0d16]/50 focus-within:border-purple-400/50 focus-within:bg-[#0d0d16]/60 shadow-[0_12px_40px_-10px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                {/* Corner Lighting */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-2xl"
+                >
+                  <div className="absolute -top-3 -left-3 size-12 rounded-full bg-purple-500/25 blur-md" />
+                  <div className="absolute -top-3 -right-3 size-12 rounded-full bg-indigo-500/20 blur-md" />
+                  <div className="absolute -bottom-3 -left-3 size-12 rounded-full bg-purple-600/20 blur-md" />
+                  <div className="absolute -bottom-3 -right-3 size-12 rounded-full bg-cyan-400/25 blur-md" />
+                </div>
+
+                <div className="pointer-events-none relative z-10 pl-3 pr-2 text-purple-400 flex items-center">
+                  <Globe className="size-4.5" />
+                </div>
+
+                <input
+                  id="website-url"
+                  name="websiteUrl"
+                  type="text"
+                  inputMode="url"
+                  placeholder="Enter your website URL (e.g. stripe.com)"
+                  autoComplete="url"
+                  required
+                  className="relative z-10 h-11 w-full flex-1 border-0 !bg-transparent px-2 text-sm text-white placeholder-slate-400 outline-none transition-all"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
+            </BorderBeam>
           </div>
         </div>
 

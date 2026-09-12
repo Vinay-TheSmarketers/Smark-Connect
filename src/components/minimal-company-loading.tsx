@@ -582,7 +582,8 @@ export function MinimalCompanyLoading({
                     placeholder="e.g. Linear"
                     value={newCompanyInput}
                     onChange={(e) => setNewCompanyInput(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                    className="h-10 w-full rounded-xl border border-white/10 !bg-transparent px-3.5 text-xs text-white placeholder-slate-400 outline-none focus:border-purple-500"
+                    style={{ backgroundColor: "transparent" }}
                   />
                 </div>
 
@@ -592,10 +593,11 @@ export function MinimalCompanyLoading({
                   </label>
                   <input
                     type="text"
-                    placeholder="https://linear.app"
+                    placeholder="Enter your website URL (e.g. linear.app)"
                     value={newUrlInput}
                     onChange={(e) => setNewUrlInput(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                    className="h-10 w-full rounded-xl border border-white/10 !bg-transparent px-3.5 text-xs text-white placeholder-slate-400 outline-none focus:border-purple-500"
+                    style={{ backgroundColor: "transparent" }}
                   />
                 </div>
 

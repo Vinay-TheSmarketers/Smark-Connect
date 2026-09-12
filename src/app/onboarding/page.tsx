@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { BorderBeam } from "@/components/ui/border-beam";
 import {
   Globe,
   ArrowRight,
@@ -223,20 +224,56 @@ function OnboardingContent() {
                 <label htmlFor="website-url" className="block text-xs font-bold uppercase tracking-wider text-slate-300">
                   Company or Product Website URL
                 </label>
-                <div className="relative mt-2">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
-                    <Globe className="size-5 text-purple-400" />
-                  </div>
-                  <input
-                    id="website-url"
-                    type="text"
-                    required
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://yourcompany.com or stripe.com"
-                    className="h-14 w-full rounded-2xl border border-white/15 bg-white/[0.05] pl-12 pr-4 text-base text-white placeholder-slate-500 outline-none transition-all focus:border-purple-500 focus:bg-white/[0.08] focus:ring-2 focus:ring-purple-500/20"
-                  />
+
+                {/* Fully Translucent BorderBeam URL Search Bar with Corner Lighting */}
+                <div className="relative mt-3">
+                  <BorderBeam
+                    size="md"
+                    colorVariant="colorful"
+                    borderRadius={20}
+                    className="w-full"
+                  >
+                    <div className="group/field relative flex w-full items-center rounded-[20px] border border-white/15 bg-[#0d0d16]/40 p-1.5 backdrop-blur-2xl transition-all hover:bg-[#0d0d16]/50 focus-within:border-purple-400/50 focus-within:bg-[#0d0d16]/60 shadow-[0_12px_40px_-10px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                      {/* Corner Lighting - Soft Internal Ambient Glow Pools */}
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[20px]"
+                      >
+                        <div className="absolute -top-3 -left-3 size-12 rounded-full bg-purple-500/25 blur-md transition-all duration-300 group-hover/field:bg-purple-500/35 group-focus-within/field:bg-purple-500/45" />
+                        <div className="absolute -top-3 -right-3 size-12 rounded-full bg-indigo-500/20 blur-md transition-all duration-300 group-hover/field:bg-indigo-500/30 group-focus-within/field:bg-indigo-500/40" />
+                        <div className="absolute -bottom-3 -left-3 size-12 rounded-full bg-purple-600/20 blur-md transition-all duration-300 group-hover/field:bg-purple-600/30 group-focus-within/field:bg-purple-600/40" />
+                        <div className="absolute -bottom-3 -right-3 size-12 rounded-full bg-cyan-400/25 blur-md transition-all duration-300 group-hover/field:bg-cyan-400/35 group-focus-within/field:bg-cyan-400/45" />
+                      </div>
+
+                      {/* Globe Icon */}
+                      <div className="pointer-events-none relative z-10 pl-3.5 pr-2 text-purple-400 flex items-center">
+                        <Globe className="size-5" />
+                      </div>
+
+                      {/* Translucent URL Input (NO WHITE BAR) */}
+                      <input
+                        id="website-url"
+                        type="text"
+                        required
+                        value={url}
+                        onChange={(e) => setUrl(e.target.value)}
+                        placeholder="Enter your website URL (e.g. stripe.com)"
+                        className="relative z-10 h-12 w-full flex-1 border-0 !bg-transparent px-2 text-sm sm:text-base font-normal text-white placeholder-slate-400 outline-none transition-all tracking-[0.012em]"
+                        style={{ backgroundColor: "transparent" }}
+                      />
+
+                      {/* Submit CTA button inside the translucent capsule */}
+                      <button
+                        type="submit"
+                        className="relative z-10 group inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 px-5 sm:px-6 text-sm font-semibold text-white shadow-lg shadow-purple-600/30 transition-all hover:brightness-110 active:scale-95 shrink-0"
+                      >
+                        <span>Analyze</span>
+                        <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
+                      </button>
+                    </div>
+                  </BorderBeam>
                 </div>
+
                 <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
                   <span>Quick pick:</span>
                   {["stripe.com", "linear.app", "ramp.com", "vercel.com"].map((d) => (
@@ -244,7 +281,7 @@ function OnboardingContent() {
                       key={d}
                       type="button"
                       onClick={() => setUrl(`https://${d}`)}
-                      className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-slate-300 hover:border-purple-500/50 hover:bg-white/10"
+                      className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-slate-300 hover:border-purple-500/50 hover:bg-white/10 cursor-pointer transition-colors"
                     >
                       {d}
                     </button>
@@ -368,7 +405,8 @@ function OnboardingContent() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder={`Paste your ${currentProviderObj.name} key (sk-...)`}
-                    className="h-12 w-full rounded-xl border border-white/15 bg-white/[0.05] pl-11 pr-4 text-xs font-mono text-white placeholder-slate-500 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                    className="h-12 w-full rounded-xl border border-white/15 !bg-transparent px-4 pl-11 text-xs font-mono text-white placeholder-slate-400 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                    style={{ backgroundColor: "transparent" }}
                   />
                 </div>
 
@@ -384,7 +422,7 @@ function OnboardingContent() {
                 <button
                   type="button"
                   onClick={() => setCurrentStep(1)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-xs font-semibold text-slate-300 hover:bg-white/10"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-xs font-semibold text-slate-300 hover:bg-white/10 cursor-pointer"
                 >
                   <ArrowLeft className="size-4" />
                   <span>Back</span>
@@ -416,7 +454,8 @@ function OnboardingContent() {
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="e.g. Stripe, Acme Corp"
-                  className="mt-2 h-12 w-full rounded-xl border border-white/15 bg-white/[0.05] px-4 text-sm text-white placeholder-slate-500 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                  className="mt-2 h-12 w-full rounded-xl border border-white/15 !bg-transparent px-4 text-sm text-white placeholder-slate-400 outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                  style={{ backgroundColor: "transparent" }}
                 />
               </div>
 

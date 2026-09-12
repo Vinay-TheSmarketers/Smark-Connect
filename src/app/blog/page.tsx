@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { BorderBeam } from "@/components/ui/border-beam";
 import { getAllBlogs, getAllCategories, BlogPost } from "@/lib/blogs";
 import { 
   Search, 
@@ -81,23 +82,35 @@ export default function BlogIndexPage() {
           {/* Search & Filter Bar */}
           <div className="mt-10 max-w-2xl mx-auto flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-500" />
-              <input
-                type="text"
-                placeholder="Search across 16 articles, metrics, topics..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-12 pl-11 pr-4 rounded-xl border border-white/15 bg-white/[0.04] text-sm text-white placeholder-slate-500 backdrop-blur-md focus:outline-none focus:border-purple-500 transition-colors"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
-                >
-                  Clear
-                </button>
-              )}
+              <BorderBeam
+                size="sm"
+                colorVariant="colorful"
+                borderRadius={16}
+                className="w-full"
+              >
+                <div className="group/field relative flex w-full items-center rounded-2xl border border-white/15 bg-[#0d0d16]/40 p-1 backdrop-blur-2xl transition-all hover:bg-[#0d0d16]/50 focus-within:border-purple-400/50 focus-within:bg-[#0d0d16]/60 shadow-[0_12px_40px_-10px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.08)]">
+                  <div className="pointer-events-none pl-3 pr-2 text-slate-400 flex items-center">
+                    <Search className="size-4 text-purple-400" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search across 16 articles, metrics, topics..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="relative z-10 h-10 w-full flex-1 border-0 !bg-transparent px-2 text-sm text-white placeholder-slate-400 outline-none transition-all"
+                    style={{ backgroundColor: "transparent" }}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="relative z-10 px-3 text-xs text-slate-400 hover:text-white cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </BorderBeam>
             </div>
           </div>
 
