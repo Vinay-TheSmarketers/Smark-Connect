@@ -415,56 +415,37 @@ export function MinimalCompanyLoading({
         {/* Dynamic Context Subtitle */}
         <p
           className={`mt-2.5 max-w-md text-xs sm:text-sm leading-relaxed ${
-            isError ? "text-rose-300 font-medium" : "text-slate-300/90"
+            isError ? "text-rose-300 font-medium" : "text-slate-400"
           }`}
         >
           {displaySubtitle}
         </p>
 
-        {/* Live Crawl Event Stream (Minimal Ticker) */}
-        <div className="mt-5 w-full max-w-sm rounded-xl border border-white/[0.06] bg-white/[0.015] p-3 text-left backdrop-blur-md">
-          <div className="flex items-center justify-between text-[10px] text-slate-500 uppercase tracking-wider mb-1.5 pb-1 border-b border-white/[0.04]">
-            <span>Live Telemetry</span>
-            <span className="font-mono text-purple-400">{progress}% complete</span>
-          </div>
-          <div className="space-y-1 font-mono text-[11px] text-slate-400 min-h-[44px]">
-            <div className="text-purple-300 flex items-center gap-1.5 truncate">
-              <span className="size-1 rounded-full bg-purple-400 animate-ping" />
-              <span className="truncate">{liveLogs[0] || "Awaiting crawler socket..."}</span>
-            </div>
-            {liveLogs[1] && (
-              <div className="text-slate-500 truncate text-[10px] pl-2.5">
-                {liveLogs[1]}
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* ========================================================= */}
-        {/* 3. FOUR SMALL MINIMAL BUTTONS */}
+        {/* 3. FOUR MINIMAL BUTTONS */}
         {/* ========================================================= */}
-        <div className="mt-7 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
           {/* Button 1: Pause / Resume / Retry */}
           <button
             type="button"
             disabled={stopping || retrying}
             onClick={handleStopOrPause}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 text-xs font-medium text-slate-300 transition-all hover:border-purple-500/40 hover:bg-purple-500/10 hover:text-white cursor-pointer active:scale-95 backdrop-blur-md disabled:opacity-50"
+            className="inline-flex h-7 items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.015] px-3 text-[11px] font-normal text-slate-400 transition-all hover:border-white/20 hover:bg-white/[0.04] hover:text-slate-200 cursor-pointer active:scale-95 backdrop-blur-sm disabled:opacity-40"
             title={isStopped || isError ? "Resume search" : "Pause search"}
           >
             {isError ? (
               <>
-                <RotateCcw className={`size-3 text-purple-400 ${retrying ? "animate-spin" : ""}`} />
+                <RotateCcw className={`size-2.5 text-purple-400 ${retrying ? "animate-spin" : ""}`} />
                 <span>{retrying ? "Restarting..." : "Retry"}</span>
               </>
             ) : isStopped ? (
               <>
-                <Play className="size-3 text-emerald-400 fill-emerald-400" />
+                <Play className="size-2.5 text-emerald-400 fill-emerald-400" />
                 <span>Resume</span>
               </>
             ) : (
               <>
-                <Pause className="size-3 text-slate-400" />
+                <Pause className="size-2.5 text-slate-400" />
                 <span>{stopping ? "Stopping..." : "Pause"}</span>
               </>
             )}
@@ -480,24 +461,24 @@ export function MinimalCompanyLoading({
                       `/onboarding/audit/${jobId}`
                     )}`
               }
-              className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition-all backdrop-blur-md cursor-pointer active:scale-95 ${
+              className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[11px] font-normal transition-all backdrop-blur-sm cursor-pointer active:scale-95 ${
                 providerError || modelError
-                  ? "border-purple-500/80 bg-purple-600/25 text-white shadow-[0_0_12px_rgba(168,85,247,0.3)] animate-pulse"
-                  : "border-white/[0.08] bg-white/[0.02] text-slate-300 hover:border-purple-500/40 hover:bg-purple-500/10 hover:text-white"
+                  ? "border-purple-500/70 bg-purple-600/20 text-purple-200 shadow-[0_0_10px_rgba(168,85,247,0.25)]"
+                  : "border-white/[0.07] bg-white/[0.015] text-slate-400 hover:border-white/20 hover:bg-white/[0.04] hover:text-slate-200"
               }`}
               title={providerError ? "Connect AI provider" : "Switch AI model in-between"}
             >
-              <Zap className="size-3 text-purple-400" />
+              <Zap className="size-2.5 text-slate-400" />
               <span>{providerError ? "Connect AI" : "AI Model"}</span>
             </Link>
           ) : (
             <button
               type="button"
               onClick={() => setShowModelModal(true)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 text-xs font-medium text-slate-300 transition-all hover:border-purple-500/40 hover:bg-purple-500/10 hover:text-white cursor-pointer active:scale-95 backdrop-blur-md"
+              className="inline-flex h-7 items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.015] px-3 text-[11px] font-normal text-slate-400 transition-all hover:border-white/20 hover:bg-white/[0.04] hover:text-slate-200 cursor-pointer active:scale-95 backdrop-blur-sm"
               title="Switch AI model or speed"
             >
-              <Zap className="size-3 text-purple-400" />
+              <Zap className="size-2.5 text-slate-400" />
               <span>AI Model</span>
             </button>
           )}
@@ -505,21 +486,21 @@ export function MinimalCompanyLoading({
           {/* Button 3: Add Company */}
           <Link
             href="/onboarding/company?mode=add"
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 text-xs font-medium text-slate-300 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300 cursor-pointer active:scale-95 backdrop-blur-md"
+            className="inline-flex h-7 items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.015] px-3 text-[11px] font-normal text-slate-400 transition-all hover:border-white/20 hover:bg-white/[0.04] hover:text-slate-200 cursor-pointer active:scale-95 backdrop-blur-sm"
             title="Add another company workspace"
           >
-            <Plus className="size-3 text-emerald-400" />
+            <Plus className="size-2.5 text-slate-400" />
             <span>Add Company</span>
           </Link>
 
           {/* Button 4: Preview Workspace */}
           <Link
             href={job?.companyId ? `/dashboard/${job.companyId}` : "/onboarding"}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 text-xs font-medium text-slate-300 transition-all hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-300 cursor-pointer active:scale-95 backdrop-blur-md"
+            className="inline-flex h-7 items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.015] px-3 text-[11px] font-normal text-slate-400 transition-all hover:border-white/20 hover:bg-white/[0.04] hover:text-slate-200 cursor-pointer active:scale-95 backdrop-blur-sm"
             title="Open workspace dashboard"
           >
             <span>Preview</span>
-            <ArrowUpRight className="size-3 text-cyan-400" />
+            <ArrowUpRight className="size-2.5 text-slate-400" />
           </Link>
         </div>
       </main>
