@@ -126,6 +126,15 @@ export function LiveConversationMining({
     setTimeout(() => setCopiedHook(false), 2500);
   };
 
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyField = (val: string, key: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    navigator.clipboard.writeText(val);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
   return (
     <section className="conversation-mining" aria-labelledby="conversation-mining-title">
       <header className="conversation-mining__header">
@@ -136,7 +145,7 @@ export function LiveConversationMining({
           <strong id="conversation-mining-title">Live Conversation Miner</strong>
           <small>
             {prospects.length
-              ? `${prospects.length} Active Leads Identified · 24h Non-Repeating Stream`
+              ? `${prospects.length} Verified Contact Leads · 24h Non-Repeating Stream`
               : "Mine active buyer-intent prospects"}
           </small>
         </span>
@@ -202,47 +211,126 @@ export function LiveConversationMining({
                   if (e.key === "Enter" || e.key === " ") setSelectedProspect(prospect);
                 }}
               >
-                <div className="conversation-prospect__score-col">
-                  <span className="conversation-prospect__score" title={`Total Lead Score: ${prospect.score}/100`}>
-                    {prospect.score}
+                <div className="conversation-prospect__person-row">
+                  <div className="conversation-prospect__person-id">
+                    <div className="prospect-avatar">
+                      {prospect.platform === "LinkedIn" ? (
+                        <span className="platform-symbol linkedin">in</span>
+                      ) : prospect.platform === "X" ? (
+                        <span className="platform-symbol x">𝕏</span>
+                      ) : prospect.platform === "Reddit" ? (
+                        <span className="platform-symbol reddit">r/</span>
+                      ) : (
+                        <UserCheck size={12} />
+                      )}
+                    </div>
+                    <div className="prospect-identity-text">
+                      <div className="identity-name-line">
+                        <strong>{prospect.identity}</strong>
+                        <span className="platform-pill">{prospect.platform}</span>
+                      </div>
+                      {(prospect.personRole || prospect.companyName) && (
+                        <small className="identity-role">
+                          {prospect.personRole || "Prospect"}
+                          {prospect.companyName ? ` · ${prospect.companyName}` : ""}
+                        </small>
+                      )}
+                    </div>
+                  </div>
+                  <span className="conversation-prospect__chevron" title="Click to view details">
+                    <Info size={12} />
                   </span>
-                  <span className="conversation-prospect__badge">{prospect.priorityTier}</span>
                 </div>
 
-                <div className="conversation-prospect__copy">
-                  <div className="conversation-prospect__meta">
-                    <strong>{prospect.personRole ? `${prospect.identity} · ${prospect.personRole}` : prospect.identity}</strong>
-                    <em>{prospect.community}</em>
+                <div className="conversation-prospect__contact-card">
+                  {/* Phone Number */}
+                  <div className={`contact-entry ${prospect.contact.phoneVerified ? "verified" : "unlisted"}`}>
+                    <div className="contact-entry__left">
+                      <Phone size={11} className="contact-icon" />
+                      <span className="contact-type-label">Phone:</span>
+                      {prospect.contact.phone ? (
+                        <code className="contact-val">{prospect.contact.phone}</code>
+                      ) : (
+                        <span className="contact-val muted">Unlisted</span>
+                      )}
+                    </div>
+                    <div className="contact-entry__right">
+                      {prospect.contact.phoneVerified && prospect.contact.phone ? (
+                        <>
+                          <span className="verified-badge">
+                            <ShieldCheck size={9} /> Verified
+                          </span>
+                          <button
+                            type="button"
+                            className="contact-copy-btn"
+                            title="Copy phone number"
+                            onClick={(e) => copyField(prospect.contact.phone!, `phone-${prospect.id}`, e)}
+                          >
+                            {copiedKey === `phone-${prospect.id}` ? <Check size={10} /> : <Copy size={10} />}
+                          </button>
+                        </>
+                      ) : (
+                        <span className="unlisted-badge">Unlisted</span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="conversation-prospect__intent-row">
-                    <span className="intent-tag" title={`Intent: ${prospect.intentSignal || prospect.intent}`}>
-                      {prospect.intentSignal || prospect.intent}
-                    </span>
-                    {prospect.contact.linkedinVerified && (
-                      <span className="contact-tag verified" title="Verified LinkedIn Profile">
-                        <ShieldCheck size={9} /> LinkedIn Verified
-                      </span>
-                    )}
-                    {prospect.contact.phoneVerified && (
-                      <span className="contact-tag verified" title="Verified Direct Phone Number">
-                        <Phone size={8} /> Phone Verified
-                      </span>
-                    )}
-                    {prospect.contact.emailVerified && (
-                      <span className="contact-tag verified" title="Verified Direct Email">
-                        <Mail size={8} /> Email Verified
-                      </span>
-                    )}
+                  {/* Email ID */}
+                  <div className={`contact-entry ${prospect.contact.emailVerified ? "verified" : "unlisted"}`}>
+                    <div className="contact-entry__left">
+                      <Mail size={11} className="contact-icon" />
+                      <span className="contact-type-label">Email:</span>
+                      {prospect.contact.email ? (
+                        <code className="contact-val">{prospect.contact.email}</code>
+                      ) : (
+                        <span className="contact-val muted">Unlisted</span>
+                      )}
+                    </div>
+                    <div className="contact-entry__right">
+                      {prospect.contact.emailVerified && prospect.contact.email ? (
+                        <>
+                          <span className="verified-badge">
+                            <ShieldCheck size={9} /> Verified
+                          </span>
+                          <button
+                            type="button"
+                            className="contact-copy-btn"
+                            title="Copy email ID"
+                            onClick={(e) => copyField(prospect.contact.email!, `email-${prospect.id}`, e)}
+                          >
+                            {copiedKey === `email-${prospect.id}` ? <Check size={10} /> : <Copy size={10} />}
+                          </button>
+                        </>
+                      ) : (
+                        <span className="unlisted-badge">Unlisted</span>
+                      )}
+                    </div>
                   </div>
 
-                  <p className="conversation-prospect__title">{prospect.title}</p>
-                  <p className="conversation-prospect__why-text">{prospect.whyTarget}</p>
+                  {/* LinkedIn Profile if verified */}
+                  {prospect.contact.linkedinVerified && prospect.contact.linkedinUrl && (
+                    <div className="contact-entry verified">
+                      <div className="contact-entry__left">
+                        <ExternalLink size={11} className="contact-icon" />
+                        <span className="contact-type-label">LinkedIn:</span>
+                        <a
+                          href={prospect.contact.linkedinUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="contact-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {prospect.contact.linkedinUrl.replace(/^https?:\/\/(?:www\.)?linkedin\.com\/in\//i, "in/")}
+                        </a>
+                      </div>
+                      <div className="contact-entry__right">
+                        <span className="verified-badge">
+                          <ShieldCheck size={9} /> Verified Profile
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-                <span className="conversation-prospect__chevron" title="Click to view details">
-                  <Info size={13} />
-                </span>
               </article>
             ))}
           </div>
@@ -260,13 +348,13 @@ export function LiveConversationMining({
       </div>
 
       <footer className="conversation-mining__footer">
-        <span>Showing 5–6 high-intent active leads. Refreshes once per 24 hours without repetition.</span>
+        <span>Verified direct contact intelligence · Refreshes once per 24 hours</span>
       </footer>
 
       {/* Prospect Intelligence Modal (Minimal Design) */}
       {selectedProspect && (
         <div className="drawer-backdrop lead-modal-backdrop" onClick={() => setSelectedProspect(null)}>
-          <div className="lead-modal lead-modal--minimal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Lead Prospect Intelligence">
+          <div className="lead-modal lead-modal--minimal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Lead Prospect Contact">
             <header className="lead-modal__header">
               <div className="lead-modal__title-box">
                 <span className="platform-pill">{selectedProspect.platform}</span>
@@ -275,100 +363,53 @@ export function LiveConversationMining({
                 <span className="community-sub">{selectedProspect.community}</span>
               </div>
 
-              <div className="lead-modal__header-right">
-                <div className="modal-score-badge">
-                  <strong>{selectedProspect.score}</strong>
-                  <span>/ 100 ICP Fit</span>
-                </div>
-                <button type="button" className="close-btn" onClick={() => setSelectedProspect(null)}>
-                  <X size={16} />
-                </button>
-              </div>
+              <button type="button" className="close-btn" onClick={() => setSelectedProspect(null)}>
+                <X size={16} />
+              </button>
             </header>
 
             <div className="lead-modal__body">
-              {/* Target Rationale */}
+              {/* Verified Business Contact */}
               <div className="lead-modal__section">
-                <h4>Why Target This Prospect</h4>
-                <p className="why-text-minimal">{selectedProspect.whyTarget}</p>
-              </div>
-
-              {/* Signals & Trigger */}
-              <div className="lead-modal__section">
-                <h4>Signals & Intent Trigger</h4>
-                <div className="signal-grid">
-                  <div>
-                    <label>Intent Signal</label>
-                    <span className="signal-value">{selectedProspect.intentSignal || selectedProspect.intent}</span>
-                  </div>
-                  <div>
-                    <label>Intent Classification</label>
-                    <span className="signal-value">{selectedProspect.intentCategory}</span>
-                  </div>
-                  <div>
-                    <label>Observable Trigger</label>
-                    <span className="signal-value">{selectedProspect.observableTrigger}</span>
-                  </div>
-                  <div>
-                    <label>Matched ICP Profile</label>
-                    <span className="signal-value">{selectedProspect.matchedIcp}</span>
-                  </div>
-                  <div>
-                    <label>Customer Problem</label>
-                    <span className="signal-value">{selectedProspect.matchedProblem}</span>
-                  </div>
-                </div>
-
-                {selectedProspect.verbatimQuote && (
-                  <div className="quote-box-minimal">
-                    <label>Quote Evidence</label>
-                    <blockquote>"{selectedProspect.verbatimQuote}"</blockquote>
-                  </div>
-                )}
-              </div>
-
-              {/* Score Breakdown */}
-              <div className="lead-modal__section">
-                <h4>ICP Score Breakdown</h4>
-                <div className="score-breakdown-list">
-                  <div className="score-item">
-                    <span>ICP & Firmographic Fit</span>
-                    <div className="bar-track"><div className="bar-fill" style={{ width: `${(selectedProspect.scoreBreakdown.icpFit / 25) * 100}%` }} /></div>
-                    <strong>{selectedProspect.scoreBreakdown.icpFit}/25</strong>
-                  </div>
-                  <div className="score-item">
-                    <span>Buying Intent Signal</span>
-                    <div className="bar-track"><div className="bar-fill" style={{ width: `${(selectedProspect.scoreBreakdown.intent / 25) * 100}%` }} /></div>
-                    <strong>{selectedProspect.scoreBreakdown.intent}/25</strong>
-                  </div>
-                  <div className="score-item">
-                    <span>Timing & Event Trigger</span>
-                    <div className="bar-track"><div className="bar-fill" style={{ width: `${(selectedProspect.scoreBreakdown.timing / 15) * 100}%` }} /></div>
-                    <strong>{selectedProspect.scoreBreakdown.timing}/15</strong>
-                  </div>
-                  <div className="score-item">
-                    <span>Evidence Strength</span>
-                    <div className="bar-track"><div className="bar-fill" style={{ width: `${(selectedProspect.scoreBreakdown.evidenceStrength / 10) * 100}%` }} /></div>
-                    <strong>{selectedProspect.scoreBreakdown.evidenceStrength}/10</strong>
-                  </div>
-                  <div className="score-item">
-                    <span>Contact Quality</span>
-                    <div className="bar-track"><div className="bar-fill" style={{ width: `${(selectedProspect.scoreBreakdown.contactQuality / 5) * 100}%` }} /></div>
-                    <strong>{selectedProspect.scoreBreakdown.contactQuality}/5</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Business Contact */}
-              <div className="lead-modal__section">
-                <h4>Business Contact & Verification</h4>
+                <h4>Verified Contact Details</h4>
                 <div className="contact-details-grid">
                   <div className="contact-field">
                     <label>
                       Phone Number {selectedProspect.contact.phoneVerified ? <span className="verified-badge-inline"><ShieldCheck size={9} /> Verified</span> : <span className="unlisted-badge-inline">Unlisted</span>}
                     </label>
                     {selectedProspect.contact.phone ? (
-                      <code>{selectedProspect.contact.phone}</code>
+                      <div className="contact-modal-row">
+                        <code>{selectedProspect.contact.phone}</code>
+                        <button
+                          type="button"
+                          className="contact-copy-btn"
+                          onClick={() => copyField(selectedProspect.contact.phone!, "modal-phone")}
+                          title="Copy phone"
+                        >
+                          {copiedKey === "modal-phone" ? <Check size={11} /> : <Copy size={11} />}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="unlisted-note">Unlisted in public discussion</span>
+                    )}
+                  </div>
+
+                  <div className="contact-field">
+                    <label>
+                      Email {selectedProspect.contact.emailVerified ? <span className="verified-badge-inline"><ShieldCheck size={9} /> Verified</span> : selectedProspect.contact.email ? <span className="probable-badge-inline">Discovered</span> : <span className="unlisted-badge-inline">Unlisted</span>}
+                    </label>
+                    {selectedProspect.contact.email ? (
+                      <div className="contact-modal-row">
+                        <code>{selectedProspect.contact.email}</code>
+                        <button
+                          type="button"
+                          className="contact-copy-btn"
+                          onClick={() => copyField(selectedProspect.contact.email!, "modal-email")}
+                          title="Copy email"
+                        >
+                          {copiedKey === "modal-email" ? <Check size={11} /> : <Copy size={11} />}
+                        </button>
+                      </div>
                     ) : (
                       <span className="unlisted-note">Unlisted in public discussion</span>
                     )}
@@ -382,17 +423,6 @@ export function LiveConversationMining({
                       <a href={selectedProspect.contact.linkedinUrl} target="_blank" rel="noreferrer" className="modal-link">
                         {selectedProspect.contact.linkedinUrl} <ExternalLink size={11} />
                       </a>
-                    ) : (
-                      <span className="unlisted-note">Unlisted in public discussion</span>
-                    )}
-                  </div>
-
-                  <div className="contact-field">
-                    <label>
-                      Email {selectedProspect.contact.emailVerified ? <span className="verified-badge-inline"><ShieldCheck size={9} /> Verified</span> : selectedProspect.contact.email ? <span className="probable-badge-inline">Discovered</span> : <span className="unlisted-badge-inline">Unlisted</span>}
-                    </label>
-                    {selectedProspect.contact.email ? (
-                      <code>{selectedProspect.contact.email}</code>
                     ) : (
                       <span className="unlisted-note">Unlisted in public discussion</span>
                     )}

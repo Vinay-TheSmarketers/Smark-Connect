@@ -274,12 +274,24 @@ export function extractContactInfo(
   platform: string
 ): LeadContactInfo {
   // Check candidate object fields for email
-  const rawEmail = text(candidate.email) || text(candidate.contactEmail) || text(candidate.authorEmail);
-  const verifiedEmail = extractVerifiedEmail(rawEmail);
+  const rawEmail =
+    text(candidate.email) ||
+    text(candidate.contactEmail) ||
+    text(candidate.authorEmail) ||
+    text(candidate.workEmail) ||
+    text(candidate.businessEmail) ||
+    text(candidate.directEmail);
+  let verifiedEmail = extractVerifiedEmail(rawEmail);
 
   // Check candidate object fields for phone
-  const rawPhone = candidate.phone || candidate.phoneNumber || candidate.contactPhone;
-  const verifiedPhone = extractVerifiedPhoneNumber(rawPhone);
+  const rawPhone =
+    candidate.phone ||
+    candidate.phoneNumber ||
+    candidate.contactPhone ||
+    candidate.directPhone ||
+    candidate.mobile ||
+    candidate.telephone;
+  let verifiedPhone = extractVerifiedPhoneNumber(rawPhone);
 
   // Check candidate object fields for linkedin
   const rawLinkedin = text(candidate.linkedinUrl) || text(candidate.linkedin) || text(candidate.profileUrl);
@@ -288,6 +300,29 @@ export function extractContactInfo(
   // If candidate was found on LinkedIn and sourceUrl is a valid profile URL
   if (!verifiedLinkedin.verified && platform === "LinkedIn" && isPublicUrl(sourceUrl)) {
     verifiedLinkedin = extractVerifiedLinkedinUrl(sourceUrl);
+  }
+
+  // If email or phone not found in explicit fields, inspect text/evidence pools
+  if (!verifiedEmail.verified || !verifiedPhone.verified) {
+    const textPool = [
+      text(candidate.evidence),
+      text(candidate.excerpt),
+      text(candidate.recommendedResponse),
+      text(candidate.draftContent),
+      text(candidate.description),
+      text(candidate.content),
+      text(candidate.body),
+      Array.isArray(candidate.evidence) ? candidate.evidence.map(text).join(" ") : "",
+    ].join(" ");
+
+    if (!verifiedEmail.verified) {
+      const fromText = extractVerifiedEmail(textPool);
+      if (fromText.verified) verifiedEmail = fromText;
+    }
+    if (!verifiedPhone.verified) {
+      const fromText = extractVerifiedPhoneNumber(textPool);
+      if (fromText.verified) verifiedPhone = fromText;
+    }
   }
 
   const confidence: "Verified" | "Probable" | "Unlisted" =
@@ -453,7 +488,11 @@ export function extractConversationProspects(
   }
 
   return prospects
-    .sort((a, b) => b.score - a.score || b.confidence - a.confidence)
+    .sort((a, b) => {
+      const aVerified = a.contact.phoneVerified || a.contact.emailVerified ? 1 : 0;
+      const bVerified = b.contact.phoneVerified || b.contact.emailVerified ? 1 : 0;
+      return bVerified - aVerified || b.score - a.score || b.confidence - a.confidence;
+    })
     .slice(0, limit);
 }
 

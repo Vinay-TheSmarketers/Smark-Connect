@@ -13261,12 +13261,10 @@ html[data-theme="dark"] .finding-decision-list > div {
 
 .conversation-prospect {
   min-width: 0;
-  min-height: 82px;
-  padding: 10px;
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) 14px;
-  align-items: start;
-  gap: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
   border-bottom: 1px solid #efedeb;
   color: inherit;
   background: #fff;
@@ -13277,111 +13275,204 @@ html[data-theme="dark"] .finding-decision-list > div {
 .conversation-prospect:hover,
 .conversation-prospect:focus-visible { background: #f8f7f6; outline: none; }
 
-.conversation-prospect__score-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.conversation-prospect__score {
-  width: 32px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border-radius: 6px;
-  color: #126346;
-  background: #eaf6f0;
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.conversation-prospect__badge {
-  font-size: 6.5px;
-  font-weight: 700;
-  color: #a45000;
-  white-space: nowrap;
-}
-
-.conversation-prospect__copy { min-width: 0; display: grid; gap: 4px; }
-
-.conversation-prospect__meta {
+.conversation-prospect__person-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+}
+
+.conversation-prospect__person-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.prospect-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  background: #f1efed;
+  color: #5c5652;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.prospect-avatar .platform-symbol.linkedin { color: #0a66c2; }
+.prospect-avatar .platform-symbol.reddit { color: #ff4500; }
+.prospect-avatar .platform-symbol.x { color: #111; }
+
+.prospect-identity-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.identity-name-line {
+  display: flex;
+  align-items: center;
   gap: 6px;
 }
 
-.conversation-prospect__meta strong {
-  color: #2e2a28;
-  font-size: 10px;
+.identity-name-line strong {
+  color: #24211f;
+  font-size: 10.5px;
   font-weight: 650;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.conversation-prospect__meta em {
-  color: #8a837f;
+.identity-role {
+  color: #7a7470;
   font-size: 8px;
-  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.conversation-prospect__intent-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.intent-tag {
-  width: fit-content;
+.platform-pill {
   padding: 1px 5px;
   border-radius: 4px;
-  color: #6b4f21;
-  background: #f8f1e5;
-  font-size: 7px;
-  font-weight: 650;
+  font-size: 7.5px;
+  font-weight: 600;
+  color: #635b56;
+  background: #ebe8e5;
+  white-space: nowrap;
 }
 
-.contact-tag.verified {
+.conversation-prospect__contact-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #fbfaf9;
+  border: 1px solid #f0eee9;
+}
+
+.contact-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 9px;
+}
+
+.contact-entry__left {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.contact-entry .contact-icon {
+  color: #5a5450;
+  flex-shrink: 0;
+}
+
+.contact-entry.verified .contact-icon {
+  color: #0d6848;
+}
+
+.contact-entry .contact-type-label {
+  font-size: 8px;
+  font-weight: 600;
+  color: #8c8580;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.contact-entry .contact-val {
+  font-size: 9px;
+  color: #211e1c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-entry .contact-val.muted {
+  color: #a8a29e;
+  font-style: italic;
+  font-family: inherit;
+}
+
+.contact-entry .contact-link {
+  color: #0a66c2;
+  text-decoration: none;
+  font-size: 8.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contact-entry .contact-link:hover {
+  text-decoration: underline;
+}
+
+.contact-entry__right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.verified-badge {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   padding: 1px 5px;
   border-radius: 4px;
-  color: #136949;
-  background: #eaf6f0;
+  color: #0d6848;
+  background: #e6f6ee;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.unlisted-badge {
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #8e8884;
+  background: #eeebe8;
   font-size: 7px;
-  font-weight: 600;
-}
-
-.conversation-prospect__title {
-  margin: 0;
-  color: #4f4a47;
-  font-size: 9px;
   font-weight: 550;
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.conversation-prospect__why-text {
-  margin: 0;
-  color: #6b6460;
-  font-size: 8px;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.contact-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid #e0dcda;
+  background: #fff;
+  color: #5c5652;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.contact-copy-btn:hover {
+  color: #1f1c1a;
+  background: #f0ece9;
+  border-color: #cac5c1;
+}
+
+.contact-modal-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .conversation-prospect__chevron {
-  margin-top: 4px;
   color: #aaa4a0;
+  flex-shrink: 0;
 }
 
 .conversation-mining__empty {
@@ -13786,6 +13877,49 @@ html[data-theme="dark"] .copy-btn {
   background: #2b2826;
   border-color: #484340;
   color: #d9d4cf;
+}
+
+html[data-theme="dark"] .conversation-prospect__contact-card {
+  background: #171615;
+  border-color: #2e2b28;
+}
+
+html[data-theme="dark"] .contact-entry .contact-val {
+  color: #e6e2de;
+}
+
+html[data-theme="dark"] .contact-entry .contact-val.muted {
+  color: #756f6a;
+}
+
+html[data-theme="dark"] .verified-badge {
+  color: #75d4b0;
+  background: #123326;
+}
+
+html[data-theme="dark"] .unlisted-badge {
+  color: #7e7874;
+  background: #2b2826;
+}
+
+html[data-theme="dark"] .contact-copy-btn {
+  background: #252220;
+  border-color: #3d3936;
+  color: #b8b1ac;
+}
+
+html[data-theme="dark"] .contact-copy-btn:hover {
+  background: #34302c;
+  color: #f0ebe6;
+}
+
+html[data-theme="dark"] .prospect-avatar {
+  background: #272422;
+  color: #9c9590;
+}
+
+html[data-theme="dark"] .prospect-avatar .platform-symbol.x {
+  color: #e6e2de;
 }
 
 @media (max-height: 680px) {
