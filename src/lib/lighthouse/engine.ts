@@ -1,6 +1,7 @@
 import { Launcher } from "chrome-launcher";
-import puppeteer, { type Browser } from "puppeteer-core";
+import puppeteer, { type Browser, type CDPSession, type Target } from "puppeteer-core";
 import { resolveSafeRedirects } from "./url";
+import { assertPublicUrl } from "../crawl/url-safety";
 import { LighthouseAuditError, type LighthouseAuditSummary, type LighthouseMetric, type LighthouseReport, type LighthouseStrategy } from "./types";
 
 type LighthouseRunner = (typeof import("lighthouse"))["default"];
@@ -85,6 +86,38 @@ function browserPort(browser: Browser) {
   return port;
 }
 
+async function guardTargetRequests(target: Target, guarded: Set<Target>, sessions: Set<CDPSession>) {
+  if (target.type() !== "page" || guarded.has(target)) return;
+  guarded.add(target);
+  const session = await target.createCDPSession();
+  sessions.add(session);
+  await session.send("Fetch.enable", { patterns: [{ urlPattern: "*", requestStage: "Request" }] });
+  session.on("Fetch.requestPaused", async (event) => {
+    try {
+      const requestUrl = new URL(event.request.url);
+      if (["data:", "blob:", "about:"].includes(requestUrl.protocol)) await session.send("Fetch.continueRequest", { requestId: event.requestId });
+      else {
+        await assertPublicUrl(requestUrl);
+        await session.send("Fetch.continueRequest", { requestId: event.requestId });
+      }
+    } catch {
+      await session.send("Fetch.failRequest", { requestId: event.requestId, errorReason: "BlockedByClient" }).catch(() => undefined);
+    }
+  });
+}
+
+async function enforceBrowserNetworkPolicy(browser: Browser): Promise<() => Promise<void>> {
+  const guarded = new Set<Target>();
+  const sessions = new Set<CDPSession>();
+  const attach = (target: Target) => { void guardTargetRequests(target, guarded, sessions).catch(() => undefined); };
+  browser.on("targetcreated", attach);
+  await Promise.all(browser.targets().map((target) => guardTargetRequests(target, guarded, sessions)));
+  return async () => {
+    browser.off("targetcreated", attach);
+    await Promise.all(Array.from(sessions, async (session) => session.detach().catch(() => undefined)));
+  };
+}
+
 type ClosableBrowser = { close: () => Promise<void> };
 
 export async function withBrowserCleanup<T, TBrowser extends ClosableBrowser>(
@@ -137,20 +170,25 @@ export async function runLighthouseAudit(url: string, strategy: LighthouseStrate
         args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-extensions", "--disable-background-networking"],
       }),
       async (browser) => {
-        const { default: lighthouse } = await import("lighthouse");
-        const result = await lighthouse(safeUrl.href, lighthouseFlags(strategy, browserPort(browser)));
-        if (!result) throw new LighthouseAuditError("AUDIT_FAILED", "Lighthouse did not return a report for this website.");
-        // Lighthouse may follow another redirect after the preflight request.
-        // Validate the destination before accepting its report.
-        await resolveSafeRedirects(result.lhr.finalDisplayedUrl || result.lhr.finalUrl || safeUrl.href, signal);
-        if (result.lhr.runtimeError) {
-          const runtimeMessage = result.lhr.runtimeError.message || "Lighthouse could not load this website.";
-          const runtimeCode = /timeout/i.test(runtimeMessage) ? "TIMEOUT" : /dns|resolve|net::|document request/i.test(runtimeMessage) ? "UNREACHABLE" : "UNSUPPORTED_WEBSITE";
-          throw new LighthouseAuditError(runtimeCode, runtimeMessage);
+        const releaseNetworkPolicy = await enforceBrowserNetworkPolicy(browser);
+        try {
+          const { default: lighthouse } = await import("lighthouse");
+          const result = await lighthouse(safeUrl.href, lighthouseFlags(strategy, browserPort(browser)));
+          if (!result) throw new LighthouseAuditError("AUDIT_FAILED", "Lighthouse did not return a report for this website.");
+          // Lighthouse may follow another redirect after the preflight request.
+          // Validate the destination before accepting its report.
+          await resolveSafeRedirects(result.lhr.finalDisplayedUrl || result.lhr.finalUrl || safeUrl.href, signal);
+          if (result.lhr.runtimeError) {
+            const runtimeMessage = result.lhr.runtimeError.message || "Lighthouse could not load this website.";
+            const runtimeCode = /timeout/i.test(runtimeMessage) ? "TIMEOUT" : /dns|resolve|net::|document request/i.test(runtimeMessage) ? "UNREACHABLE" : "UNSUPPORTED_WEBSITE";
+            throw new LighthouseAuditError(runtimeCode, runtimeMessage);
+          }
+          const parsed = parseLighthouseResult(result.lhr, strategy);
+          if (Object.values(parsed.scores).every((score) => score === null)) throw new LighthouseAuditError("UNSUPPORTED_WEBSITE", "Lighthouse loaded the website but could not produce scored audit categories.");
+          return parsed;
+        } finally {
+          await releaseNetworkPolicy();
         }
-        const parsed = parseLighthouseResult(result.lhr, strategy);
-        if (Object.values(parsed.scores).every((score) => score === null)) throw new LighthouseAuditError("UNSUPPORTED_WEBSITE", "Lighthouse loaded the website but could not produce scored audit categories.");
-        return parsed;
       },
       signal,
     );

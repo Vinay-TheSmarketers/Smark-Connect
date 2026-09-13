@@ -8,6 +8,7 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  History,
   Lock,
   Presentation,
   RefreshCw,
@@ -70,6 +71,9 @@ export function DocumentWorkspace({
   const [pdfState, setPdfState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [pdfError, setPdfError] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyPending, setHistoryPending] = useState(false);
+  const [versions, setVersions] = useState<Array<{ id: string; version: number; editPrompt: string | null; editMode: string; tokenEstimate: number; createdAt: string }>>([]);
   const pdfUrlRef = useRef("");
   const metadata = documentMetadata(document.metadata);
   const cleanContent = useMemo(
@@ -190,6 +194,43 @@ export function DocumentWorkspace({
     }
   }
 
+  async function toggleHistory() {
+    const nextOpen = !historyOpen;
+    setHistoryOpen(nextOpen);
+    if (!nextOpen || versions.length || historyPending) return;
+    setHistoryPending(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/documents/${document.id}/versions`, { cache: "no-store" });
+      const payload = await response.json() as { versions?: typeof versions; error?: string };
+      if (!response.ok || !payload.versions) throw new Error(payload.error ?? "Version history could not be loaded.");
+      setVersions(payload.versions);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Version history could not be loaded.");
+    } finally {
+      setHistoryPending(false);
+    }
+  }
+
+  async function restoreVersion(version: number) {
+    if (document.locked || historyPending) return;
+    setHistoryPending(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/documents/${document.id}/versions/${version}`, { method: "POST" });
+      const payload = await response.json() as { document?: WorkspaceDocument; error?: string };
+      if (!response.ok || !payload.document) throw new Error(payload.error ?? "The version could not be restored.");
+      onUpdate(payload.document);
+      setVersions([]);
+      setHistoryOpen(false);
+      setTab("document");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The version could not be restored.");
+    } finally {
+      setHistoryPending(false);
+    }
+  }
+
   return (
     <div
       className="drawer-backdrop"
@@ -213,6 +254,9 @@ export function DocumentWorkspace({
 
           </div>
           <div className="document-actions">
+            <button type="button" onClick={() => void toggleHistory()} disabled={historyPending} title="View and restore saved versions">
+              <History size={14} /> History
+            </button>
             {pptxEnabled && (
               <button className="office-download" type="button" disabled={Boolean(exporting)} data-primary={artifactManifest.primaryArtifact === "pptx"} onClick={() => void downloadOffice("pptx")}>
                 <Presentation size={14} /> {exporting === "pptx" ? "Preparing PPTX" : "PPTX"}
@@ -282,6 +326,15 @@ export function DocumentWorkspace({
                   </em>
                 ))}
               </div>
+
+              {historyOpen && (
+                <section className="document-version-history" aria-label="Document version history">
+                  <strong>Saved versions</strong>
+                  {historyPending && !versions.length ? <span>Loading history…</span> : versions.length ? (
+                    <ul>{versions.map((version) => <li key={version.id}><span>Version {version.version} · {new Date(version.createdAt).toLocaleString()}</span><small>{version.editPrompt || version.editMode}</small><button type="button" disabled={document.locked || historyPending} onClick={() => void restoreVersion(version.version)}>Restore</button></li>)}</ul>
+                  ) : <span>No earlier versions are available yet.</span>}
+                </section>
+              )}
 
 
 

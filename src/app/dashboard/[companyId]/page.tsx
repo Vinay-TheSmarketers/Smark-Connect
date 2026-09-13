@@ -20,6 +20,11 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
       auditJobs: { orderBy: { createdAt: "desc" }, take: 1 },
       integrations: { select: { provider: true, status: true, connectedAt: true }, orderBy: { provider: "asc" } },
       agentConfigs: { select: { agentType: true, config: true } },
+      chatSessions: {
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+        include: { messages: { orderBy: { createdAt: "desc" }, take: 30, select: { id: true, role: true, content: true, createdAt: true } } },
+      },
       chatAttachments: { where: { remembered: true }, orderBy: { createdAt: "desc" }, select: { id: true, title: true, sourceType: true, content: true, createdAt: true } },
     },
   });
@@ -31,6 +36,7 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
     orderBy: { createdAt: "asc" },
   });
   const latestAgents = newestRunPerAgent(company.agentRuns);
+  const latestChatSession = company.chatSessions[0];
   const companyContext = createCompanyContext({ ...company, intelligenceMarkdown: company.documents.find((document) => document.type === "COMPANY_INTELLIGENCE")?.contentMarkdown, crawlPages: company.crawlPages });
   return <DashboardClient data={{
     company: { id: company.id, name: company.name, websiteUrl: company.websiteUrl, logoUrl: company.logoUrl, category: company.category, description: company.description, companyContext, lastAuditedAt: company.lastAuditedAt?.toISOString() ?? null },
@@ -43,6 +49,10 @@ export default async function DashboardPage({ params }: PageProps<"/dashboard/[c
     agents: latestAgents.map((run) => ({ id: run.id, agentType: run.agentType, status: run.status, summary: run.summary, output: run.output, sources: run.sources, skills: run.skills, confidence: run.confidence, tokensUsed: run.tokensUsed, error: run.error, createdAt: run.createdAt.toISOString() })),
     integrations: company.integrations.map((integration) => ({ provider: integration.provider, status: integration.status, connectedAt: integration.connectedAt?.toISOString() ?? null })),
     agentConfigs: company.agentConfigs.map((config) => ({ agentType: config.agentType, config: config.config })),
+    chat: latestChatSession ? {
+      sessionId: latestChatSession.id,
+      messages: latestChatSession.messages.slice().reverse().map((message) => ({ id: message.id, role: message.role === "assistant" ? "assistant" as const : "user" as const, content: message.content, createdAt: message.createdAt.toISOString() })),
+    } : null,
     sources: company.chatAttachments.map((source) => ({ id: source.id, title: source.title, sourceType: source.sourceType, characterCount: source.content.length, createdAt: source.createdAt.toISOString() })),
     pagesRead: company._count.crawlPages,
     crawlPages: company.crawlPages,

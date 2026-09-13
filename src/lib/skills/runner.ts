@@ -106,9 +106,11 @@ export function estimateTokens(...parts: string[]): number {
   return Math.max(1, Math.ceil(parts.reduce((total, part) => total + part.length, 0) / 4));
 }
 
-function assertTokenBudget(user: { tokenBudget?: number; tokenUsed?: number }) {
-  if ((user.tokenBudget ?? 0) > 0 && (user.tokenUsed ?? 0) >= (user.tokenBudget ?? 0)) {
-    throw new Error("Your token budget has been reached. Update the workspace token limit before starting another generation.");
+function assertTokenBudget(user: { tokenBudget?: number; tokenUsed?: number }, reservedTokens = 0) {
+  const budget = user.tokenBudget ?? 0;
+  const used = user.tokenUsed ?? 0;
+  if (budget > 0 && used + reservedTokens > budget) {
+    throw new Error(`This generation needs an estimated ${reservedTokens.toLocaleString()} tokens, but only ${Math.max(0, budget - used).toLocaleString()} remain. Update the workspace token limit before continuing.`);
   }
 }
 
@@ -559,7 +561,8 @@ export async function runCoreDocument(args: {
   researchTopics?: string[];
 }): Promise<{ analysis: SkillAnalysis; tokensUsed: number; execution: SkillExecutionManifest }> {
   if (!args.user.llmProvider || !args.user.llmApiKeyEnc || !args.user.llmModel) throw new Error("A verified AI provider is required.");
-  assertTokenBudget(args.user);
+  // Includes the bounded evidence pack, embedded methodology, and output cap.
+  assertTokenBudget(args.user, 50_000);
   const uploadedSources = await db.chatAttachment.findMany({
     where: { companyId: args.company.id, remembered: true },
     orderBy: { createdAt: "desc" },
@@ -632,7 +635,8 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
   if (!company) throw new Error("Company not found.");
   if (company.user.demoMode) throw new Error("Demo Mode shows prepared agent results. Connect a real provider key to run a new analysis.");
   if (!company.user.llmProvider || !company.user.llmApiKeyEnc || !company.user.llmModel) throw new Error("Reconnect your AI provider in Settings.");
-  assertTokenBudget(company.user);
+  // Covers the largest bounded agent prompt plus its output allowance.
+  assertTokenBudget(company.user, 70_000);
   const agentConfig = await db.agentConfig.findUnique({ where: { companyId_agentType: { companyId: company.id, agentType: definition.type } } });
   if (agentConfig?.enabled === false) throw new Error(`${definition.label} is disabled in Agent Settings.`);
   const agentInstructions = agentConfig?.instructions?.trim();
@@ -1029,7 +1033,7 @@ export async function runAgentAnalysis(args: { companyId: string; userId: string
 export async function runCmoSynthesis(args: { companyId: string; userId: string }): Promise<void> {
   const company = await db.company.findFirst({ where: { id: args.companyId, userId: args.userId }, include: { user: true, documents: { where: { type: { in: CORE_DOCUMENTS.map((document) => document.type) } } }, chatAttachments: { where: { remembered: true }, orderBy: { createdAt: "desc" } } } });
   if (!company || company.user.demoMode || !company.user.llmProvider || !company.user.llmApiKeyEnc || !company.user.llmModel || company.documents.length === 0) return;
-  assertTokenBudget(company.user);
+  assertTokenBudget(company.user, 60_000);
   const operation = getInternalOperation("ai-cmo-synthesis");
   const skills = operation.skills;
   const evidence = `${company.documents.map((document) => `${document.title}\n${document.contentMarkdown}`).join("\n\n===\n\n").slice(0, 90_000)}\n\n=== UPLOADED SOURCE DOCUMENTS ===\n\n${buildUploadedSourceEvidence(company.chatAttachments, 70_000) || "No uploaded source documents are available."}`;

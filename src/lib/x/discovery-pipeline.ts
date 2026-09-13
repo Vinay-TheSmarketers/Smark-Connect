@@ -1,14 +1,12 @@
-﻿import "server-only";
+import "server-only";
 import { createHash } from "node:crypto";
-import { db } from "@/lib/db";
-import type { Prisma } from "@prisma/client";
+import { requireEnabledAgent } from "@/lib/agents/execution-settings";
 import { extractCompanyMemory, type CompanyMemory } from "@/lib/reddit/company-memory";
 import { collectXSignals, type XCollectedSignal } from "./signal-collector";
 import { computeXOpportunityScore } from "./scorer";
 import { generateXExecutionPackage } from "./writer";
 import type {
   XOpportunity,
-  XOpportunityType,
   XPostFormat,
   XGoal,
 } from "./types";
@@ -34,19 +32,7 @@ export async function runXOpportunityPipeline(args: {
   const memory = await extractCompanyMemory(args.companyId);
 
   // 2. Fetch AgentConfig for past interactions, approved/published/dismissed history
-  const agentConfig = await db.agentConfig.findUnique({
-    where: {
-      companyId_agentType: {
-        companyId: args.companyId,
-        agentType: "X",
-      },
-    },
-  });
-
-  const configObj =
-    agentConfig?.config && typeof agentConfig.config === "object" && !Array.isArray(agentConfig.config)
-      ? (agentConfig.config as Record<string, unknown>)
-      : {};
+  const { config: configObj } = await requireEnabledAgent(args.companyId, "X");
 
   const completedIds = Array.isArray(configObj.completedOpportunities)
     ? configObj.completedOpportunities.filter((id): id is string => typeof id === "string")

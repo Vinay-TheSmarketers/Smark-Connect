@@ -39,7 +39,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ docum
   if (document.locked) return Response.json({ error: "Unlock this document before editing it." }, { status: 409 });
   if (user.demoMode) return Response.json({ error: "Demo Mode preserves the prepared documents. Connect a real provider key to edit with AI." }, { status: 409 });
   if (!user.llmProvider || !user.llmApiKeyEnc || !user.llmModel) return Response.json({ error: "Reconnect your AI provider in Settings." }, { status: 403 });
-  if (user.tokenBudget > 0 && user.tokenUsed >= user.tokenBudget) return Response.json({ error: "Your token budget has been reached. Update the workspace token limit before editing a document." }, { status: 403 });
+  const editReservation = editParsed.data.focused ? 55_000 : 80_000;
+  if (user.tokenBudget > 0 && user.tokenUsed + editReservation > user.tokenBudget) return Response.json({ error: `This edit needs an estimated ${editReservation.toLocaleString()} tokens, but the workspace limit does not have enough capacity. Update the workspace token limit before editing a document.` }, { status: 403 });
 
   const definition = getDocumentDefinition(document.type);
   if (!definition) return Response.json({ error: "This document type has no mapped skill chain and cannot be edited." }, { status: 409 });

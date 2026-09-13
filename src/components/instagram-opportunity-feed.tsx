@@ -655,9 +655,10 @@ export function InstagramOpportunityFeed({
                           className="sc-btn sc-btn--secondary sc-btn--sm"
                           disabled={actionLoading[opp.id]}
                           onClick={() => handleAction(opp.id, "schedule")}
+                          title="Records a manual planning date. It does not publish to Instagram."
                         >
                           <Calendar size={13} />
-                          <span>Schedule</span>
+                          <span>Plan date</span>
                         </button>
                         <button
                           type="button"

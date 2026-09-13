@@ -37,6 +37,16 @@ describe("framework document rendering", () => {
     expect(prepareFrameworks(prepareFrameworks(markdown))).toBe(prepareFrameworks(markdown));
   });
 
+  it("composes prioritization and comparison tables into evidence-led visual cards", () => {
+    const priority = "## Prioritization Matrix\n\n| Initiative | Impact | Effort | Evidence |\n|---|---|---|---|\n| Fix checkout | High | Low | Cart exits on mobile |\n| Add partner portal | Medium | High | Enterprise request log |";
+    const comparison = "## Competitive Comparison\n\n| Competitor | Positioning | Evidence |\n|---|---|---|\n| Acme | Enterprise suite | Pricing page |\n| Northstar | Self-serve | Product tour |";
+    for (const markdown of [priority, comparison]) {
+      const visual = parseVisualMarkdown(markdown).find((block) => block.type === "framework");
+      expect(visual?.type).toBe("framework");
+      if (visual?.type === "framework") expect(visual.framework.cards).toHaveLength(2);
+    }
+  });
+
   it("does not consume a complex subsection after recognized SWOT cards", () => {
     const markdown = "## SWOT\n### Strengths\n- Proof\n### Weaknesses\n- Gaps\n### Opportunities\n| Option | Evidence |\n|---|---|\n| New market | Unknown |\n## Next steps\nKeep this";
     const prepared = prepareFrameworks(markdown);

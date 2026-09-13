@@ -16,8 +16,9 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ error: "Enter a message." }, { status: 400 });
   if (user.demoMode) return Response.json({ error: "Demo Mode — connect a real provider key in Settings to chat live." }, { status: 409 });
   if (!user.llmProvider || !user.llmApiKeyEnc || !user.llmModel) return Response.json({ error: "Reconnect your provider key in Settings." }, { status: 403 });
-  if (user.tokenBudget > 0 && user.tokenUsed >= user.tokenBudget) {
-    return Response.json({ error: "Your token budget has been reached. Update your token limit in Settings to continue." }, { status: 403 });
+  const chatReservation = 55_000;
+  if (user.tokenBudget > 0 && user.tokenUsed + chatReservation > user.tokenBudget) {
+    return Response.json({ error: `This chat request needs an estimated ${chatReservation.toLocaleString()} tokens, but the workspace limit does not have enough capacity. Update your token limit in Settings to continue.` }, { status: 403 });
   }
   const company = await db.company.findFirst({
     where: { id: parsed.data.companyId, userId: user.id },

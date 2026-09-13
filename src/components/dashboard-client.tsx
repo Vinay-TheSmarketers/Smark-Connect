@@ -46,6 +46,7 @@ type DashboardData = {
   integrations: Array<{ provider: string; status: string; connectedAt: string | null }>;
   agentConfigs: Array<{ agentType: string; config: unknown }>;
   sources: AnalysisSource[];
+  chat: { sessionId: string; messages: Array<{ id: string; role: "user" | "assistant"; content: string; createdAt: string }> } | null;
 };
 
 const SOURCE_FILE_ACCEPT = ".pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.rtf,.epub,.md,.markdown,.txt,.csv,.tsv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.sql,.js,.jsx,.ts,.tsx,.py,.java,.css";
@@ -643,9 +644,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [showCompetitorAdd, setShowCompetitorAdd] = useState(false);
   const [competitorAddPending, setCompetitorAddPending] = useState(false);
   const [competitorAddError, setCompetitorAddError] = useState("");
-  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([{ role: "assistant", content: `I’ve synthesized ${documents.length} core documents and ${data.pagesRead} source pages for ${data.company.name}. Ask me for a detailed priority analysis or campaign decision.` }]);
+  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>(
+    data.chat?.messages.length
+      ? data.chat.messages.map(({ role, content }) => ({ role, content }))
+      : [{ role: "assistant", content: `I’ve synthesized ${documents.length} core documents and ${data.pagesRead} source pages for ${data.company.name}. Ask me for a detailed priority analysis or campaign decision.` }],
+  );
   const [chatPending, setChatPending] = useState(false);
-  const [sessionId, setSessionId] = useState<string | undefined>();
+  const [sessionId, setSessionId] = useState<string | undefined>(data.chat?.sessionId);
   const geoRun = data.agents.find((item) => item.agentType === "GEO");
   const competitorItems = useMemo(() => {
     const agentCompetitors = extractContextCompetitorsFromAgentOutput(data.agents.find((item) => item.agentType === "COMPETITOR")?.output);

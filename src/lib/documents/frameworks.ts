@@ -1,4 +1,4 @@
-export type Framework = { kind: "swot" | "pestel" | "tows" | "funnel" | "journey" | "roadmap"; cards: { title: string; lines: string[] }[] };
+export type Framework = { kind: "swot" | "pestel" | "tows" | "funnel" | "journey" | "roadmap" | "priority" | "comparison"; cards: { title: string; lines: string[] }[] };
 
 const categories = {
   swot: ["Strengths", "Weaknesses", "Opportunities", "Threats"],
@@ -14,6 +14,8 @@ function kindFor(text: string): Framework["kind"] | undefined {
   if (/\bfunnel\b/i.test(text)) return "funnel";
   if (/\b(?:customer|buyer|user) journey\b/i.test(text)) return "journey";
   if (/\broadmap\b|30\s*[/–-]\s*60\s*[/–-]\s*90/i.test(text)) return "roadmap";
+  if (/\b(?:impact\s*(?:vs\.?|and)\s*effort|prioriti[sz]ation|priority matrix|decision matrix)\b/i.test(text)) return "priority";
+  if (/\b(?:competitive|feature|vendor|market) comparison\b|\bpositioning matrix\b/i.test(text)) return "comparison";
 }
 function categoryFor(text: string, kind: Framework["kind"]): string | undefined {
   const label = plain(text).replace(/^\d+[.)]\s*/, "");
@@ -38,7 +40,10 @@ function fromTable(rows: string[][], kind: Framework["kind"]): Framework | undef
     return { kind, cards: columns.map((title, index) => ({ title: title!, lines: body.map((row) => row[index] ?? "").filter(Boolean) })) };
   }
   const categoryIndex = fixed ? headers.findIndex((_, index) => body.every((row) => categoryFor(row[index] ?? "", kind))) : 0;
-  if (categoryIndex < 0 || (!fixed && !/stage|phase|period|day|step|touchpoint/i.test(headers[0]))) return;
+  const firstColumnSupportsKind = kind === "funnel" || kind === "journey" || kind === "roadmap"
+    ? /stage|phase|period|day|step|touchpoint/i.test(headers[0])
+    : /dimension|option|initiative|competitor|vendor|segment|quadrant|axis|priority/i.test(headers[0]);
+  if (categoryIndex < 0 || (!fixed && !firstColumnSupportsKind)) return;
   const cards: Framework["cards"] = [];
   for (const row of body) {
     const title = fixed ? categoryFor(row[categoryIndex] ?? "", kind)! : row[categoryIndex];
@@ -119,7 +124,7 @@ export function prepareFrameworks(markdown: string): string {
 export function readFramework(text: string): Framework | undefined {
   try {
     const value = JSON.parse(text) as Framework;
-    if (!["swot", "pestel", "tows", "funnel", "journey", "roadmap"].includes(value.kind) || !Array.isArray(value.cards) || value.cards.length < 2 || value.cards.length > 30) return;
+    if (!["swot", "pestel", "tows", "funnel", "journey", "roadmap", "priority", "comparison"].includes(value.kind) || !Array.isArray(value.cards) || value.cards.length < 2 || value.cards.length > 30) return;
     if (!value.cards.every((card) => typeof card.title === "string" && Array.isArray(card.lines) && card.lines.every((line) => typeof line === "string"))) return;
     return value;
   } catch { return; }

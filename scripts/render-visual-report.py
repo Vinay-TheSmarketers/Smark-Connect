@@ -123,7 +123,7 @@ def parse_markdown_blocks(markdown: str) -> list[dict[str, Any]]:
             try:
                 framework = json.loads("\n".join(source))
                 cards = framework.get("cards", [])
-                valid = framework.get("kind") in ("swot", "pestel", "tows", "funnel", "journey", "roadmap") and isinstance(cards, list) and 2 <= len(cards) <= 30
+                valid = framework.get("kind") in ("swot", "pestel", "tows", "funnel", "journey", "roadmap", "priority", "comparison") and isinstance(cards, list) and 2 <= len(cards) <= 30
                 valid = valid and all(isinstance(card, dict) and isinstance(card.get("title"), str) and isinstance(card.get("lines"), list) and all(isinstance(item, str) for item in card["lines"]) for card in cards)
                 if valid:
                     blocks.append({"type": "framework", "framework": framework})

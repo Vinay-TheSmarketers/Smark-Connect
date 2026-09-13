@@ -1,11 +1,10 @@
-﻿import "server-only";
-import { db } from "@/lib/db";
-import type { Prisma } from "@prisma/client";
+import "server-only";
 import { extractCompanyMemory, type CompanyMemory } from "@/lib/reddit/company-memory";
 import { generateInstagramOpportunityMap } from "./opportunity-map";
 import { collectInstagramSignals, type CollectedSignal } from "./signal-collector";
 import { computeInstagramOpportunityScore } from "./scorer";
 import { generateInstagramExecutionPackage } from "./writer";
+import { requireEnabledAgent } from "@/lib/agents/execution-settings";
 import type {
   InstagramOpportunity,
   InstagramOpportunityMap,
@@ -36,19 +35,7 @@ export async function runInstagramOpportunityPipeline(args: {
   const memory = await extractCompanyMemory(args.companyId);
 
   // 2. Fetch AgentConfig for user-specific preferences, completed/dismissed history
-  const agentConfig = await db.agentConfig.findUnique({
-    where: {
-      companyId_agentType: {
-        companyId: args.companyId,
-        agentType: "INSTAGRAM",
-      },
-    },
-  });
-
-  const configObj =
-    agentConfig?.config && typeof agentConfig.config === "object" && !Array.isArray(agentConfig.config)
-      ? (agentConfig.config as Record<string, unknown>)
-      : {};
+  const { config: configObj } = await requireEnabledAgent(args.companyId, "INSTAGRAM");
 
   const customThemes = Array.isArray(configObj.customThemes)
     ? configObj.customThemes.filter((t): t is string => typeof t === "string")
@@ -90,7 +77,6 @@ export async function runInstagramOpportunityPipeline(args: {
 
   // 6. Synthesize Candidate Opportunities from merged signals & opportunity map
   const rawOpportunities: InstagramOpportunity[] = [];
-  let oppIndex = 1;
 
   // Derive opportunities from themes & signals
   const themesToProcess = opportunityMap.themes.slice(0, 8);

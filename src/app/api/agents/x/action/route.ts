@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 import { requireApiUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
@@ -12,6 +12,12 @@ export async function POST(request: Request) {
 
   if (!companyId || !opportunityId || !action) {
     return Response.json({ error: "Missing required fields (companyId, opportunityId, action)." }, { status: 400 });
+  }
+  if (!["approve", "ready", "schedule", "dismiss", "publish"].includes(action)) {
+    return Response.json({ error: "Choose a valid opportunity action." }, { status: 400 });
+  }
+  if (action === "publish") {
+    return Response.json({ error: "Publishing is not connected for X. Mark the draft ready or add a manual planning date instead." }, { status: 409 });
   }
 
   const company = await db.company.findFirst({
@@ -53,7 +59,7 @@ export async function POST(request: Request) {
   let newCompleted = [...currentCompleted];
   let newDismissed = [...currentDismissed];
   let newScheduled = [...scheduledOpps];
-  let newFeedback = [
+  const newFeedback = [
     ...feedbackLog,
     {
       opportunityId,
@@ -63,7 +69,7 @@ export async function POST(request: Request) {
     },
   ];
 
-  if (action === "approve" || action === "publish" || action === "ready") {
+  if (action === "approve" || action === "ready") {
     if (!newCompleted.includes(opportunityId)) {
       newCompleted.push(opportunityId);
     }
@@ -112,5 +118,6 @@ export async function POST(request: Request) {
     success: true,
     action,
     opportunityId,
+    manualPlan: action === "schedule",
   });
 }

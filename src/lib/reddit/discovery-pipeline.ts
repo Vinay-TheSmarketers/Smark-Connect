@@ -1,5 +1,4 @@
 import "server-only";
-import { db } from "@/lib/db";
 import { extractCompanyMemory, type CompanyMemory } from "./company-memory";
 import { generateRedditSearchMap, type RedditOpportunitySearchMap } from "./search-map";
 import { discoverRedditCandidates } from "./fetcher";
@@ -8,6 +7,7 @@ import { evaluateRedditOpportunity, type EvaluatedRedditOpportunity } from "./sc
 import { generateRedditReplyVariants } from "./writer";
 import type { RedditActionFeedOpportunity } from "../signals/store";
 import { qualifyRedditOpportunities } from "./qualifier";
+import { requireEnabledAgent } from "@/lib/agents/execution-settings";
 
 export type RedditDiscoveryPipelineResult = {
   opportunities: RedditActionFeedOpportunity[];
@@ -31,19 +31,7 @@ export async function runRedditOpportunityPipeline(args: {
   const memory = await extractCompanyMemory(args.companyId);
 
   // 2. Fetch AgentConfig to get user settings (custom subreddits, keywords, voice, processed history)
-  const agentConfig = await db.agentConfig.findUnique({
-    where: {
-      companyId_agentType: {
-        companyId: args.companyId,
-        agentType: "REDDIT",
-      },
-    },
-  });
-
-  const configObj =
-    agentConfig?.config && typeof agentConfig.config === "object" && !Array.isArray(agentConfig.config)
-      ? (agentConfig.config as Record<string, unknown>)
-      : {};
+  const { config: configObj } = await requireEnabledAgent(args.companyId, "REDDIT");
 
   const customSubreddits = Array.isArray(configObj.customSubreddits)
     ? configObj.customSubreddits.filter((s): s is string => typeof s === "string")
