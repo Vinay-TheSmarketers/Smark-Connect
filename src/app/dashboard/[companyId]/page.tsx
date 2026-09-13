@@ -8,7 +8,7 @@ import { withoutSkillProvenance } from "@/lib/documents/public";
 
 export default async function DashboardPage({ params }: PageProps<"/dashboard/[companyId]">) {
   const user = await requireUser();
-  if (!user.llmVerifiedAt) redirect("/onboarding/ai");
+  if (!user.llmVerifiedAt) redirect("/onboarding");
   const { companyId } = await params;
   const company = await db.company.findFirst({
     where: { id: companyId, userId: user.id },

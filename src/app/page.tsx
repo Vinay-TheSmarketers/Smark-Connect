@@ -32,7 +32,7 @@ export default async function Home() {
 
   // If user is authenticated, route into onboarding or dashboard
   if (user) {
-    if (!user.llmVerifiedAt) redirect("/onboarding/ai");
+    if (!user.llmVerifiedAt) redirect("/onboarding");
     const company = await db.company.findFirst({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
@@ -43,7 +43,7 @@ export default async function Home() {
         },
       },
     });
-    if (!company) redirect("/onboarding/company");
+    if (!company) redirect("/onboarding");
     if (company.status !== "ACTIVE" && company.auditJobs[0]) {
       redirect(`/onboarding/audit/${company.auditJobs[0].id}`);
     }

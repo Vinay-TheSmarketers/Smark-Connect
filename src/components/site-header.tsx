@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 
-export function SiteHeader({ activeNav }: { activeNav?: string }) {
+export function SiteHeader({ activeNav, accountReady = false }: { activeNav?: string; accountReady?: boolean }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
@@ -88,6 +88,10 @@ export function SiteHeader({ activeNav }: { activeNav?: string }) {
 
       {/* Header Action Buttons */}
       <div className="flex items-center gap-3">
+        {accountReady ? (
+          <span className="rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-2 text-xs font-semibold text-purple-200">Account ready</span>
+        ) : (
+          <>
         <Link
           href="/login"
           className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/10 active:scale-95"
@@ -100,6 +104,8 @@ export function SiteHeader({ activeNav }: { activeNav?: string }) {
         >
           Get Started
         </Link>
+          </>
+        )}
         {/* Mobile menu toggle */}
         <button
           type="button"
@@ -157,7 +163,7 @@ export function SiteHeader({ activeNav }: { activeNav?: string }) {
             >
               Blog
             </Link>
-            <div className="pt-4 border-t border-white/10 flex flex-col gap-2">
+            {!accountReady && <div className="pt-4 border-t border-white/10 flex flex-col gap-2">
               <Link
                 href="/onboarding"
                 onClick={() => setMobileMenuOpen(false)}
@@ -165,7 +171,7 @@ export function SiteHeader({ activeNav }: { activeNav?: string }) {
               >
                 Get Started
               </Link>
-            </div>
+            </div>}
           </nav>
         </div>
       )}

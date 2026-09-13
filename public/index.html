@@ -3878,7 +3878,7 @@
                 </div>
                 <div style="margin-top: 36px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-size: 14px; color: var(--text-muted);">Want to apply these insights to your company?</span>
-                    <a href="onboarding.html" class="btn btn-primary" style="height: 42px; padding: 0 20px; font-size: 13px;">Start free analysis &rarr;</a>
+                    <a href="/onboarding" class="btn btn-primary" style="height: 42px; padding: 0 20px; font-size: 13px;">Start free analysis &rarr;</a>
                 </div>
             `;
 
@@ -4139,7 +4139,7 @@
                     e.preventDefault();
                     const input = document.getElementById('blueprint-url-input');
                     if (input && input.value) {
-                        window.location.href = `onboarding.html?url=${encodeURIComponent(input.value)}`;
+                        window.location.href = `/onboarding?url=${encodeURIComponent(input.value)}`;
                     }
                 });
             }

@@ -25,7 +25,7 @@ export function AuthForm({ mode, googleEnabled }: { mode: "login" | "signup"; go
       }
       const result = await signIn("credentials", { email, password, redirect: false });
       if (result?.error) throw new Error(mode === "login" ? "Email or password is incorrect." : "Your account was created, but sign-in failed.");
-      router.push("/");
+      router.push(redirectTarget());
       router.refresh();
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Something went wrong.";
@@ -46,10 +46,15 @@ export function AuthForm({ mode, googleEnabled }: { mode: "login" | "signup"; go
       <input id="password" name="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={8} placeholder="At least 8 characters" />
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="primary-button" type="submit" disabled={pending}>{pending ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}<span>→</span></button>
-      {googleEnabled && <button className="secondary-button" type="button" onClick={() => signIn("google", { redirectTo: "/" })}>Continue with Google</button>}
+      {googleEnabled && <button className="secondary-button" type="button" onClick={() => signIn("google", { redirectTo: redirectTarget() })}>Continue with Google</button>}
       <p className="auth-switch">{mode === "login" ? "New to Smark Connect?" : "Already have an account?"} <Link href={mode === "login" ? "/signup" : "/login"}>{mode === "login" ? "Create an account" : "Sign in"}</Link></p>
     </form>
   );
+}
+
+function redirectTarget() {
+  const requested = new URLSearchParams(window.location.search).get("redirect");
+  return requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/";
 }
 
 async function readJson<T extends Record<string, unknown>>(response: Response): Promise<T> {
